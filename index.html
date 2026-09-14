@@ -23,6 +23,8 @@
     <div id="game"></div>
     <script src="https://cdn.jsdelivr.net/npm/typescript@5.8.3/lib/typescript.min.js"></script>
     <script type="module">
+      const BUILD_VERSION = '0.3.3';
+
       const showError = (error) => {
         const panel = document.createElement('pre');
         panel.id = 'core2d-loader-error';
@@ -30,25 +32,53 @@
         document.body.appendChild(panel);
       };
 
+      const fetchText = async (path) => {
+        const response = await fetch(path, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Could not read ${path} (${response.status})`);
+        return response.text();
+      };
+
+      const transpile = (source, fileName) => window.ts.transpileModule(source, {
+        compilerOptions: {
+          target: window.ts.ScriptTarget.ES2022,
+          module: window.ts.ModuleKind.ESNext,
+          moduleResolution: window.ts.ModuleResolutionKind.Bundler,
+        },
+        fileName,
+      }).outputText;
+
+      const toModuleUrl = (code) => URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+
       try {
-        const source = await fetch('./src/main.ts', { cache: 'no-store' }).then(async (response) => {
-          if (!response.ok) throw new Error(`Could not read src/main.ts (${response.status})`);
-          return response.text();
-        });
-        const result = window.ts.transpileModule(source, {
-          compilerOptions: {
-            target: window.ts.ScriptTarget.ES2022,
-            module: window.ts.ModuleKind.ESNext,
-            moduleResolution: window.ts.ModuleResolutionKind.Bundler,
-          },
-          fileName: 'src/main.ts',
-        });
-        const blob = new Blob([result.outputText], { type: 'text/javascript' });
-        const moduleUrl = URL.createObjectURL(blob);
+        // Raw GitHub Pages/static hosting cannot resolve a relative import from a blob: URL.
+        // Build both TypeScript modules explicitly, then make main.ts import the ui blob by URL.
+        const [mainSourceRaw, uiSourceRaw, css] = await Promise.all([
+          fetchText('./src/main.ts'),
+          fetchText('./src/ui.ts'),
+          fetchText('./src/ui.css'),
+        ]);
+
+        const mainSource = mainSourceRaw
+          .replace(/0\.3\.0|0\.3\.1|0\.3\.2/g, BUILD_VERSION)
+          .replace(/import\s+['"]\.\/ui['"];?/, '');
+        const uiSource = uiSourceRaw
+          .replace(/0\.3\.0|0\.3\.1|0\.3\.2/g, BUILD_VERSION)
+          .replace(/import\s+['"]\.\/ui\.css['"];?/, '');
+
+        const style = document.createElement('style');
+        style.id = 'core2d-ui-css';
+        style.textContent = css;
+        document.head.appendChild(style);
+
+        const uiUrl = toModuleUrl(transpile(uiSource, 'src/ui.ts'));
+        const mainCode = transpile(`await import(${JSON.stringify(uiUrl)});\n${mainSource}`, 'src/main.ts');
+        const mainUrl = toModuleUrl(mainCode);
+
         try {
-          await import(moduleUrl);
+          await import(mainUrl);
         } finally {
-          URL.revokeObjectURL(moduleUrl);
+          URL.revokeObjectURL(mainUrl);
+          URL.revokeObjectURL(uiUrl);
         }
       } catch (error) {
         console.error('[Core2D] startup failure', error);
