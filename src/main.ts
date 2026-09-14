@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
+import './ui';
 
-const CORE2D_VERSION = '0.3.0';
+const CORE2D_VERSION = '0.3.2';
 
 const TILE = 24;
 const WIDTH = 100;
@@ -18,7 +19,6 @@ type TileType = 'grass' | 'dirt' | 'stone' | 'ore' | 'water' | 'empty' | 'crysta
 type MineableTile = Exclude<TileType, 'grass' | 'empty' | 'water'>;
 type ItemType = 'wood' | 'ore' | 'stone' | 'crystal' | 'berry' | 'torch';
 type RecipeId = 'copperPickaxe' | 'torch' | 'healingSalve';
-
 type Recipe = { id: RecipeId; name: string; cost: Partial<Record<ItemType, number>>; requiresPickaxe?: number };
 
 const TILE_COLORS: Record<TileType, number> = {
@@ -101,9 +101,10 @@ class WorldScene extends Phaser.Scene {
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.leftButtonDown()) this.interactAt(pointer.worldX, pointer.worldY);
-      if (pointer.rightButtonDown()) this.placeAt(pointer.worldX, pointer.worldY);
     });
     window.addEventListener('core2d:craft', this.onCraftEvent as EventListener);
+    window.addEventListener('core2d:mine', this.onMineEvent as EventListener);
+    window.addEventListener('core2d:place', this.onPlaceEvent as EventListener);
 
     this.selection = this.add.rectangle(0, 0, TILE - 2, TILE - 2, 0xffffff, 0)
       .setStrokeStyle(2, 0xf5df8b).setDepth(15);
@@ -123,7 +124,7 @@ class WorldScene extends Phaser.Scene {
     this.spawnEnemy(spawnX + 10, spawnY + 6);
     this.updateHud();
     console.info(`[Core2D] v${CORE2D_VERSION}`);
-    console.info('[Core2D] Gameplay systems online: crafting tree, torches, salves, sprinting, escalating enemies');
+    console.info('[Core2D] Gameplay systems online: crafting tree, torches, salves, sprinting, clickable actions');
   }
 
   update(_time: number, delta: number) {
@@ -176,6 +177,16 @@ class WorldScene extends Phaser.Scene {
     if (id) this.craft(id);
   };
 
+  private onMineEvent = () => {
+    const pointer = this.input.activePointer;
+    this.interactAt(pointer.worldX, pointer.worldY);
+  };
+
+  private onPlaceEvent = () => {
+    const pointer = this.input.activePointer;
+    this.placeAt(pointer.worldX, pointer.worldY);
+  };
+
   private interactAt(worldX: number, worldY: number) {
     const enemy = this.enemies.find((e) => Phaser.Math.Distance.Between(e.body.x, e.body.y, worldX, worldY) < 16);
     if (enemy && Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.body.x, enemy.body.y) <= MINE_RANGE) {
@@ -216,6 +227,7 @@ class WorldScene extends Phaser.Scene {
     this.inventory[item] = (this.inventory[item] ?? 0) - 1;
     this.world[y][x] = item === 'crystal' ? 'crystal' : item === 'ore' ? 'ore' : item === 'stone' ? 'stone' : 'dirt';
     this.tiles[y][x].setFillStyle(item === 'torch' ? 0xe6b85c : TILE_COLORS[this.world[y][x]]);
+    this.say(`Placed ${ITEM_NAMES[item]}.`);
   }
 
   private craftPickaxe() { this.craft('copperPickaxe'); }
@@ -317,8 +329,8 @@ class WorldScene extends Phaser.Scene {
       `HP ${Math.ceil(this.health)}/${MAX_HEALTH}   Hunger ${Math.ceil(this.hunger)}/100   Stamina ${Math.ceil(this.stamina)}/100`,
       `Pickaxe Lv.${this.pickaxeLevel}   Survival ${minutes}:${seconds}   Threat ${this.enemies.length}`,
       '──────── HOTBAR ────────', inv,
-      'WASD / arrows move • SHIFT sprint • LMB mine/attack • RMB place',
-      '1-6 select • E quick-craft pickaxe • C crafting • Q salve • SPACE eat',
+      'WASD / arrows move • SHIFT sprint • LMB mine/attack',
+      '1-6 select • E quick-craft pickaxe • C crafting • Q salve • SPACE eat • use HUD Place',
     ]);
     window.dispatchEvent(new CustomEvent('core2d:state', { detail: {
       version: CORE2D_VERSION,
