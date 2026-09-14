@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-const CORE2D_VERSION = '0.2.0';
+const CORE2D_VERSION = '0.3.0';
 
 const TILE = 24;
 const WIDTH = 100;
@@ -14,18 +14,27 @@ const MAX_STAMINA = 100;
 const STAMINA_DRAIN = 28;
 const STAMINA_REGEN = 20;
 
-const TILE_COLORS = {
+type TileType = 'grass' | 'dirt' | 'stone' | 'ore' | 'water' | 'empty' | 'crystal';
+type MineableTile = Exclude<TileType, 'grass' | 'empty' | 'water'>;
+type ItemType = 'wood' | 'ore' | 'stone' | 'crystal' | 'berry' | 'torch';
+type RecipeId = 'copperPickaxe' | 'torch' | 'healingSalve';
+
+type Recipe = { id: RecipeId; name: string; cost: Partial<Record<ItemType, number>>; requiresPickaxe?: number };
+
+const TILE_COLORS: Record<TileType, number> = {
   grass: 0x587c45, dirt: 0x765037, stone: 0x474a52, ore: 0xb86f35,
   water: 0x254b59, empty: 0x171c1a, crystal: 0x7862a8,
-} as const;
-
-type TileType = keyof typeof TILE_COLORS;
-type MineableTile = Exclude<TileType, 'grass' | 'empty' | 'water'>;
-type ItemType = 'wood' | 'ore' | 'stone' | 'crystal' | 'berry';
+};
 
 const ITEM_NAMES: Record<ItemType, string> = {
-  wood: 'Wood', ore: 'Copper Ore', stone: 'Stone', crystal: 'Crystal', berry: 'Berry',
+  wood: 'Wood', ore: 'Copper Ore', stone: 'Stone', crystal: 'Crystal', berry: 'Berry', torch: 'Torch',
 };
+
+const RECIPES: Recipe[] = [
+  { id: 'copperPickaxe', name: 'Copper Pickaxe', cost: { wood: 8, ore: 4 } },
+  { id: 'torch', name: 'Torch ×3', cost: { wood: 2, ore: 1 } },
+  { id: 'healingSalve', name: 'Healing Salve', cost: { berry: 2, crystal: 1 }, requiresPickaxe: 2 },
+];
 
 class WorldScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
@@ -36,7 +45,7 @@ class WorldScene extends Phaser.Scene {
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private inventory: Partial<Record<ItemType, number>> = { wood: 6, berry: 2 };
   private selectedSlot = 0;
-  private hotbar: ItemType[] = ['wood', 'stone', 'ore', 'crystal', 'berry'];
+  private hotbar: ItemType[] = ['wood', 'stone', 'ore', 'crystal', 'berry', 'torch'];
   private health = MAX_HEALTH;
   private hunger = 100;
   private stamina = MAX_STAMINA;
@@ -74,7 +83,8 @@ class WorldScene extends Phaser.Scene {
     const spawnX = Math.floor(WIDTH / 2), spawnY = Math.floor(HEIGHT / 2);
     this.world[spawnY][spawnX] = 'grass';
     this.tiles[spawnY][spawnX].setFillStyle(TILE_COLORS.grass);
-    this.core = this.add.circle(spawnX * TILE + TILE / 2, spawnY * TILE + TILE / 2, 13, 0x83d6c4).setStrokeStyle(3, 0xd8fff2).setDepth(18);
+    this.core = this.add.circle(spawnX * TILE + TILE / 2, spawnY * TILE + TILE / 2, 13, 0x83d6c4)
+      .setStrokeStyle(3, 0xd8fff2).setDepth(18);
     this.player = this.add.rectangle(spawnX * TILE + TILE / 2, spawnY * TILE + TILE / 2, 15, 20, 0xf1cf91).setDepth(20);
 
     this.cursors = keyboard.createCursorKeys();
@@ -82,16 +92,18 @@ class WorldScene extends Phaser.Scene {
       W: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W), A: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
       S: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S), D: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
       E: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E), SPACE: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
+      C: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C), Q: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q),
       SHIFT: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT),
       ONE: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE), TWO: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TWO),
       THREE: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.THREE), FOUR: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FOUR),
-      FIVE: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FIVE),
+      FIVE: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FIVE), SIX: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SIX),
     };
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.leftButtonDown()) this.interactAt(pointer.worldX, pointer.worldY);
       if (pointer.rightButtonDown()) this.placeAt(pointer.worldX, pointer.worldY);
     });
+    window.addEventListener('core2d:craft', this.onCraftEvent as EventListener);
 
     this.selection = this.add.rectangle(0, 0, TILE - 2, TILE - 2, 0xffffff, 0)
       .setStrokeStyle(2, 0xf5df8b).setDepth(15);
@@ -111,7 +123,7 @@ class WorldScene extends Phaser.Scene {
     this.spawnEnemy(spawnX + 10, spawnY + 6);
     this.updateHud();
     console.info(`[Core2D] v${CORE2D_VERSION}`);
-    console.info('[Core2D] Gameplay systems online: sprinting, escalating enemies, survival loop');
+    console.info('[Core2D] Gameplay systems online: crafting tree, torches, salves, sprinting, escalating enemies');
   }
 
   update(_time: number, delta: number) {
@@ -125,11 +137,8 @@ class WorldScene extends Phaser.Scene {
 
     const sprinting = Boolean(this.keys.SHIFT?.isDown) && (dx !== 0 || dy !== 0) && this.stamina > 0;
     const speed = sprinting ? SPRINT_SPEED : PLAYER_SPEED;
-    if (sprinting) {
-      this.stamina = Math.max(0, this.stamina - STAMINA_DRAIN * dt);
-    } else {
-      this.stamina = Math.min(MAX_STAMINA, this.stamina + STAMINA_REGEN * dt);
-    }
+    if (sprinting) this.stamina = Math.max(0, this.stamina - STAMINA_DRAIN * dt);
+    else this.stamina = Math.min(MAX_STAMINA, this.stamina + STAMINA_REGEN * dt);
 
     if (dx || dy) {
       const length = Math.hypot(dx, dy);
@@ -138,12 +147,14 @@ class WorldScene extends Phaser.Scene {
       this.player.y = Phaser.Math.Clamp(this.player.y + dy * speed * dt, 10, HEIGHT * TILE - 10);
     }
 
-    const numberKeys = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE'];
+    const numberKeys = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX'];
     for (let i = 0; i < numberKeys.length; i++) {
       if (Phaser.Input.Keyboard.JustDown(this.keys[numberKeys[i]])) this.selectedSlot = i;
     }
     if (Phaser.Input.Keyboard.JustDown(this.keys.E)) this.craftPickaxe();
+    if (Phaser.Input.Keyboard.JustDown(this.keys.C)) window.dispatchEvent(new CustomEvent('core2d:toggle-crafting'));
     if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE)) this.eatBerry();
+    if (Phaser.Input.Keyboard.JustDown(this.keys.Q)) this.useSalve();
 
     this.hunger = Math.max(0, this.hunger - dt * (sprinting ? 1.05 : 0.7));
     if (this.hunger <= 0 && this.time.now - this.lastHungerDamage > 1000) {
@@ -159,6 +170,11 @@ class WorldScene extends Phaser.Scene {
     this.updateEnemies(dt, this.time.now);
     this.updateHud();
   }
+
+  private onCraftEvent = (event: Event) => {
+    const id = (event as CustomEvent<{ id?: RecipeId }>).detail?.id;
+    if (id) this.craft(id);
+  };
 
   private interactAt(worldX: number, worldY: number) {
     const enemy = this.enemies.find((e) => Phaser.Math.Distance.Between(e.body.x, e.body.y, worldX, worldY) < 16);
@@ -199,16 +215,33 @@ class WorldScene extends Phaser.Scene {
     if ((this.inventory[item] ?? 0) < 1) return this.say(`No ${ITEM_NAMES[item]}.`);
     this.inventory[item] = (this.inventory[item] ?? 0) - 1;
     this.world[y][x] = item === 'crystal' ? 'crystal' : item === 'ore' ? 'ore' : item === 'stone' ? 'stone' : 'dirt';
-    this.tiles[y][x].setFillStyle(TILE_COLORS[this.world[y][x]]);
+    this.tiles[y][x].setFillStyle(item === 'torch' ? 0xe6b85c : TILE_COLORS[this.world[y][x]]);
   }
 
-  private craftPickaxe() {
-    if (this.pickaxeLevel >= 2) return this.say('Copper pickaxe already crafted.');
-    if ((this.inventory.wood ?? 0) < 8 || (this.inventory.ore ?? 0) < 4) return this.say('Pickaxe needs 8 Wood + 4 Copper Ore.');
-    this.inventory.wood = (this.inventory.wood ?? 0) - 8;
-    this.inventory.ore = (this.inventory.ore ?? 0) - 4;
-    this.pickaxeLevel = 2;
-    this.say('Crafted Copper Pickaxe! Mining damage increased.');
+  private craftPickaxe() { this.craft('copperPickaxe'); }
+
+  private craft(id: RecipeId) {
+    const recipe = RECIPES.find((entry) => entry.id === id);
+    if (!recipe) return;
+    if (id === 'copperPickaxe' && this.pickaxeLevel >= 2) return this.say('Copper pickaxe already crafted.');
+    if (recipe.requiresPickaxe && this.pickaxeLevel < recipe.requiresPickaxe) return this.say(`Requires Pickaxe Lv.${recipe.requiresPickaxe}.`);
+    for (const [item, amount] of Object.entries(recipe.cost) as Array<[ItemType, number]>) {
+      if ((this.inventory[item] ?? 0) < amount) return this.say(`Need ${amount} ${ITEM_NAMES[item]}.`);
+    }
+    for (const [item, amount] of Object.entries(recipe.cost) as Array<[ItemType, number]>) {
+      this.inventory[item] = (this.inventory[item] ?? 0) - amount;
+    }
+
+    if (id === 'copperPickaxe') {
+      this.pickaxeLevel = 2;
+      this.say('Copper Pickaxe crafted • mining damage increased!');
+    } else if (id === 'torch') {
+      this.addItem('torch', 3);
+      this.say('Crafted 3 Torches • light the dark.');
+    } else {
+      this.health = Math.min(MAX_HEALTH, this.health + 25);
+      this.say('Healing Salve crafted and used • +25 health.');
+    }
   }
 
   private eatBerry() {
@@ -217,6 +250,15 @@ class WorldScene extends Phaser.Scene {
     this.hunger = Math.min(100, this.hunger + 30);
     this.health = Math.min(MAX_HEALTH, this.health + 8);
     this.say('Ate a berry.');
+  }
+
+  private useSalve() {
+    if (this.pickaxeLevel < 2) return this.say('Craft a Copper Pickaxe first.');
+    if ((this.inventory.berry ?? 0) < 2 || (this.inventory.crystal ?? 0) < 1) return this.say('Salve needs 2 Berries + 1 Crystal.');
+    this.inventory.berry = (this.inventory.berry ?? 0) - 2;
+    this.inventory.crystal = (this.inventory.crystal ?? 0) - 1;
+    this.health = Math.min(MAX_HEALTH, this.health + 25);
+    this.say('Used Healing Salve • +25 health.');
   }
 
   private spawnEnemy(tileX: number, tileY: number) {
@@ -276,8 +318,14 @@ class WorldScene extends Phaser.Scene {
       `Pickaxe Lv.${this.pickaxeLevel}   Survival ${minutes}:${seconds}   Threat ${this.enemies.length}`,
       '──────── HOTBAR ────────', inv,
       'WASD / arrows move • SHIFT sprint • LMB mine/attack • RMB place',
-      '1-5 select • E craft Copper Pickaxe • SPACE eat',
+      '1-6 select • E quick-craft pickaxe • C crafting • Q salve • SPACE eat',
     ]);
+    window.dispatchEvent(new CustomEvent('core2d:state', { detail: {
+      version: CORE2D_VERSION,
+      health: this.health, hunger: this.hunger, stamina: this.stamina,
+      pickaxeLevel: this.pickaxeLevel, survivalTime: this.survivalTime, threats: this.enemies.length,
+      selectedSlot: this.selectedSlot, inventory: { ...this.inventory },
+    }}));
   }
 
   private generateWorld(): TileType[][] {
