@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { Inventory } from './game/Inventory';
 import { TILE_COLORS, TILE_SIZE, TileType, isMineable, miningYield } from './game/Tile';
 import { WorldGenerator } from './game/WorldGenerator';
+import { World } from './game/World';
 
 const WORLD_WIDTH = 80;
 const WORLD_HEIGHT = 60;
@@ -11,7 +12,7 @@ const MINE_RANGE = TILE_SIZE * 4;
 
 class WorldScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
-  private world!: TileType[][];
+  private world!: World;
   private tiles!: Phaser.GameObjects.Rectangle[][];
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keys!: Record<'W' | 'A' | 'S' | 'D', Phaser.Input.Keyboard.Key>;
@@ -24,12 +25,13 @@ class WorldScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.world = new WorldGenerator({
+    const generator = new WorldGenerator({
       width: WORLD_WIDTH,
       height: WORLD_HEIGHT,
       seed: WORLD_SEED,
       spawnClearRadius: 9,
-    }).generate();
+    });
+    this.world = new World(generator, WORLD_WIDTH, WORLD_HEIGHT);
 
     this.renderWorld();
     this.createPlayer();
@@ -56,7 +58,7 @@ class WorldScene extends Phaser.Scene {
     for (let y = 0; y < WORLD_HEIGHT; y += 1) {
       this.tiles[y] = [];
       for (let x = 0; x < WORLD_WIDTH; x += 1) {
-        const tile = this.world[y][x];
+        const tile = this.world.getTile(x, y);
         this.tiles[y][x] = this.add.rectangle(
           x * TILE_SIZE + TILE_SIZE / 2,
           y * TILE_SIZE + TILE_SIZE / 2,
@@ -137,18 +139,18 @@ class WorldScene extends Phaser.Scene {
     const tileX = Math.floor(worldX / TILE_SIZE);
     const tileY = Math.floor(worldY / TILE_SIZE);
 
-    if (!this.isInsideWorld(tileX, tileY)) return;
+    if (tileX < 0 || tileY < 0 || tileX >= WORLD_WIDTH || tileY >= WORLD_HEIGHT) return;
 
     const tileCenterX = tileX * TILE_SIZE + TILE_SIZE / 2;
     const tileCenterY = tileY * TILE_SIZE + TILE_SIZE / 2;
     const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, tileCenterX, tileCenterY);
     if (distance > MINE_RANGE) return;
 
-    const tile = this.world[tileY][tileX];
+    const tile = this.world.getTile(tileX, tileY);
     if (!isMineable(tile)) return;
 
     this.inventory.addResources(miningYield(tile));
-    this.world[tileY][tileX] = TileType.Air;
+    this.world.setTile(tileX, tileY, TileType.Air);
     this.tiles[tileY][tileX].setFillStyle(TILE_COLORS[TileType.Air]);
     this.updateHud();
   }
@@ -158,7 +160,7 @@ class WorldScene extends Phaser.Scene {
     const tileX = Math.floor(pointer.worldX / TILE_SIZE);
     const tileY = Math.floor(pointer.worldY / TILE_SIZE);
 
-    if (!this.isInsideWorld(tileX, tileY)) {
+    if (tileX < 0 || tileY < 0 || tileX >= WORLD_WIDTH || tileY >= WORLD_HEIGHT) {
       this.target.setVisible(false);
       return;
     }
@@ -167,12 +169,7 @@ class WorldScene extends Phaser.Scene {
       .setVisible(true)
       .setPosition(tileX * TILE_SIZE + TILE_SIZE / 2, tileY * TILE_SIZE + TILE_SIZE / 2);
 
-    const distance = Phaser.Math.Distance.Between(
-      this.player.x,
-      this.player.y,
-      this.target.x,
-      this.target.y,
-    );
+    const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.target.x, this.target.y);
     this.target.setAlpha(distance <= MINE_RANGE ? 1 : 0.25);
   }
 
@@ -182,10 +179,6 @@ class WorldScene extends Phaser.Scene {
       'WASD / arrows: move   |   LMB: mine',
       `Resources: ${this.inventory.totalResources}   |   Mine range: ${MINE_RANGE / TILE_SIZE} tiles`,
     ]);
-  }
-
-  private isInsideWorld(x: number, y: number): boolean {
-    return x >= 0 && y >= 0 && x < WORLD_WIDTH && y < WORLD_HEIGHT;
   }
 }
 
