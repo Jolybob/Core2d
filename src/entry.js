@@ -1,2 +1,2 @@
 import './ui-fix.ts';
-import './main.ts';
+import './farm.ts';
