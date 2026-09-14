@@ -16,8 +16,8 @@ export const TILE_COLORS: Record<TileType, number> = {
   [TileType.Copper]: 0xb87333,
 };
 
-export function isSolid(tile: TileType): boolean {
-  return tile !== TileType.Air;
+export function isMineable(tile: TileType): boolean {
+  return tile === TileType.Dirt || tile === TileType.Stone || tile === TileType.Copper;
 }
 
 export function miningYield(tile: TileType): number {
