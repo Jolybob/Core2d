@@ -5,8 +5,12 @@ const WIDTH = 100;
 const HEIGHT = 75;
 const WORLD_SEED = 1337;
 const PLAYER_SPEED = 170;
+const SPRINT_SPEED = 270;
 const MINE_RANGE = TILE * 3.5;
 const MAX_HEALTH = 100;
+const MAX_STAMINA = 100;
+const STAMINA_DRAIN = 28;
+const STAMINA_REGEN = 20;
 
 const TILE_COLORS = {
   grass: 0x587c45, dirt: 0x765037, stone: 0x474a52, ore: 0xb86f35,
@@ -33,6 +37,7 @@ class WorldScene extends Phaser.Scene {
   private hotbar: ItemType[] = ['wood', 'stone', 'ore', 'crystal', 'berry'];
   private health = MAX_HEALTH;
   private hunger = 100;
+  private stamina = MAX_STAMINA;
   private pickaxeLevel = 1;
   private selected = { x: 0, y: 0 };
   private hud!: Phaser.GameObjects.Text;
@@ -42,6 +47,7 @@ class WorldScene extends Phaser.Scene {
   private enemies: Array<{ body: Phaser.GameObjects.Rectangle; hp: number; hitAt: number }> = [];
   private lastEnemySpawn = 0;
   private lastHungerDamage = 0;
+  private survivalTime = 0;
 
   constructor() { super('world'); }
 
@@ -74,6 +80,7 @@ class WorldScene extends Phaser.Scene {
       W: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W), A: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
       S: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S), D: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
       E: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E), SPACE: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
+      SHIFT: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT),
       ONE: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE), TWO: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TWO),
       THREE: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.THREE), FOUR: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FOUR),
       FIVE: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FIVE),
@@ -101,20 +108,31 @@ class WorldScene extends Phaser.Scene {
     this.lastEnemySpawn = this.time.now;
     this.spawnEnemy(spawnX + 10, spawnY + 6);
     this.updateHud();
+    console.info('[Core2D] Gameplay systems online: sprinting, escalating enemies, survival loop');
   }
 
   update(_time: number, delta: number) {
     const dt = Math.min(delta, 50) / 1000;
+    this.survivalTime += dt;
     let dx = 0, dy = 0;
-    if (this.cursors.left.isDown || this.keys.W && this.keys.A.isDown) dx--;
+    if (this.cursors.left.isDown || this.keys.A.isDown) dx--;
     if (this.cursors.right.isDown || this.keys.D.isDown) dx++;
     if (this.cursors.up.isDown || this.keys.W.isDown) dy--;
     if (this.cursors.down.isDown || this.keys.S.isDown) dy++;
+
+    const sprinting = Boolean(this.keys.SHIFT?.isDown) && (dx !== 0 || dy !== 0) && this.stamina > 0;
+    const speed = sprinting ? SPRINT_SPEED : PLAYER_SPEED;
+    if (sprinting) {
+      this.stamina = Math.max(0, this.stamina - STAMINA_DRAIN * dt);
+    } else {
+      this.stamina = Math.min(MAX_STAMINA, this.stamina + STAMINA_REGEN * dt);
+    }
+
     if (dx || dy) {
       const length = Math.hypot(dx, dy);
       dx /= length; dy /= length;
-      this.player.x = Phaser.Math.Clamp(this.player.x + dx * PLAYER_SPEED * dt, 8, WIDTH * TILE - 8);
-      this.player.y = Phaser.Math.Clamp(this.player.y + dy * PLAYER_SPEED * dt, 10, HEIGHT * TILE - 10);
+      this.player.x = Phaser.Math.Clamp(this.player.x + dx * speed * dt, 8, WIDTH * TILE - 8);
+      this.player.y = Phaser.Math.Clamp(this.player.y + dy * speed * dt, 10, HEIGHT * TILE - 10);
     }
 
     const numberKeys = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE'];
@@ -124,7 +142,7 @@ class WorldScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys.E)) this.craftPickaxe();
     if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE)) this.eatBerry();
 
-    this.hunger = Math.max(0, this.hunger - dt * 0.7);
+    this.hunger = Math.max(0, this.hunger - dt * (sprinting ? 1.05 : 0.7));
     if (this.hunger <= 0 && this.time.now - this.lastHungerDamage > 1000) {
       this.lastHungerDamage = this.time.now;
       this.health = Math.max(0, this.health - 2);
@@ -148,7 +166,8 @@ class WorldScene extends Phaser.Scene {
         enemy.body.destroy();
         this.enemies = this.enemies.filter((e) => e !== enemy);
         this.addItem('berry', 1);
-        this.say('Enemy defeated • found a berry');
+        if (this.rng() > 0.55) this.addItem('ore', 1);
+        this.say('Enemy defeated • loot recovered');
       }
       return;
     }
@@ -199,24 +218,35 @@ class WorldScene extends Phaser.Scene {
 
   private spawnEnemy(tileX: number, tileY: number) {
     const x = Phaser.Math.Clamp(tileX, 1, WIDTH - 2), y = Phaser.Math.Clamp(tileY, 1, HEIGHT - 2);
-    const body = this.add.rectangle(x * TILE + TILE / 2, y * TILE + TILE / 2, 16, 16, 0xa24b58).setDepth(19);
-    this.enemies.push({ body, hp: 20, hitAt: 0 });
+    const tier = Math.min(4, Math.floor(this.survivalTime / 45));
+    const hp = 20 + tier * 8;
+    const size = 16 + tier * 2;
+    const body = this.add.rectangle(x * TILE + TILE / 2, y * TILE + TILE / 2, size, size, 0xa24b58).setDepth(19);
+    this.enemies.push({ body, hp, hitAt: 0 });
   }
 
   private updateEnemies(dt: number, time: number) {
-    if (time - this.lastEnemySpawn > 15000 && this.enemies.length < 5) {
+    const spawnInterval = Math.max(6500, 15000 - Math.floor(this.survivalTime / 30) * 1000);
+    const maxEnemies = Math.min(8, 3 + Math.floor(this.survivalTime / 60));
+    if (time - this.lastEnemySpawn > spawnInterval && this.enemies.length < maxEnemies) {
       this.lastEnemySpawn = time;
-      this.spawnEnemy(Math.floor(this.player.x / TILE) + 8, Math.floor(this.player.y / TILE) + 4);
+      const angle = this.rng() * Math.PI * 2;
+      const distance = 9 + Math.floor(this.rng() * 7);
+      const px = Math.floor(this.player.x / TILE) + Math.round(Math.cos(angle) * distance);
+      const py = Math.floor(this.player.y / TILE) + Math.round(Math.sin(angle) * distance);
+      this.spawnEnemy(px, py);
+      this.say('Something is hunting nearby...');
     }
     for (const enemy of this.enemies) {
       const distance = Phaser.Math.Distance.Between(enemy.body.x, enemy.body.y, this.player.x, this.player.y);
-      if (distance < 220) {
+      if (distance < 240) {
         const angle = Phaser.Math.Angle.Between(enemy.body.x, enemy.body.y, this.player.x, this.player.y);
-        enemy.body.x += Math.cos(angle) * 35 * dt;
-        enemy.body.y += Math.sin(angle) * 35 * dt;
+        const tier = Math.max(0, Math.floor((enemy.hp - 20) / 8));
+        enemy.body.x += Math.cos(angle) * (35 + tier * 5) * dt;
+        enemy.body.y += Math.sin(angle) * (35 + tier * 5) * dt;
         if (distance < 22 && time > enemy.hitAt) {
-          enemy.hitAt = time + 900;
-          this.health = Math.max(0, this.health - 8);
+          enemy.hitAt = time + Math.max(550, 900 - tier * 80);
+          this.health = Math.max(0, this.health - (8 + tier * 2));
           this.say('Enemy attack!');
         }
       }
@@ -224,7 +254,7 @@ class WorldScene extends Phaser.Scene {
   }
 
   private respawn() {
-    this.health = MAX_HEALTH; this.hunger = 70;
+    this.health = MAX_HEALTH; this.hunger = 70; this.stamina = MAX_STAMINA;
     this.player.setPosition((WIDTH / 2) * TILE, (HEIGHT / 2) * TILE);
     this.say('You fell. The Core brought you home.');
   }
@@ -235,12 +265,17 @@ class WorldScene extends Phaser.Scene {
 
   private updateHud() {
     const inv = this.hotbar.map((item, i) => `${i === this.selectedSlot ? '>' : ' '} ${i + 1}:${ITEM_NAMES[item]} ${(this.inventory[item] ?? 0)}`).join('\n');
+    const minutes = Math.floor(this.survivalTime / 60);
+    const seconds = Math.floor(this.survivalTime % 60).toString().padStart(2, '0');
+    const coreX = WIDTH / 2 * TILE, coreY = HEIGHT / 2 * TILE;
+    const distanceFromCore = Math.floor(Phaser.Math.Distance.Between(this.player.x, this.player.y, coreX, coreY) / TILE);
     this.hud.setText([
       'CORE2D — UNDERGROUND SURVIVAL',
       `HP ${Math.ceil(this.health)}/${MAX_HEALTH}   Hunger ${Math.ceil(this.hunger)}/100`,
-      `Pickaxe Lv.${this.pickaxeLevel}   Core: protected`,
+      `Stamina ${Math.ceil(this.stamina)}/${MAX_STAMINA}   Depth ${distanceFromCore}m`,
+      `Pickaxe Lv.${this.pickaxeLevel}   Threats ${this.enemies.length}   ${minutes}:${seconds}`,
       '──────── HOTBAR ────────', inv,
-      'WASD / arrows move • LMB mine/attack • RMB place',
+      'WASD / arrows move • SHIFT sprint • LMB mine/attack • RMB place',
       '1-5 select • E craft Copper Pickaxe • SPACE eat',
     ]);
   }
@@ -269,7 +304,11 @@ class WorldScene extends Phaser.Scene {
 }
 
 new Phaser.Game({
-  type: Phaser.WEBGL, width: 960, height: 540, parent: 'game', backgroundColor: '#101712', scene: [WorldScene],
-  render: { antialias: false, pixelArt: true },
-  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+  type: Phaser.AUTO,
+  parent: 'game',
+  width: 960,
+  height: 640,
+  backgroundColor: '#101712',
+  pixelArt: true,
+  scene: [WorldScene],
 });
