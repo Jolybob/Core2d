@@ -1,3 +1,2 @@
-import './ui.ts';
-import './craft-fix.ts';
+import './ui-fix.ts';
 import './main.ts';
