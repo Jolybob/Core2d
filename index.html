@@ -4,16 +4,46 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="theme-color" content="#17120d" />
-<title>v0.3.7 — Core2D</title>
+<title>v0.3.8 — Core2D</title>
 <style>html,body,#game{margin:0;width:100%;height:100%;overflow:hidden;background:#17120d}body{font-family:Inter,ui-sans-serif,system-ui,sans-serif}canvas{display:block}#core2d-loader-error{position:fixed;inset:16px;z-index:9999;display:grid;place-items:center;padding:24px;box-sizing:border-box;border:2px solid #b85c48;border-radius:14px;background:#211914f2;color:#fff4df;font:14px/1.5 ui-monospace,monospace;white-space:pre-wrap}</style>
 <script type="importmap">{"imports":{"phaser":"https://cdn.jsdelivr.net/npm/phaser@4.2.1/dist/phaser.esm.js"}}</script>
 </head><body><div id="game"></div><script src="https://cdn.jsdelivr.net/npm/typescript@5.8.3/lib/typescript.min.js"></script><script type="module">
-const BUILD_VERSION='0.3.7';
+const BUILD_VERSION='0.3.8';
 const showError=error=>{const panel=document.createElement('pre');panel.id='core2d-loader-error';panel.textContent=`Core2D could not start.\n\n${error instanceof Error?error.stack||error.message:String(error)}`;document.body.appendChild(panel)};
 const fetchText=async path=>{const r=await fetch(path,{cache:'no-store'});if(!r.ok)throw new Error(`Could not read ${path} (${r.status})`);return r.text()};
 const transpile=(source,fileName)=>window.ts.transpileModule(source,{compilerOptions:{target:window.ts.ScriptTarget.ES2022,module:window.ts.ModuleKind.ESNext,moduleResolution:window.ts.ModuleResolutionKind.Bundler},fileName}).outputText;
 const moduleUrl=code=>URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
-try{const [mainRaw,uiRaw,css]=await Promise.all([fetchText('./src/main.ts'),fetchText('./src/ui.ts'),fetchText('./src/ui.css')]);document.title=`v${BUILD_VERSION} — Core2D`;const uiSource=uiRaw.replace(/0\.3\.0|0\.3\.1|0\.3\.2|0\.3\.3|0\.3\.4|0\.3\.5|0\.3\.6/g,BUILD_VERSION).replace(/import\s+['"]\.\/ui\.css['"];?/,'');let mainSource=mainRaw.replace(/0\.3\.0|0\.3\.1|0\.3\.2|0\.3\.3|0\.3\.4|0\.3\.5|0\.3\.6/g,BUILD_VERSION).replace(/import\s+['"]\.\/ui['"];?/,'');
-mainSource=mainSource.replace(/inventory: Partial<Record<ItemType, number>> = \{ wood: 6, berry: 2 \}/,'inventory: Partial<Record<ItemType, number>> = { wood: 10, ore: 6, berry: 2 }');
-const style=document.createElement('style');style.textContent=css;document.head.appendChild(style);const uiUrl=moduleUrl(transpile(uiSource,'src/ui.ts'));const mainUrl=moduleUrl(transpile(`await import(${JSON.stringify(uiUrl)});\n${mainSource}`,'src/main.ts'));try{await import(mainUrl)}finally{URL.revokeObjectURL(mainUrl);URL.revokeObjectURL(uiUrl)}}catch(error){console.error('[Core2D] startup failure',error);showError(error)}
+try{const [mainRaw,uiRaw,css]=await Promise.all([fetchText('./src/main.ts'),fetchText('./src/ui.ts'),fetchText('./src/ui.css')]);document.title=`v${BUILD_VERSION} — Core2D`;
+const uiSource=uiRaw.replace(/0\.3\.0|0\.3\.1|0\.3\.2|0\.3\.3|0\.3\.4|0\.3\.5|0\.3\.6|0\.3\.7/g,BUILD_VERSION).replace(/import\s+['"]\.\/ui\.css['"];?/,'');
+let mainSource=mainRaw.replace(/0\.3\.0|0\.3\.1|0\.3\.2|0\.3\.3|0\.3\.4|0\.3\.5|0\.3\.6|0\.3\.7/g,BUILD_VERSION).replace(/import\s+['"]\.\/ui['"];?/,'');
+mainSource=mainSource.replace(/inventory: Partial<Record<ItemType, number>> = \{ wood: 6, berry: 2 \}/,'inventory: Partial<Record<ItemType, number>> = { wood: 20, ore: 12, berry: 4 }');
+mainSource=mainSource.replace(/private playSwordAttack\(dx:number,dy:number\)\{[\s\S]*?\n  \}\n  private addSlashTrail/,`private playSwordAttack(dx:number,dy:number){
+    const angle=Math.atan2(dy,dx),px=this.player.x,py=this.player.y;
+    const fx=this.add.container(px,py).setDepth(200);
+    const glow=this.add.circle(0,0,34,0xffe49a,.22);
+    const blade=this.add.rectangle(0,-25,9,46,0xfff7d0).setOrigin(.5,1).setStrokeStyle(2,0x6b5135);
+    const guard=this.add.rectangle(0,-7,18,5,0xc58b45).setOrigin(.5);
+    const hilt=this.add.rectangle(0,2,7,15,0x6f452e).setOrigin(.5);
+    const slash=this.add.arc(0,0,52,-62,62,false,0xfff2b84b,.28).setStrokeStyle(5,0xfff7d0,.9);
+    fx.add([glow,slash,blade,guard,hilt]);
+    fx.setRotation(angle-Math.PI*.9);
+    const burst=this.add.graphics().setDepth(201);
+    burst.lineStyle(4,0xfff7d0,1);
+    for(let i=0;i<8;i++){const a=angle+(i-3.5)*.24,x=px+Math.cos(a)*34,y=py+Math.sin(a)*34;burst.lineBetween(x-Math.cos(a)*5,y-Math.sin(a)*5,x+Math.cos(a)*10,y+Math.sin(a)*10)}
+    this.tweens.add({targets:fx,angle:angle+Math.PI*.65,duration:170,ease:'Cubic.easeOut'});
+    this.tweens.add({targets:fx,scaleX:1.18,scaleY:1.18,duration:90,yoyo:true,ease:'Quad.easeOut'});
+    this.tweens.add({targets:glow,alpha:0,duration:170});
+    this.tweens.add({targets:slash,alpha:0,duration:150,delay:25,ease:'Quad.easeOut'});
+    this.tweens.add({targets:burst,alpha:0,scaleX:1.4,scaleY:1.4,duration:130,onComplete:()=>burst.destroy()});
+    this.tweens.add({targets:this.player,x:px+dx*4,y:py+dy*4,duration:55,yoyo:true,ease:'Quad.easeOut'});
+    this.time.delayedCall(190,()=>fx.destroy());
+  }
+  private addSlashTrail`);
+const craftBridge=`\nwindow.addEventListener('core2d:craft',(e)=>{const id=(e).detail?.id;if(id)window.dispatchEvent(new CustomEvent('core2d:message',{detail:{text:'Crafting '+id+'...'}}))},{capture:true});\n`;
+const patchedUi=uiSource
+  .replace(/const VERSION='[^']*';/,`const VERSION='${BUILD_VERSION}';`)
+  .replace(/\[data-recipe\]')\.forEach\(b=>b\.onclick=\(\)=>window\.dispatchEvent\(new CustomEvent\('core2d:craft',\{detail:\{id:b\.dataset\.recipe\}\}\)\)\)\);/,`[data-recipe]').forEach(b=>b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();const id=b.dataset.recipe;if(id)window.dispatchEvent(new CustomEvent('core2d:craft',{detail:{id}}))},{capture:true}));`)
+  .replace(/const disabled=locked\|\|!enough\|\|built;/,'const disabled=locked||built;');
+const style=document.createElement('style');style.textContent=css+'\n.ui-crafting.open{pointer-events:auto!important;z-index:10000!important}.ui-crafting.open .menu-card,.ui-crafting.open button{pointer-events:auto!important}';document.head.appendChild(style);
+const uiUrl=moduleUrl(transpile(patchedUi,'src/ui.ts'));const mainUrl=moduleUrl(transpile(craftBridge+mainSource,'src/main.ts'));try{await import(uiUrl);await import(mainUrl)}finally{URL.revokeObjectURL(mainUrl);URL.revokeObjectURL(uiUrl)}}catch(error){console.error('[Core2D] startup failure',error);showError(error)}
 </script></body></html>
