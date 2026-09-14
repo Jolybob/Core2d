@@ -1,37 +1,17 @@
 import Phaser from 'phaser';
 
 const CORE2D_VERSION = '0.3.4';
-
-const TILE = 24;
-const WIDTH = 100;
-const HEIGHT = 75;
-const WORLD_SEED = 1337;
-const PLAYER_SPEED = 170;
-const SPRINT_SPEED = 270;
-const MINE_RANGE = TILE * 3.5;
-const ATTACK_RANGE = TILE * 2.25;
-const ATTACK_COOLDOWN = 420;
-const MAX_HEALTH = 100;
-const MAX_STAMINA = 100;
-const STAMINA_DRAIN = 28;
-const STAMINA_REGEN = 20;
-const INVENTORY_CAPACITY = 24;
+const TILE = 24, WIDTH = 100, HEIGHT = 75, WORLD_SEED = 1337;
+const PLAYER_SPEED = 170, SPRINT_SPEED = 270, MINE_RANGE = TILE * 3.5, ATTACK_RANGE = TILE * 2.25, ATTACK_COOLDOWN = 420;
+const MAX_HEALTH = 100, MAX_STAMINA = 100, STAMINA_DRAIN = 28, STAMINA_REGEN = 20, INVENTORY_CAPACITY = 24;
 
 type TileType = 'grass' | 'dirt' | 'stone' | 'ore' | 'water' | 'empty' | 'crystal';
 type MineableTile = Exclude<TileType, 'grass' | 'empty' | 'water'>;
 type ItemType = 'wood' | 'ore' | 'stone' | 'crystal' | 'berry' | 'torch' | 'sword';
 type RecipeId = 'copperPickaxe' | 'torch' | 'healingSalve' | 'sword';
 type Recipe = { id: RecipeId; name: string; cost: Partial<Record<ItemType, number>>; requiresPickaxe?: number };
-
-const TILE_COLORS: Record<TileType, number> = {
-  grass: 0x587c45, dirt: 0x765037, stone: 0x474a52, ore: 0xb86f35,
-  water: 0x254b59, empty: 0x171c1a, crystal: 0x7862a8,
-};
-
-const ITEM_NAMES: Record<ItemType, string> = {
-  wood: 'Wood', ore: 'Copper Ore', stone: 'Stone', crystal: 'Crystal', berry: 'Berry', torch: 'Torch', sword: 'Copper Sword',
-};
-
+const TILE_COLORS: Record<TileType, number> = { grass: 0x587c45, dirt: 0x765037, stone: 0x474a52, ore: 0xb86f35, water: 0x254b59, empty: 0x171c1a, crystal: 0x7862a8 };
+const ITEM_NAMES: Record<ItemType, string> = { wood: 'Wood', ore: 'Copper Ore', stone: 'Stone', crystal: 'Crystal', berry: 'Berry', torch: 'Torch', sword: 'Copper Sword' };
 const RECIPES: Recipe[] = [
   { id: 'copperPickaxe', name: 'Copper Pickaxe', cost: { wood: 8, ore: 4 } },
   { id: 'sword', name: 'Copper Sword', cost: { wood: 4, ore: 6 } },
@@ -40,284 +20,62 @@ const RECIPES: Recipe[] = [
 ];
 
 class WorldScene extends Phaser.Scene {
-  private player!: Phaser.GameObjects.Rectangle;
-  private core!: Phaser.GameObjects.Arc;
-  private world!: TileType[][];
-  private tiles!: Phaser.GameObjects.Rectangle[][];
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private keys!: Record<string, Phaser.Input.Keyboard.Key>;
-  private inventory: Partial<Record<ItemType, number>> = { wood: 6, berry: 2 };
-  private selectedSlot = 0;
-  private hotbar: ItemType[] = ['sword', 'pickaxe' as ItemType, 'wood', 'stone', 'ore', 'berry'];
-  private health = MAX_HEALTH;
-  private hunger = 100;
-  private stamina = MAX_STAMINA;
-  private pickaxeLevel = 1;
-  private selected = { x: 0, y: 0 };
-  private hud!: Phaser.GameObjects.Text;
-  private message!: Phaser.GameObjects.Text;
-  private selection!: Phaser.GameObjects.Rectangle;
-  private rng!: () => number;
-  private enemies: Array<{ body: Phaser.GameObjects.Rectangle; hp: number; hitAt: number }> = [];
-  private lastEnemySpawn = 0;
-  private lastHungerDamage = 0;
-  private survivalTime = 0;
-  private uiSprintUntil = 0;
-  private lastAttackAt = 0;
-  private attackDirection = new Phaser.Math.Vector2(1, 0);
-  private swordSprite?: Phaser.GameObjects.Rectangle;
-  private attackArc?: Phaser.GameObjects.Arc;
-  private inventoryOpen = false;
+  private player!: Phaser.GameObjects.Rectangle; private core!: Phaser.GameObjects.Arc; private world!: TileType[][]; private tiles!: Phaser.GameObjects.Rectangle[][];
+  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys; private keys!: Record<string, Phaser.Input.Keyboard.Key>;
+  private inventory: Partial<Record<ItemType, number>> = { wood: 6, berry: 2 }; private selectedSlot = 0;
+  private hotbar: ItemType[] = ['sword', 'wood', 'stone', 'ore', 'berry', 'torch'];
+  private health = MAX_HEALTH; private hunger = 100; private stamina = MAX_STAMINA; private pickaxeLevel = 1;
+  private selected = { x: 0, y: 0 }; private hud!: Phaser.GameObjects.Text; private message!: Phaser.GameObjects.Text; private selection!: Phaser.GameObjects.Rectangle;
+  private rng!: () => number; private enemies: Array<{ body: Phaser.GameObjects.Rectangle; hp: number; hitAt: number }> = [];
+  private lastEnemySpawn = 0; private lastHungerDamage = 0; private survivalTime = 0; private uiSprintUntil = 0; private lastAttackAt = 0;
+  private attackDirection = new Phaser.Math.Vector2(1, 0); private swordSprite?: Phaser.GameObjects.Rectangle; private attackArc?: Phaser.GameObjects.Arc;
 
   constructor() { super('world'); }
-
   create() {
-    const keyboard = this.input.keyboard;
-    if (!keyboard) throw new Error('Keyboard input is required for Core2D.');
-    this.rng = this.seededRandom(WORLD_SEED);
-    this.world = this.generateWorld();
-    this.tiles = [];
-
-    for (let y = 0; y < HEIGHT; y++) {
-      this.tiles[y] = [];
-      for (let x = 0; x < WIDTH; x++) {
-        this.tiles[y][x] = this.add.rectangle(x * TILE + TILE / 2, y * TILE + TILE / 2, TILE - 1, TILE - 1, TILE_COLORS[this.world[y][x]]);
-      }
-    }
-
-    const spawnX = Math.floor(WIDTH / 2), spawnY = Math.floor(HEIGHT / 2);
-    this.world[spawnY][spawnX] = 'grass';
-    this.tiles[spawnY][spawnX].setFillStyle(TILE_COLORS.grass);
-    this.core = this.add.circle(spawnX * TILE + TILE / 2, spawnY * TILE + TILE / 2, 13, 0x83d6c4).setStrokeStyle(3, 0xd8fff2).setDepth(18);
-    this.player = this.add.rectangle(spawnX * TILE + TILE / 2, spawnY * TILE + TILE / 2, 15, 20, 0xf1cf91).setDepth(20);
-
-    this.cursors = keyboard.createCursorKeys();
-    this.keys = {
-      W: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W), A: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-      S: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S), D: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
-      E: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E), SPACE: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
-      C: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C), Q: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q),
-      SHIFT: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT), I: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.I),
-      F: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F),
-      ONE: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE), TWO: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TWO),
-      THREE: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.THREE), FOUR: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FOUR),
-      FIVE: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FIVE), SIX: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SIX),
-    };
-
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (pointer.leftButtonDown()) {
-        if (this.hasSword()) this.attackAt(pointer.worldX, pointer.worldY);
-        else this.interactAt(pointer.worldX, pointer.worldY);
-      }
-    });
-    window.addEventListener('core2d:craft', this.onCraftEvent as EventListener);
-    window.addEventListener('core2d:mine', this.onMineEvent as EventListener);
-    window.addEventListener('core2d:attack', this.onAttackEvent as EventListener);
-    window.addEventListener('core2d:place', this.onPlaceEvent as EventListener);
-    window.addEventListener('core2d:move', this.onUiMove as EventListener);
-    window.addEventListener('core2d:sprint', this.onUiSprint as EventListener);
-    window.addEventListener('core2d:eat', this.onUiEat as EventListener);
-    window.addEventListener('core2d:salve', this.onUiSalve as EventListener);
-    window.addEventListener('core2d:select', this.onUiSelect as EventListener);
-    window.addEventListener('core2d:inventory', this.onUiInventory as EventListener);
-
-    this.selection = this.add.rectangle(0, 0, TILE - 2, TILE - 2, 0xffffff, 0).setStrokeStyle(2, 0xf5df8b).setDepth(15);
-    this.hud = this.add.text(14, 12, '', { fontFamily: 'monospace', fontSize: '15px', color: '#fff', backgroundColor: '#101512dd', padding: { x: 9, y: 8 } }).setScrollFactor(0).setDepth(100);
-    this.message = this.add.text(480, 14, 'Find resources and protect the Core', { fontFamily: 'monospace', fontSize: '15px', color: '#f5df8b', backgroundColor: '#101512cc', padding: { x: 8, y: 6 } }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(100);
-
-    this.cameras.main.setBounds(0, 0, WIDTH * TILE, HEIGHT * TILE);
-    this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
-    this.cameras.main.setZoom(1.25);
-    this.lastEnemySpawn = this.time.now;
-    this.spawnEnemy(spawnX + 10, spawnY + 6);
-    this.updateHud();
-    console.info(`[Core2D] v${CORE2D_VERSION}`);
-    console.info('[Core2D] Sword combat + attack range + 24-slot inventory online');
+    const keyboard = this.input.keyboard; if (!keyboard) throw new Error('Keyboard input is required for Core2D.');
+    this.rng = this.seededRandom(WORLD_SEED); this.world = this.generateWorld(); this.tiles = [];
+    for (let y = 0; y < HEIGHT; y++) { this.tiles[y] = []; for (let x = 0; x < WIDTH; x++) this.tiles[y][x] = this.add.rectangle(x*TILE+TILE/2,y*TILE+TILE/2,TILE-1,TILE-1,TILE_COLORS[this.world[y][x]]); }
+    const spawnX = Math.floor(WIDTH/2), spawnY = Math.floor(HEIGHT/2); this.world[spawnY][spawnX]='grass'; this.tiles[spawnY][spawnX].setFillStyle(TILE_COLORS.grass);
+    this.core=this.add.circle(spawnX*TILE+TILE/2,spawnY*TILE+TILE/2,13,0x83d6c4).setStrokeStyle(3,0xd8fff2).setDepth(18);
+    this.player=this.add.rectangle(spawnX*TILE+TILE/2,spawnY*TILE+TILE/2,15,20,0xf1cf91).setDepth(20);
+    this.cursors=keyboard.createCursorKeys(); this.keys={W:keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),A:keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),S:keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),D:keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),E:keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E),SPACE:keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),C:keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C),Q:keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q),SHIFT:keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT),I:keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.I),F:keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F),ONE:keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE),TWO:keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TWO),THREE:keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.THREE),FOUR:keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FOUR),FIVE:keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FIVE),SIX:keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SIX)};
+    this.input.on('pointerdown',(pointer:Phaser.Input.Pointer)=>{if(pointer.leftButtonDown()){if(this.hasSword()&&this.selectedSlot===0)this.attackAt(pointer.worldX,pointer.worldY);else this.interactAt(pointer.worldX,pointer.worldY);}});
+    window.addEventListener('core2d:craft',this.onCraftEvent as EventListener); window.addEventListener('core2d:mine',this.onMineEvent as EventListener); window.addEventListener('core2d:attack',this.onAttackEvent as EventListener); window.addEventListener('core2d:place',this.onPlaceEvent as EventListener); window.addEventListener('core2d:move',this.onUiMove as EventListener); window.addEventListener('core2d:sprint',this.onUiSprint as EventListener); window.addEventListener('core2d:eat',this.onUiEat as EventListener); window.addEventListener('core2d:salve',this.onUiSalve as EventListener); window.addEventListener('core2d:select',this.onUiSelect as EventListener); window.addEventListener('core2d:inventory',this.onUiInventory as EventListener);
+    this.selection=this.add.rectangle(0,0,TILE-2,TILE-2,0xffffff,0).setStrokeStyle(2,0xf5df8b).setDepth(15);
+    this.hud=this.add.text(14,12,'',{fontFamily:'monospace',fontSize:'15px',color:'#fff',backgroundColor:'#101512dd',padding:{x:9,y:8}}).setScrollFactor(0).setDepth(100);
+    this.message=this.add.text(480,14,'Find resources and protect the Core',{fontFamily:'monospace',fontSize:'15px',color:'#f5df8b',backgroundColor:'#101512cc',padding:{x:8,y:6}}).setOrigin(.5,0).setScrollFactor(0).setDepth(100);
+    this.cameras.main.setBounds(0,0,WIDTH*TILE,HEIGHT*TILE); this.cameras.main.startFollow(this.player,true,.12,.12); this.cameras.main.setZoom(1.25); this.lastEnemySpawn=this.time.now; this.spawnEnemy(spawnX+10,spawnY+6); this.updateHud();
+    console.info(`[Core2D] v${CORE2D_VERSION}`); console.info('[Core2D] Sword combat + attack range + 24-slot inventory online');
   }
-
-  update(_time: number, delta: number) {
-    const dt = Math.min(delta, 50) / 1000;
-    this.survivalTime += dt;
-    let dx = 0, dy = 0;
-    if (this.cursors.left.isDown || this.keys.A.isDown) dx--;
-    if (this.cursors.right.isDown || this.keys.D.isDown) dx++;
-    if (this.cursors.up.isDown || this.keys.W.isDown) dy--;
-    if (this.cursors.down.isDown || this.keys.S.isDown) dy++;
-
-    const sprinting = (Boolean(this.keys.SHIFT?.isDown) || this.time.now < this.uiSprintUntil) && (dx !== 0 || dy !== 0) && this.stamina > 0;
-    const speed = sprinting ? SPRINT_SPEED : PLAYER_SPEED;
-    if (sprinting) this.stamina = Math.max(0, this.stamina - STAMINA_DRAIN * dt);
-    else this.stamina = Math.min(MAX_STAMINA, this.stamina + STAMINA_REGEN * dt);
-    if (dx || dy) this.movePlayer(dx, dy, speed * dt);
-
-    const numberKeys = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX'];
-    for (let i = 0; i < numberKeys.length; i++) if (Phaser.Input.Keyboard.JustDown(this.keys[numberKeys[i]])) this.selectedSlot = i;
-    if (Phaser.Input.Keyboard.JustDown(this.keys.E)) this.craftPickaxe();
-    if (Phaser.Input.Keyboard.JustDown(this.keys.C)) window.dispatchEvent(new CustomEvent('core2d:toggle-crafting'));
-    if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE)) this.eatBerry();
-    if (Phaser.Input.Keyboard.JustDown(this.keys.Q)) this.useSalve();
-    if (Phaser.Input.Keyboard.JustDown(this.keys.I)) this.toggleInventory();
-    if (Phaser.Input.Keyboard.JustDown(this.keys.F)) this.attackForward();
-
-    this.hunger = Math.max(0, this.hunger - dt * (sprinting ? 1.05 : 0.7));
-    if (this.hunger <= 0 && this.time.now - this.lastHungerDamage > 1000) { this.lastHungerDamage = this.time.now; this.health = Math.max(0, this.health - 2); }
-    if (this.health <= 0) this.respawn();
-
-    const tileX = Phaser.Math.Clamp(Math.floor(this.player.x / TILE), 0, WIDTH - 1);
-    const tileY = Phaser.Math.Clamp(Math.floor(this.player.y / TILE), 0, HEIGHT - 1);
-    this.selected.x = tileX; this.selected.y = tileY;
-    this.selection.setPosition(tileX * TILE + TILE / 2, tileY * TILE + TILE / 2);
-    this.updateEnemies(dt, this.time.now);
-    this.updateHud();
+  update(_time:number,delta:number){
+    const dt=Math.min(delta,50)/1000; this.survivalTime+=dt; let dx=0,dy=0; if(this.cursors.left.isDown||this.keys.A.isDown)dx--; if(this.cursors.right.isDown||this.keys.D.isDown)dx++; if(this.cursors.up.isDown||this.keys.W.isDown)dy--; if(this.cursors.down.isDown||this.keys.S.isDown)dy++;
+    const sprinting=(Boolean(this.keys.SHIFT?.isDown)||this.time.now<this.uiSprintUntil)&&(dx!==0||dy!==0)&&this.stamina>0; const speed=sprinting?SPRINT_SPEED:PLAYER_SPEED; if(sprinting)this.stamina=Math.max(0,this.stamina-STAMINA_DRAIN*dt);else this.stamina=Math.min(MAX_STAMINA,this.stamina+STAMINA_REGEN*dt); if(dx||dy)this.movePlayer(dx,dy,speed*dt);
+    const numberKeys=['ONE','TWO','THREE','FOUR','FIVE','SIX']; for(let i=0;i<numberKeys.length;i++)if(Phaser.Input.Keyboard.JustDown(this.keys[numberKeys[i]]))this.selectedSlot=i;
+    if(Phaser.Input.Keyboard.JustDown(this.keys.E))this.craftPickaxe(); if(Phaser.Input.Keyboard.JustDown(this.keys.C))window.dispatchEvent(new CustomEvent('core2d:toggle-crafting')); if(Phaser.Input.Keyboard.JustDown(this.keys.SPACE))this.eatBerry(); if(Phaser.Input.Keyboard.JustDown(this.keys.Q))this.useSalve(); if(Phaser.Input.Keyboard.JustDown(this.keys.I))window.dispatchEvent(new CustomEvent('core2d:inventory')); if(Phaser.Input.Keyboard.JustDown(this.keys.F))this.attackForward();
+    this.hunger=Math.max(0,this.hunger-dt*(sprinting?1.05:.7)); if(this.hunger<=0&&this.time.now-this.lastHungerDamage>1000){this.lastHungerDamage=this.time.now;this.health=Math.max(0,this.health-2);} if(this.health<=0)this.respawn();
+    const tileX=Phaser.Math.Clamp(Math.floor(this.player.x/TILE),0,WIDTH-1),tileY=Phaser.Math.Clamp(Math.floor(this.player.y/TILE),0,HEIGHT-1);this.selected.x=tileX;this.selected.y=tileY;this.selection.setPosition(tileX*TILE+TILE/2,tileY*TILE+TILE/2);this.updateEnemies(dt,this.time.now);this.updateHud();
   }
-
-  private movePlayer(dx: number, dy: number, amount: number) {
-    if (!dx && !dy) return;
-    const length = Math.hypot(dx, dy);
-    this.player.x = Phaser.Math.Clamp(this.player.x + (dx / length) * amount, 8, WIDTH * TILE - 8);
-    this.player.y = Phaser.Math.Clamp(this.player.y + (dy / length) * amount, 10, HEIGHT * TILE - 10);
-  }
-
-  private onUiMove = (event: Event) => { const { dx = 0, dy = 0 } = (event as CustomEvent<{dx?:number;dy?:number}>).detail ?? {}; this.movePlayer(dx, dy, PLAYER_SPEED * 0.55); };
-  private onUiSprint = () => { this.uiSprintUntil = this.time.now + 900; this.movePlayer(0, 1, SPRINT_SPEED * 0.45); this.say('Sprint!'); };
-  private onUiEat = () => this.eatBerry();
-  private onUiSalve = () => this.useSalve();
-  private onUiSelect = (event: Event) => { const slot = Number((event as CustomEvent<{slot?:number}>).detail?.slot); if (Number.isInteger(slot) && slot >= 0 && slot < this.hotbar.length) this.selectedSlot = slot; };
-  private onUiInventory = () => this.toggleInventory();
-  private onCraftEvent = (event: Event) => { const id = (event as CustomEvent<{ id?: RecipeId }>).detail?.id; if (id) this.craft(id); };
-  private onMineEvent = () => this.interactAt(this.selected.x * TILE + TILE / 2, this.selected.y * TILE + TILE / 2);
-  private onAttackEvent = (event: Event) => { const detail = (event as CustomEvent<{dx?:number;dy?:number}>).detail ?? {}; const dx = Number(detail.dx ?? 1), dy = Number(detail.dy ?? 0); this.attackDirection.set(dx, dy); this.attackForward(); };
-  private onPlaceEvent = () => this.placeAt(this.selected.x * TILE + TILE / 2, this.selected.y * TILE + TILE / 2);
-
-  private hasSword() { return (this.inventory.sword ?? 0) > 0; }
-
-  private attackForward() {
-    this.attackAt(this.player.x + this.attackDirection.x * ATTACK_RANGE, this.player.y + this.attackDirection.y * ATTACK_RANGE);
-  }
-
-  private attackAt(worldX: number, worldY: number) {
-    const now = this.time.now;
-    if (now - this.lastAttackAt < ATTACK_COOLDOWN) return this.say('Sword is recovering...');
-    if (!this.hasSword()) return this.interactAt(worldX, worldY);
-    const target = new Phaser.Math.Vector2(worldX - this.player.x, worldY - this.player.y);
-    if (target.lengthSq() < 1) target.set(this.attackDirection.x, this.attackDirection.y);
-    target.normalize();
-    this.attackDirection.copy(target);
-    this.lastAttackAt = now;
-    this.playSwordAttack(target.x, target.y);
-
-    let hit = false;
-    for (const enemy of [...this.enemies]) {
-      const toEnemy = new Phaser.Math.Vector2(enemy.body.x - this.player.x, enemy.body.y - this.player.y);
-      const distance = toEnemy.length();
-      if (distance > ATTACK_RANGE || distance < 1) continue;
-      toEnemy.normalize();
-      if (this.attackDirection.dot(toEnemy) < 0.35) continue;
-      enemy.hp -= 22;
-      hit = true;
-      enemy.body.setScale(1.2);
-      this.tweens.add({ targets: enemy.body, scaleX: 1, scaleY: 1, duration: 100 });
-      if (enemy.hp <= 0) {
-        enemy.body.destroy(); this.enemies = this.enemies.filter((e) => e !== enemy); this.addItem('berry', 1);
-        if (this.rng() > 0.55) this.addItem('ore', 1);
-        this.say('Sword hit! Enemy defeated • loot recovered');
-      } else this.say(`Sword hit! ${enemy.hp} HP left`);
-    }
-    if (!hit) this.say(`Sword slash • ${Math.round(ATTACK_RANGE / TILE)} tile range`);
-  }
-
-  private playSwordAttack(dx: number, dy: number) {
-    this.swordSprite?.destroy();
-    this.attackArc?.destroy();
-    const angle = Math.atan2(dy, dx);
-    this.swordSprite = this.add.rectangle(this.player.x + dx * 16, this.player.y + dy * 16, 8, 34, 0xe7e4d1).setOrigin(0.5, 1).setDepth(30).setRotation(angle + Math.PI / 2);
-    this.swordSprite.setStrokeStyle(2, 0x7c8a91);
-    this.attackArc = this.add.arc(this.player.x, this.player.y, ATTACK_RANGE, angle - 0.6, angle + 0.6, false, 0xffe49a, 0.25).setDepth(29);
-    this.tweens.add({ targets: this.swordSprite, rotation: angle + Math.PI / 2 + 1.65, x: this.player.x + dx * 23, y: this.player.y + dy * 23, duration: 120, ease: 'Cubic.easeOut', onComplete: () => this.swordSprite?.destroy() });
-    this.tweens.add({ targets: this.attackArc, alpha: 0, scaleX: 1.05, scaleY: 1.05, duration: 180, onComplete: () => this.attackArc?.destroy() });
-  }
-
-  private interactAt(worldX: number, worldY: number) {
-    const enemy = this.enemies.find((e) => Phaser.Math.Distance.Between(e.body.x, e.body.y, worldX, worldY) < 16);
-    if (enemy && Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.body.x, enemy.body.y) <= MINE_RANGE) {
-      enemy.hp -= this.pickaxeLevel >= 2 ? 14 : 8;
-      this.say(`Pickaxe hit (${Math.max(0, enemy.hp)} HP)`);
-      if (enemy.hp <= 0) { enemy.body.destroy(); this.enemies = this.enemies.filter((e) => e !== enemy); this.addItem('berry', 1); if (this.rng() > 0.55) this.addItem('ore', 1); this.say('Enemy defeated • loot recovered'); }
-      return;
-    }
-    this.mineAt(worldX, worldY);
-  }
-
-  private mineAt(worldX: number, worldY: number) {
-    const x = Math.floor(worldX / TILE), y = Math.floor(worldY / TILE);
-    if (x < 0 || y < 0 || x >= WIDTH || y >= HEIGHT) return;
-    const centerX = x * TILE + TILE / 2, centerY = y * TILE + TILE / 2;
-    if (Phaser.Math.Distance.Between(this.player.x, this.player.y, centerX, centerY) > MINE_RANGE) return this.say('Too far away.');
-    const type = this.world[y][x];
-    if (!this.isMineable(type)) return this.say('Nothing mineable here.');
-    const item: ItemType = type === 'ore' ? 'ore' : type === 'stone' ? 'stone' : type === 'crystal' ? 'crystal' : 'wood';
-    const amount = type === 'crystal' ? 2 : type === 'ore' ? 2 : 1;
-    if (!this.addItem(item, amount)) return;
-    this.world[y][x] = 'empty'; this.tiles[y][x].setFillStyle(TILE_COLORS.empty); this.say(`Mined ${amount} ${ITEM_NAMES[item]}`);
-  }
-
-  private placeAt(worldX: number, worldY: number) {
-    const x = Math.floor(worldX / TILE), y = Math.floor(worldY / TILE), item = this.hotbar[this.selectedSlot];
-    if (item === 'sword') return this.say('Sword is a weapon, not a building material.');
-    if (x < 0 || y < 0 || x >= WIDTH || y >= HEIGHT || this.world[y][x] !== 'empty') return this.say('Choose an empty tile.');
-    if (Phaser.Math.Distance.Between(this.player.x, this.player.y, x * TILE + TILE / 2, y * TILE + TILE / 2) > MINE_RANGE) return this.say('Too far away.');
-    if ((this.inventory[item] ?? 0) < 1) return this.say(`No ${ITEM_NAMES[item]}.`);
-    this.inventory[item] = (this.inventory[item] ?? 0) - 1;
-    this.world[y][x] = item === 'crystal' ? 'crystal' : item === 'ore' ? 'ore' : item === 'stone' ? 'stone' : 'dirt';
-    this.tiles[y][x].setFillStyle(item === 'torch' ? 0xe6b85c : TILE_COLORS[this.world[y][x]]);
-    this.say(`Placed ${ITEM_NAMES[item]}.`);
-  }
-
-  private craftPickaxe() { this.craft('copperPickaxe'); }
-  private craft(id: RecipeId) {
-    const recipe = RECIPES.find((entry) => entry.id === id); if (!recipe) return;
-    if (id === 'copperPickaxe' && this.pickaxeLevel >= 2) return this.say('Copper pickaxe already crafted.');
-    if (id === 'sword' && this.hasSword()) return this.say('Copper sword already crafted.');
-    if (recipe.requiresPickaxe && this.pickaxeLevel < recipe.requiresPickaxe) return this.say(`Requires Pickaxe Lv.${recipe.requiresPickaxe}.`);
-    for (const [item, amount] of Object.entries(recipe.cost) as Array<[ItemType, number]>) if ((this.inventory[item] ?? 0) < amount) return this.say(`Need ${amount} ${ITEM_NAMES[item]}.`);
-    for (const [item, amount] of Object.entries(recipe.cost) as Array<[ItemType, number]>) this.inventory[item] = (this.inventory[item] ?? 0) - amount;
-    if (id === 'copperPickaxe') { this.pickaxeLevel = 2; this.say('Copper Pickaxe crafted • mining damage increased!'); }
-    else if (id === 'sword') { this.addItem('sword', 1); this.say('Copper Sword crafted • left click or F to attack!'); }
-    else if (id === 'torch') { this.addItem('torch', 3); this.say('Crafted 3 Torches • light the dark.'); }
-    else { this.health = Math.min(MAX_HEALTH, this.health + 25); this.say('Healing Salve crafted and used • +25 health.'); }
-  }
-
-  private eatBerry() { if ((this.inventory.berry ?? 0) < 1) return this.say('No berries.'); this.inventory.berry = (this.inventory.berry ?? 0) - 1; this.hunger = Math.min(100, this.hunger + 30); this.health = Math.min(MAX_HEALTH, this.health + 8); this.say('Ate a berry.'); }
-  private useSalve() { if (this.pickaxeLevel < 2) return this.say('Craft a Copper Pickaxe first.'); if ((this.inventory.berry ?? 0) < 2 || (this.inventory.crystal ?? 0) < 1) return this.say('Salve needs 2 Berries + 1 Crystal.'); this.inventory.berry = (this.inventory.berry ?? 0) - 2; this.inventory.crystal = (this.inventory.crystal ?? 0) - 1; this.health = Math.min(MAX_HEALTH, this.health + 25); this.say('Used Healing Salve • +25 health.'); }
-
-  private toggleInventory() { this.inventoryOpen = !this.inventoryOpen; window.dispatchEvent(new CustomEvent('core2d:inventory-state', { detail: { open: this.inventoryOpen } })); }
-  private addItem(type: ItemType, count: number) {
-    const current = this.inventory[type] ?? 0;
-    const otherSlots = Object.entries(this.inventory).filter(([key, value]) => key !== type && (value ?? 0) > 0).length;
-    if (current === 0 && otherSlots >= INVENTORY_CAPACITY) { this.say('Inventory full! Open Backpack and make room.'); return false; }
-    this.inventory[type] = current + count; return true;
-  }
-
-  private spawnEnemy(tileX: number, tileY: number) { const x = Phaser.Math.Clamp(tileX, 1, WIDTH - 2), y = Phaser.Math.Clamp(tileY, 1, HEIGHT - 2); const tier = Math.min(4, Math.floor(this.survivalTime / 45)); const hp = 20 + tier * 8; const size = 16 + tier * 2; const body = this.add.rectangle(x * TILE + TILE / 2, y * TILE + TILE / 2, size, size, 0xa24b58).setDepth(19); this.enemies.push({ body, hp, hitAt: 0 }); }
-  private updateEnemies(dt: number, time: number) {
-    const spawnInterval = Math.max(6500, 15000 - Math.floor(this.survivalTime / 30) * 1000), maxEnemies = Math.min(8, 3 + Math.floor(this.survivalTime / 60));
-    if (time - this.lastEnemySpawn > spawnInterval && this.enemies.length < maxEnemies) { this.lastEnemySpawn = time; const angle = this.rng() * Math.PI * 2, distance = 9 + Math.floor(this.rng() * 7); this.spawnEnemy(Math.floor(this.player.x / TILE) + Math.round(Math.cos(angle) * distance), Math.floor(this.player.y / TILE) + Math.round(Math.sin(angle) * distance)); this.say('Something is hunting nearby...'); }
-    for (const enemy of this.enemies) { const distance = Phaser.Math.Distance.Between(enemy.body.x, enemy.body.y, this.player.x, this.player.y); if (distance < 240) { const angle = Phaser.Math.Angle.Between(enemy.body.x, enemy.body.y, this.player.x, this.player.y), tier = Math.max(0, Math.floor((enemy.hp - 20) / 8)); enemy.body.x += Math.cos(angle) * (35 + tier * 5) * dt; enemy.body.y += Math.sin(angle) * (35 + tier * 5) * dt; if (distance < 22 && time > enemy.hitAt) { enemy.hitAt = time + Math.max(550, 900 - tier * 80); this.health = Math.max(0, this.health - (8 + tier * 2)); this.say('Enemy attack!'); } } }
-  }
-
-  private respawn() { this.health = MAX_HEALTH; this.hunger = 70; this.stamina = MAX_STAMINA; this.player.setPosition((WIDTH / 2) * TILE, (HEIGHT / 2) * TILE); this.say('You fell. The Core brought you home.'); }
-  private isMineable(type: TileType): type is MineableTile { return type === 'dirt' || type === 'stone' || type === 'ore' || type === 'crystal'; }
-  private say(text: string) { this.message.setText(text); window.dispatchEvent(new CustomEvent('core2d:message', { detail: { text } })); }
-
-  private updateHud() {
-    const minutes = Math.floor(this.survivalTime / 60), seconds = Math.floor(this.survivalTime % 60).toString().padStart(2, '0');
-    const inv = this.hotbar.map((item, i) => `${i === this.selectedSlot ? '>' : ' '} ${i + 1}:${ITEM_NAMES[item]} ${(this.inventory[item] ?? 0)}`).join('\n');
-    this.hud.setText([`CORE2D v${CORE2D_VERSION} — UNDERGROUND SURVIVAL`,`HP ${Math.ceil(this.health)}/${MAX_HEALTH}   Hunger ${Math.ceil(this.hunger)}/100   Stamina ${Math.ceil(this.stamina)}/100`,`Pickaxe Lv.${this.pickaxeLevel}   Survival ${minutes}:${seconds}   Threat ${this.enemies.length}`,'──────── HOTBAR ────────',inv,'WASD / arrows move • SHIFT sprint • LMB attack with sword','F attack forward • C crafting • I inventory • Q salve • SPACE eat']);
-    window.dispatchEvent(new CustomEvent('core2d:state',{detail:{version:CORE2D_VERSION,health:this.health,hunger:this.hunger,stamina:this.stamina,pickaxeLevel:this.pickaxeLevel,survivalTime:this.survivalTime,threats:this.enemies.length,selectedSlot:this.selectedSlot,inventory:{...this.inventory},inventoryCapacity:INVENTORY_CAPACITY,attackRange:ATTACK_RANGE/TILE,hasSword:this.hasSword()}}));
-  }
-
-  private generateWorld(): TileType[][] { const world: TileType[][] = []; const cx = WIDTH / 2, cy = HEIGHT / 2; for (let y = 0; y < HEIGHT; y++) { world[y] = []; for (let x = 0; x < WIDTH; x++) { const distance = Math.hypot(x - cx, y - cy), n = this.rng(); let type: TileType = distance < 7 ? 'grass' : n > 0.72 ? 'stone' : 'dirt'; if (distance > 10 && n > 0.92) type = 'ore'; if (distance > 20 && n > 0.975) type = 'crystal'; if (n < 0.035 && distance > 9) type = 'water'; world[y][x] = type; } } return world; }
-  private seededRandom(seed: number) { let state = seed >>> 0; return () => { state = (1664525 * state + 1013904223) >>> 0; return state / 0x100000000; }; }
+  private movePlayer(dx:number,dy:number,amount:number){if(!dx&&!dy)return;const length=Math.hypot(dx,dy);this.player.x=Phaser.Math.Clamp(this.player.x+dx/length*amount,8,WIDTH*TILE-8);this.player.y=Phaser.Math.Clamp(this.player.y+dy/length*amount,10,HEIGHT*TILE-10);}
+  private onUiMove=(e:Event)=>{const{dx=0,dy=0}=(e as CustomEvent<{dx?:number;dy?:number}>).detail??{};this.movePlayer(dx,dy,PLAYER_SPEED*.55);}; private onUiSprint=()=>{this.uiSprintUntil=this.time.now+900;this.movePlayer(0,1,SPRINT_SPEED*.45);this.say('Sprint!');}; private onUiEat=()=>this.eatBerry(); private onUiSalve=()=>this.useSalve(); private onUiInventory=()=>window.dispatchEvent(new CustomEvent('core2d:inventory-state',{detail:{open:true}}));
+  private onUiSelect=(e:Event)=>{const slot=Number((e as CustomEvent<{slot?:number}>).detail?.slot);if(Number.isInteger(slot)&&slot>=0&&slot<this.hotbar.length)this.selectedSlot=slot;};
+  private onCraftEvent=(e:Event)=>{const id=(e as CustomEvent<{id?:RecipeId}>).detail?.id;if(id)this.craft(id);}; private onMineEvent=()=>this.interactAt(this.selected.x*TILE+TILE/2,this.selected.y*TILE+TILE/2); private onAttackEvent=(e:Event)=>{const d=(e as CustomEvent<{dx?:number;dy?:number}>).detail??{};this.attackDirection.set(Number(d.dx??1),Number(d.dy??0));this.attackForward();}; private onPlaceEvent=()=>this.placeAt(this.selected.x*TILE+TILE/2,this.selected.y*TILE+TILE/2);
+  private hasSword(){return(this.inventory.sword??0)>0;} private attackForward(){this.attackAt(this.player.x+this.attackDirection.x*ATTACK_RANGE,this.player.y+this.attackDirection.y*ATTACK_RANGE);}
+  private attackAt(worldX:number,worldY:number){const now=this.time.now;if(now-this.lastAttackAt<ATTACK_COOLDOWN)return this.say('Sword is recovering...');if(!this.hasSword())return this.say('Craft a Copper Sword first.');const target=new Phaser.Math.Vector2(worldX-this.player.x,worldY-this.player.y);if(target.lengthSq()<1)target.set(this.attackDirection.x,this.attackDirection.y);target.normalize();this.attackDirection.copy(target);this.lastAttackAt=now;this.playSwordAttack(target.x,target.y);let hit=false;for(const enemy of [...this.enemies]){const toEnemy=new Phaser.Math.Vector2(enemy.body.x-this.player.x,enemy.body.y-this.player.y),distance=toEnemy.length();if(distance>ATTACK_RANGE||distance<1)continue;toEnemy.normalize();if(this.attackDirection.dot(toEnemy)<.35)continue;enemy.hp-=22;hit=true;enemy.body.setScale(1.2);this.tweens.add({targets:enemy.body,scaleX:1,scaleY:1,duration:100});if(enemy.hp<=0){enemy.body.destroy();this.enemies=this.enemies.filter(e=>e!==enemy);this.addItem('berry',1);if(this.rng()>.55)this.addItem('ore',1);this.say('Sword hit! Enemy defeated • loot recovered');}else this.say(`Sword hit! ${enemy.hp} HP left`);}if(!hit)this.say(`Sword slash • ${ATTACK_RANGE/TILE} tile range`);}
+  private playSwordAttack(dx:number,dy:number){this.swordSprite?.destroy();this.attackArc?.destroy();const angle=Math.atan2(dy,dx);this.swordSprite=this.add.rectangle(this.player.x+dx*16,this.player.y+dy*16,8,34,0xe7e4d1).setOrigin(.5,1).setDepth(30).setRotation(angle+Math.PI/2).setStrokeStyle(2,0x7c8a91);this.attackArc=this.add.arc(this.player.x,this.player.y,ATTACK_RANGE,angle-.6,angle+.6,false,0xffe49a,.25).setDepth(29);this.tweens.add({targets:this.swordSprite,rotation:angle+Math.PI/2+1.65,x:this.player.x+dx*23,y:this.player.y+dy*23,duration:120,ease:'Cubic.easeOut',onComplete:()=>this.swordSprite?.destroy()});this.tweens.add({targets:this.attackArc,alpha:0,scaleX:1.05,scaleY:1.05,duration:180,onComplete:()=>this.attackArc?.destroy()});}
+  private interactAt(worldX:number,worldY:number){const enemy=this.enemies.find(e=>Phaser.Math.Distance.Between(e.body.x,e.body.y,worldX,worldY)<16);if(enemy&&Phaser.Math.Distance.Between(this.player.x,this.player.y,enemy.body.x,enemy.body.y)<=MINE_RANGE){enemy.hp-=this.pickaxeLevel>=2?14:8;this.say(`Pickaxe hit (${Math.max(0,enemy.hp)} HP)`);if(enemy.hp<=0){enemy.body.destroy();this.enemies=this.enemies.filter(e=>e!==enemy);this.addItem('berry',1);if(this.rng()>.55)this.addItem('ore',1);this.say('Enemy defeated • loot recovered');}return;}this.mineAt(worldX,worldY);}
+  private mineAt(worldX:number,worldY:number){const x=Math.floor(worldX/TILE),y=Math.floor(worldY/TILE);if(x<0||y<0||x>=WIDTH||y>=HEIGHT)return;const centerX=x*TILE+TILE/2,centerY=y*TILE+TILE/2;if(Phaser.Math.Distance.Between(this.player.x,this.player.y,centerX,centerY)>MINE_RANGE)return this.say('Too far away.');const type=this.world[y][x];if(!this.isMineable(type))return this.say('Nothing mineable here.');const item:ItemType=type==='ore'?'ore':type==='stone'?'stone':type==='crystal'?'crystal':'wood',amount=type==='crystal'?2:type==='ore'?2:1;if(!this.addItem(item,amount))return;this.world[y][x]='empty';this.tiles[y][x].setFillStyle(TILE_COLORS.empty);this.say(`Mined ${amount} ${ITEM_NAMES[item]}`);}
+  private placeAt(worldX:number,worldY:number){const x=Math.floor(worldX/TILE),y=Math.floor(worldY/TILE),item=this.hotbar[this.selectedSlot];if(item==='sword')return this.say('Sword is a weapon, not a building material.');if(x<0||y<0||x>=WIDTH||y>=HEIGHT||this.world[y][x]!=='empty')return this.say('Choose an empty tile.');if(Phaser.Math.Distance.Between(this.player.x,this.player.y,x*TILE+TILE/2,y*TILE+TILE/2)>MINE_RANGE)return this.say('Too far away.');if((this.inventory[item]??0)<1)return this.say(`No ${ITEM_NAMES[item]}.`);this.inventory[item]=(this.inventory[item]??0)-1;this.world[y][x]=item==='crystal'?'crystal':item==='ore'?'ore':item==='stone'?'stone':'dirt';this.tiles[y][x].setFillStyle(item==='torch'?0xe6b85c:TILE_COLORS[this.world[y][x]]);this.say(`Placed ${ITEM_NAMES[item]}.`);}
+  private craftPickaxe(){this.craft('copperPickaxe');}
+  private craft(id:RecipeId){const recipe=RECIPES.find(e=>e.id===id);if(!recipe)return;if(id==='copperPickaxe'&&this.pickaxeLevel>=2)return this.say('Copper pickaxe already crafted.');if(id==='sword'&&this.hasSword())return this.say('Copper sword already crafted.');if(recipe.requiresPickaxe&&this.pickaxeLevel<recipe.requiresPickaxe)return this.say(`Requires Pickaxe Lv.${recipe.requiresPickaxe}.`);for(const[item,amount]of Object.entries(recipe.cost)as Array<[ItemType,number]>)if((this.inventory[item]??0)<amount)return this.say(`Need ${amount} ${ITEM_NAMES[item]}.`);for(const[item,amount]of Object.entries(recipe.cost)as Array<[ItemType,number]>)this.inventory[item]=(this.inventory[item]??0)-amount;if(id==='copperPickaxe'){this.pickaxeLevel=2;this.say('Copper Pickaxe crafted • mining damage increased!');}else if(id==='sword'){this.addItem('sword',1);this.say('Copper Sword crafted • select slot 1 to equip!');}else if(id==='torch'){this.addItem('torch',3);this.say('Crafted 3 Torches • light the dark.');}else{this.health=Math.min(MAX_HEALTH,this.health+25);this.say('Healing Salve crafted and used • +25 health.');}}
+  private eatBerry(){if((this.inventory.berry??0)<1)return this.say('No berries.');this.inventory.berry=(this.inventory.berry??0)-1;this.hunger=Math.min(100,this.hunger+30);this.health=Math.min(MAX_HEALTH,this.health+8);this.say('Ate a berry.');}
+  private useSalve(){if(this.pickaxeLevel<2)return this.say('Craft a Copper Pickaxe first.');if((this.inventory.berry??0)<2||(this.inventory.crystal??0)<1)return this.say('Salve needs 2 Berries + 1 Crystal.');this.inventory.berry=(this.inventory.berry??0)-2;this.inventory.crystal=(this.inventory.crystal??0)-1;this.health=Math.min(MAX_HEALTH,this.health+25);this.say('Used Healing Salve • +25 health.');}
+  private addItem(type:ItemType,count:number){const current=this.inventory[type]??0;if(current===0&&Object.values(this.inventory).filter(v=>(v??0)>0).length>=INVENTORY_CAPACITY){this.say('Inventory full! Open Backpack and make room.');return false;}this.inventory[type]=current+count;return true;}
+  private spawnEnemy(tileX:number,tileY:number){const x=Phaser.Math.Clamp(tileX,1,WIDTH-2),y=Phaser.Math.Clamp(tileY,1,HEIGHT-2),tier=Math.min(4,Math.floor(this.survivalTime/45)),hp=20+tier*8,size=16+tier*2,body=this.add.rectangle(x*TILE+TILE/2,y*TILE+TILE/2,size,size,0xa24b58).setDepth(19);this.enemies.push({body,hp,hitAt:0});}
+  private updateEnemies(dt:number,time:number){const spawnInterval=Math.max(6500,15000-Math.floor(this.survivalTime/30)*1000),maxEnemies=Math.min(8,3+Math.floor(this.survivalTime/60));if(time-this.lastEnemySpawn>spawnInterval&&this.enemies.length<maxEnemies){this.lastEnemySpawn=time;const angle=this.rng()*Math.PI*2,distance=9+Math.floor(this.rng()*7);this.spawnEnemy(Math.floor(this.player.x/TILE)+Math.round(Math.cos(angle)*distance),Math.floor(this.player.y/TILE)+Math.round(Math.sin(angle)*distance));this.say('Something is hunting nearby...');}for(const enemy of this.enemies){const distance=Phaser.Math.Distance.Between(enemy.body.x,enemy.body.y,this.player.x,this.player.y);if(distance<240){const angle=Phaser.Math.Angle.Between(enemy.body.x,enemy.body.y,this.player.x,this.player.y),tier=Math.max(0,Math.floor((enemy.hp-20)/8));enemy.body.x+=Math.cos(angle)*(35+tier*5)*dt;enemy.body.y+=Math.sin(angle)*(35+tier*5)*dt;if(distance<22&&time>enemy.hitAt){enemy.hitAt=time+Math.max(550,900-tier*80);this.health=Math.max(0,this.health-(8+tier*2));this.say('Enemy attack!');}}}}
+  private respawn(){this.health=MAX_HEALTH;this.hunger=70;this.stamina=MAX_STAMINA;this.player.setPosition(WIDTH/2*TILE,HEIGHT/2*TILE);this.say('You fell. The Core brought you home.');}
+  private isMineable(type:TileType):type is MineableTile{return type==='dirt'||type==='stone'||type==='ore'||type==='crystal';} private say(text:string){this.message.setText(text);window.dispatchEvent(new CustomEvent('core2d:message',{detail:{text}}));}
+  private updateHud(){const minutes=Math.floor(this.survivalTime/60),seconds=Math.floor(this.survivalTime%60).toString().padStart(2,'0'),inv=this.hotbar.map((item,i)=>`${i===this.selectedSlot?'>':' '} ${i+1}:${ITEM_NAMES[item]} ${(this.inventory[item]??0)}`).join('\n');this.hud.setText([`CORE2D v${CORE2D_VERSION} — UNDERGROUND SURVIVAL`,`HP ${Math.ceil(this.health)}/${MAX_HEALTH}   Hunger ${Math.ceil(this.hunger)}/100   Stamina ${Math.ceil(this.stamina)}/100`,`Pickaxe Lv.${this.pickaxeLevel}   Survival ${minutes}:${seconds}   Threat ${this.enemies.length}`,'──────── HOTBAR ────────',inv,'WASD / arrows move • LMB attack with sword','F attack forward • C crafting • I inventory • Q salve • SPACE eat']);window.dispatchEvent(new CustomEvent('core2d:state',{detail:{version:CORE2D_VERSION,health:this.health,hunger:this.hunger,stamina:this.stamina,pickaxeLevel:this.pickaxeLevel,survivalTime:this.survivalTime,threats:this.enemies.length,selectedSlot:this.selectedSlot,inventory:{...this.inventory},inventoryCapacity:INVENTORY_CAPACITY,attackRange:ATTACK_RANGE/TILE,hasSword:this.hasSword()}}));}
+  private generateWorld():TileType[][]{const world:TileType[][]=[],cx=WIDTH/2,cy=HEIGHT/2;for(let y=0;y<HEIGHT;y++){world[y]=[];for(let x=0;x<WIDTH;x++){const distance=Math.hypot(x-cx,y-cy),n=this.rng();let type:TileType=distance<7?'grass':n>.72?'stone':'dirt';if(distance>10&&n>.92)type='ore';if(distance>20&&n>.975)type='crystal';if(n<.035&&distance>9)type='water';world[y][x]=type;}}return world;}
+  private seededRandom(seed:number){let state=seed>>>0;return()=>{state=(1664525*state+1013904223)>>>0;return state/0x100000000;};}
 }
-
-new Phaser.Game({ type: Phaser.AUTO, parent: 'game', width: 960, height: 640, backgroundColor: '#101712', pixelArt: true, scene: [WorldScene] });
+new Phaser.Game({type:Phaser.AUTO,parent:'game',width:960,height:640,backgroundColor:'#101712',pixelArt:true,scene:[WorldScene]});
