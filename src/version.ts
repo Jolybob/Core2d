@@ -1,4 +1,4 @@
-const VERSION='0.3.24';
+const VERSION='0.3.25';
 document.title=`v${VERSION} — Core2D`;
 const version=document.querySelector<HTMLElement>('.brand-version');
 if(version)version.textContent=`v${VERSION}`;
