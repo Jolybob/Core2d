@@ -4,11 +4,11 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="theme-color" content="#17120d" />
-<title>v0.3.9 — Core2D</title>
+<title>v0.3.10 — Core2D</title>
 <style>html,body,#game{margin:0;width:100%;height:100%;overflow:hidden;background:#17120d}body{font-family:Inter,ui-sans-serif,system-ui,sans-serif}canvas{display:block}#core2d-loader-error{position:fixed;inset:16px;z-index:9999;display:grid;place-items:center;padding:24px;box-sizing:border-box;border:2px solid #b85c48;border-radius:14px;background:#211914f2;color:#fff4df;font:14px/1.5 ui-monospace,monospace;white-space:pre-wrap}</style>
 <script type="importmap">{"imports":{"phaser":"https://cdn.jsdelivr.net/npm/phaser@4.2.1/dist/phaser.esm.js"}}</script>
 </head><body><div id="game"></div><script src="https://cdn.jsdelivr.net/npm/typescript@5.8.3/lib/typescript.min.js"></script><script type="module">
-const BUILD_VERSION='0.3.9';
+const BUILD_VERSION='0.3.10';
 const showError=error=>{const panel=document.createElement('pre');panel.id='core2d-loader-error';panel.textContent=`Core2D could not start.\n\n${error instanceof Error?error.stack||error.message:String(error)}`;document.body.appendChild(panel)};
 const fetchText=async path=>{const r=await fetch(path,{cache:'no-store'});if(!r.ok)throw new Error(`Could not read ${path} (${r.status})`);return r.text()};
 const transpile=(source,fileName)=>window.ts.transpileModule(source,{compilerOptions:{target:window.ts.ScriptTarget.ES2022,module:window.ts.ModuleKind.ESNext,moduleResolution:window.ts.ModuleResolutionKind.Bundler},fileName}).outputText;
@@ -16,36 +16,12 @@ const moduleUrl=code=>URL.createObjectURL(new Blob([code],{type:'text/javascript
 try{
  const [mainRaw,uiRaw,css]=await Promise.all([fetchText('./src/main.ts'),fetchText('./src/ui.ts'),fetchText('./src/ui.css')]);
  document.title=`v${BUILD_VERSION} — Core2D`;
- const uiSource=uiRaw.replace(/0\.3\.0|0\.3\.1|0\.3\.2|0\.3\.3|0\.3\.4|0\.3\.5|0\.3\.6|0\.3\.7|0\.3\.8/g,BUILD_VERSION).replace(/import\s+['"]\.\/ui\.css['"];?/,'');
- let mainSource=mainRaw.replace(/0\.3\.0|0\.3\.1|0\.3\.2|0\.3\.3|0\.3\.4|0\.3\.5|0\.3\.6|0\.3\.7|0\.3\.8/g,BUILD_VERSION).replace(/import\s+['"]\.\/ui['"];?/,'');
+ const uiSource=uiRaw.replace(/0\.3\.0|0\.3\.1|0\.3\.2|0\.3\.3|0\.3\.4|0\.3\.5|0\.3\.6|0\.3\.7|0\.3\.8|0\.3\.9/g,BUILD_VERSION).replace(/import\s+['"]\.\/ui\.css['"];?/,'');
+ let mainSource=mainRaw.replace(/0\.3\.0|0\.3\.1|0\.3\.2|0\.3\.3|0\.3\.4|0\.3\.5|0\.3\.6|0\.3\.7|0\.3\.8|0\.3\.9/g,BUILD_VERSION).replace(/import\s+['"]\.\/ui['"];?/,'');
  mainSource=mainSource.replace(/inventory: Partial<Record<ItemType, number>> = \{ wood: 6, berry: 2 \}/,'inventory: Partial<Record<ItemType, number>> = { wood: 20, ore: 12, berry: 4 }');
- mainSource=mainSource.replace(/private playSwordAttack\(dx:number,dy:number\)\{[\s\S]*?\n  \}\n  private addSlashTrail/,`private playSwordAttack(dx:number,dy:number){
-    const angle=Math.atan2(dy,dx),px=this.player.x,py=this.player.y;
-    const root=this.add.container(px,py).setDepth(500);
-    const shadow=this.add.ellipse(0,8,48,16,0x000000,.28);
-    const slash=this.add.arc(0,0,58,-65,65,false,0xffd76a,.22).setStrokeStyle(7,0xfff4bd,.95);
-    const blade=this.add.rectangle(0,-28,10,50,0xfff8dc).setOrigin(.5,1).setStrokeStyle(2,0x513b28);
-    const guard=this.add.rectangle(0,-7,22,6,0xc88a43).setOrigin(.5);
-    const grip=this.add.rectangle(0,2,7,16,0x70452c).setOrigin(.5);
-    root.add([shadow,slash,blade,guard,grip]);
-    root.setRotation(angle-Math.PI*.72).setScale(.65);
-    const burst=this.add.graphics().setDepth(501);
-    burst.lineStyle(4,0xfff4bd,1);
-    for(let i=0;i<10;i++){const a=angle+(i-4.5)*.22,x=px+Math.cos(a)*38,y=py+Math.sin(a)*38;burst.lineBetween(x-Math.cos(a)*8,y-Math.sin(a)*8,x+Math.cos(a)*12,y+Math.sin(a)*12)}
-    this.tweens.add({targets:root,rotation:angle+Math.PI*.75,scaleX:1,scaleY:1,duration:190,ease:'Cubic.easeOut'});
-    this.tweens.add({targets:slash,alpha:0,scaleX:1.25,scaleY:1.25,duration:170,delay:20});
-    this.tweens.add({targets:shadow,alpha:0,duration:120});
-    this.tweens.add({targets:burst,alpha:0,scaleX:1.5,scaleY:1.5,duration:150,onComplete:()=>burst.destroy()});
-    this.tweens.add({targets:this.player,x:px+dx*5,y:py+dy*5,duration:55,yoyo:true,ease:'Quad.easeOut'});
-    this.cameras.main.shake(80,.0025);
-    this.time.delayedCall(210,()=>root.destroy());
-  }
-  private addSlashTrail`);
- const uiUrl=moduleUrl(transpile(uiSource,'src/ui.ts'));
- const mainUrl=moduleUrl(transpile(mainSource,'src/main.ts'));
- const style=document.createElement('style');style.textContent=css+'\n.ui-crafting.open,.ui-inventory.open,.ui-help.open{z-index:10000!important}.ui-crafting.open button,.ui-inventory.open button,.ui-help.open button{pointer-events:auto!important;touch-action:manipulation}';document.head.appendChild(style);
- await import(uiUrl);
- // Reliable UI bridge: capture pointer events before Phaser/canvas can consume them.
+ const uiUrl=moduleUrl(transpile(uiSource,'src/ui.ts'));const mainUrl=moduleUrl(transpile(mainSource,'src/main.ts'));
+ const style=document.createElement('style');style.textContent=css+'\n#core-ui{z-index:1000!important}.ui-crafting.open,.ui-inventory.open,.ui-help.open{z-index:10000!important;pointer-events:auto!important}.ui-crafting.open .menu-card,.ui-crafting.open button,.ui-inventory.open .menu-card,.ui-inventory.open button,.ui-help.open button{pointer-events:auto!important;touch-action:manipulation}';document.head.appendChild(style);
+ // UI capture bridge. This deliberately uses plain DOM delegation instead of a fragile generated regex.
  document.addEventListener('pointerdown',e=>{
    const el=e.target instanceof HTMLElement?e.target:null;if(!el)return;
    const recipe=el.closest('[data-recipe]');
@@ -53,10 +29,8 @@ try{
    const slot=el.closest('[data-slot]');
    if(slot){e.preventDefault();e.stopPropagation();const n=Number(slot.getAttribute('data-slot'));if(Number.isInteger(n))window.dispatchEvent(new CustomEvent('core2d:select',{detail:{slot:n}}));return;}
    const invItem=el.closest('[data-item]');
-   if(invItem){e.preventDefault();e.stopPropagation();const item=invItem.getAttribute('data-item');const slots=['sword','wood','stone','ore','berry','torch'];const n=slots.indexOf(item||'');if(n>=0){window.dispatchEvent(new CustomEvent('core2d:select',{detail:{slot:n}}));const modal=document.querySelector('#ui-inventory');modal?.classList.remove('open');modal?.setAttribute('aria-hidden','true')}return;}
+   if(invItem){e.preventDefault();e.stopPropagation();const item=invItem.getAttribute('data-item');const slots=['sword','wood','stone','ore','berry','torch'];const n=slots.indexOf(item||'');if(n>=0){window.dispatchEvent(new CustomEvent('core2d:select',{detail:{slot:n}}));document.querySelector('#ui-inventory')?.classList.remove('open');document.querySelector('#ui-inventory')?.setAttribute('aria-hidden','true')}return;}
  },true);
- await import(mainUrl);
- // Make the canvas attack path animate even when there is nothing to hit.
- window.addEventListener('core2d:attack',()=>{},true);
+ await import(uiUrl);await import(mainUrl);
 } catch(error){console.error('[Core2D] startup failure',error);showError(error)}
 </script></body></html>
