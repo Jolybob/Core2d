@@ -24,13 +24,24 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
+          cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build
         run: npm run build
+
+      - name: Verify Vite output
+        run: |
+          test -f dist/index.html
+          if grep -Eq 'src/[^"'"' ]+\.(ts|tsx|css)(["'"' ]|$)' dist/index.html; then
+            echo 'ERROR: dist/index.html still references source files.'
+            cat dist/index.html
+            exit 1
+          fi
+          echo 'Vite output verified: no raw TypeScript/CSS source imports in dist/index.html.'
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
