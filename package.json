@@ -1,7 +1,7 @@
 {
   "name": "core2d",
   "private": true,
-  "version": "0.3.16",
+  "version": "0.3.17",
   "type": "module",
   "scripts": {"dev": "vite","build": "tsc && vite build","preview": "vite preview"},
   "dependencies": {"phaser": "4.2.1"},
