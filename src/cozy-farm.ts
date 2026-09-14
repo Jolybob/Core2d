@@ -1,35 +1,348 @@
 import Phaser from 'phaser';
-const VERSION='0.3.20',TILE=24,W=70,H=52,DAY_LENGTH=120;
-type Tool='hoe'|'seeds'|'water'|'axe'|'pick'|'sword';
-type Crop={stage:number,watered:boolean,g:Phaser.GameObjects.Graphics};
-type Item='wood'|'ore'|'stone'|'berry'|'crystal'|'sword'|'torch';
-type RecipeId='copperPickaxe'|'sword'|'torch'|'healingSalve';
-type RecipeCost=Partial<Record<Item,number>>;
-const RECIPES:Record<RecipeId,RecipeCost>={copperPickaxe:{wood:8,ore:4},sword:{wood:4,ore:6},torch:{wood:2,ore:1},healingSalve:{berry:2,crystal:1}};
-class CozyFarm extends Phaser.Scene{
- private player!:Phaser.GameObjects.Rectangle; private tiles:Phaser.GameObjects.Rectangle[][]=[]; private crops=new Map<string,Crop>(); private trees:Phaser.GameObjects.Container[]=[]; private rocks:Phaser.GameObjects.Rectangle[]=[]; private keys!:Record<string,Phaser.Input.Keyboard.Key>; private cursors!:Phaser.Types.Input.Keyboard.CursorKeys;
- private day=1;private clock=0;private stamina=100;private hunger=100;private health=100;private money=120;private pickaxeLevel=1;private tool:Tool='hoe';private lastAction=0;private hud!:Phaser.GameObjects.Text;private message!:Phaser.GameObjects.Text;private night!:Phaser.GameObjects.Rectangle;private selected={x:0,y:0};private inventory:Record<Item,number>={wood:12,ore:8,stone:10,berry:4,crystal:2,sword:1,torch:6};
- constructor(){super('farm')}
- create(){const k=this.input.keyboard!;this.cursors=k.createCursorKeys();this.keys={W:k.addKey('W'),A:k.addKey('A'),S:k.addKey('S'),D:k.addKey('D'),ONE:k.addKey('ONE'),TWO:k.addKey('TWO'),THREE:k.addKey('THREE'),FOUR:k.addKey('FOUR'),FIVE:k.addKey('FIVE'),SIX:k.addKey('SIX'),E:k.addKey('E'),SPACE:k.addKey('SPACE'),F:k.addKey('F')};this.world();this.house();this.treesForage();this.quarry();this.animals();this.player=this.add.rectangle(35*TILE+12,27*TILE+12,15,20,0xf1cf91).setDepth(30);this.cameras.main.setBounds(0,0,W*TILE,H*TILE);this.cameras.main.startFollow(this.player,true,.14,.14);this.cameras.main.setZoom(1.3);this.night=this.add.rectangle(480,320,960,640,0x17243b,0).setScrollFactor(0).setDepth(90);this.hud=this.add.text(14,12,'',{fontFamily:'Georgia',fontSize:'15px',color:'#fff',backgroundColor:'#26351ddd',padding:{x:10,y:8}}).setScrollFactor(0).setDepth(100);this.message=this.add.text(480,14,'',{fontFamily:'Georgia',fontSize:'15px',color:'#ffe9ad',backgroundColor:'#26351ddd',padding:{x:10,y:7}}).setOrigin(.5,0).setScrollFactor(0).setDepth(100);this.input.on('pointerdown',(p:Phaser.Input.Pointer)=>{if(p.leftButtonDown())this.actionAt(p.worldX,p.worldY)});window.addEventListener('core2d:craft',this.onCraft as EventListener);window.addEventListener('core2d:mine',this.onMine as EventListener);window.addEventListener('core2d:attack',this.onAttack as EventListener);window.addEventListener('core2d:place',this.onPlace as EventListener);window.addEventListener('core2d:select',this.onSelect as EventListener);window.addEventListener('core2d:eat',this.eat as EventListener);this.say('Day 1 • Home is west of the field. Farm, gather, then visit the quarry east.');this.updateHud()}
- private world(){for(let y=0;y<H;y++){this.tiles[y]=[];for(let x=0;x<W;x++){let c=0x6f9b4f;if(x>=27&&x<=43&&y>=19&&y<=35)c=0x9a6845;if(x>=4&&x<=18&&y>=39)c=0xb49363;if(x>=53&&x<=64&&y>=19&&y<=35)c=(x+y)%3===0?0x77736c:0x88847b;this.tiles[y][x]=this.add.rectangle(x*TILE+12,y*TILE+12,23,23,c)}}const pond=this.add.ellipse(13*TILE,11*TILE,230,150,0x4f8fa3).setDepth(2);pond.setStrokeStyle(4,0x315f70);for(let x=29;x<=41;x++)for(let y=22;y<=30;y++)if((x+y)%3===0)this.tiles[y][x].setFillStyle(0x9a6845)}
- private house(){const x=35*TILE+12,y=17*TILE+12;this.add.rectangle(x,y,12*TILE,6*TILE,0xc18a55).setDepth(5).setStrokeStyle(3,0x7b5537);this.add.rectangle(x,y+28,42,34,0x65432e).setDepth(6);this.add.polygon(x-145,y-55,[0,55,145,0,290,55],0x9a4e43).setDepth(6);this.add.text(x,y-8,'HOME',{fontFamily:'Georgia',fontSize:'13px',color:'#ffe6ad'}).setOrigin(.5).setDepth(7)}
- private treesForage(){for(let i=0;i<28;i++){const x=4+Math.floor(Math.random()*62),y=3+Math.floor(Math.random()*42);if(x>25&&x<46&&y>15&&y<37)continue;const c=this.add.container(x*TILE+12,y*TILE+12).setDepth(5);c.add(this.add.rectangle(0,10,11,22,0x60452e));c.add(this.add.circle(0,-5,17,0x355d3b));c.setData('x',x);c.setData('y',y);this.trees.push(c)}}
- private quarry(){for(let i=0;i<18;i++){const x=55+Math.floor(Math.random()*9),y=21+Math.floor(Math.random()*13),r=this.add.rectangle(x*TILE+12,y*TILE+12,17,17,i%3===0?0xb7864f:0x77736c).setDepth(3);r.setData('x',x);r.setData('y',y);r.setData('ore',i%3===0);this.rocks.push(r)}this.add.text(58*TILE,18*TILE,'QUARRY',{fontFamily:'Georgia',fontSize:'13px',color:'#fff0c2'}).setDepth(8)}
- private animals(){for(let i=0;i<5;i++){const a=this.add.ellipse((22+i*2)*TILE+12,34*TILE+12,19,14,0xf1dfbd).setDepth(12);this.tweens.add({targets:a,y:a.y+3,duration:700+i*80,yoyo:true,repeat:-1})}}
- update(_t:number,delta:number){const dt=Math.min(delta,50)/1000;this.clock+=dt;this.hunger=Math.max(0,this.hunger-dt*.18);this.stamina=Math.min(100,this.stamina+dt*14);let dx=0,dy=0;if(this.cursors.left.isDown||this.keys.A.isDown)dx--;if(this.cursors.right.isDown||this.keys.D.isDown)dx++;if(this.cursors.up.isDown||this.keys.W.isDown)dy--;if(this.cursors.down.isDown||this.keys.S.isDown)dy++;if(dx||dy){const l=Math.hypot(dx,dy),speed=this.stamina>5?145:70;this.player.x=Phaser.Math.Clamp(this.player.x+dx/l*speed*dt,10,W*TILE-10);this.player.y=Phaser.Math.Clamp(this.player.y+dy/l*speed*dt,10,H*TILE-10);this.stamina=Math.max(0,this.stamina-dt*4)}if(Phaser.Input.Keyboard.JustDown(this.keys.ONE))this.setTool('hoe');if(Phaser.Input.Keyboard.JustDown(this.keys.TWO))this.setTool('seeds');if(Phaser.Input.Keyboard.JustDown(this.keys.THREE))this.setTool('water');if(Phaser.Input.Keyboard.JustDown(this.keys.FOUR))this.setTool('axe');if(Phaser.Input.Keyboard.JustDown(this.keys.FIVE))this.setTool('pick');if(Phaser.Input.Keyboard.JustDown(this.keys.SIX))this.setTool('sword');if(Phaser.Input.Keyboard.JustDown(this.keys.E))this.actionSelected();if(Phaser.Input.Keyboard.JustDown(this.keys.SPACE))this.eat();if(Phaser.Input.Keyboard.JustDown(this.keys.F))this.swing();if(this.clock>=DAY_LENGTH){this.clock-=DAY_LENGTH;this.day++;this.growCrops();this.stamina=100;this.say(`Day ${this.day} • Morning!`)}const hour=this.clock/DAY_LENGTH*24;this.night.setAlpha(hour>=19?Math.min(.48,(hour-19)/5*.48):hour<6?(6-hour)/6*.48:0);this.selected.x=Math.floor(this.player.x/TILE);this.selected.y=Math.floor(this.player.y/TILE);this.updateHud()}
- private setTool(t:Tool){this.tool=t;this.say(`${t.toUpperCase()} equipped • click a nearby tile`)} private actionSelected(){this.actionAt(this.selected.x*TILE+12,this.selected.y*TILE+12)}
- private actionAt(wx:number,wy:number){if(this.time.now-this.lastAction<180)return;this.lastAction=this.time.now;const x=Math.floor(wx/TILE),y=Math.floor(wy/TILE);if(Math.abs(x-this.selected.x)>5||Math.abs(y-this.selected.y)>5)return this.say('Too far away.');switch(this.tool){case'hoe':this.hoe(x,y);break;case'seeds':this.plant(x,y);break;case'water':this.water(x,y);break;case'axe':this.chop(x,y);break;case'pick':this.mine(x,y);break;case'sword':this.swing()}}
- private k(x:number,y:number){return `${x},${y}`}private plot(x:number,y:number){return x>=29&&x<=41&&y>=22&&y<=30}
- private hoe(x:number,y:number){if(!this.plot(x,y))return this.say('The hoe works only in your farm plot.');this.tiles[y][x].setFillStyle(0x9a6845);this.stamina=Math.max(0,this.stamina-4);this.say('Soil tilled. Switch to Seeds.')}
- private plant(x:number,y:number){if(!this.plot(x,y))return this.say('Plant inside the farm plot.');const key=this.k(x,y);if(this.crops.has(key))return this.say('A crop is already growing here.');if((this.inventory.berry??0)<1)return this.say('Use a Berry as your starter seed.');this.inventory.berry--;const g=this.add.graphics().setDepth(15);g.fillStyle(0x6b4b2f).fillCircle(x*TILE+12,y*TILE+15,4);this.crops.set(key,{stage:0,watered:false,g});this.stamina=Math.max(0,this.stamina-2);this.say('Parsnip planted. Water it before bedtime.')}
- private water(x:number,y:number){const c=this.crops.get(this.k(x,y));if(!c)return this.say('Water a planted crop.');if(c.watered)return this.say('Already watered today.');c.watered=true;c.g.clear().fillStyle(0x70b85a).fillCircle(x*TILE+12,y*TILE+10,5);this.stamina=Math.max(0,this.stamina-1);this.say('Crop watered.')}
- private growCrops(){for(const [key,c] of this.crops){if(!c.watered)continue;c.stage++;c.watered=false;const [x,y]=key.split(',').map(Number);c.g.clear().fillStyle(c.stage>=3?0xffd45c:0x70b85a).fillCircle(x*TILE+12,y*TILE+10,5+c.stage);if(c.stage>=3)this.say('A crop is ready to harvest!')}}
- private chop(x:number,y:number){const i=this.trees.findIndex(t=>t.getData('x')===x&&t.getData('y')===y);if(i<0)return this.say('There is no tree here.');this.trees[i].destroy();this.trees.splice(i,1);this.inventory.wood+=3;this.stamina=Math.max(0,this.stamina-8);this.say('+3 Wood.')}
- private mine(x:number,y:number){const i=this.rocks.findIndex(r=>r.getData('x')===x&&r.getData('y')===y);if(i<0)return this.say('Go east to the quarry for stone and copper.');const r=this.rocks[i],ore=Boolean(r.getData('ore'));r.destroy();this.rocks.splice(i,1);if(ore)this.inventory.ore+=2;else this.inventory.stone+=2;this.stamina=Math.max(0,this.stamina-7);this.say(ore?'+2 Copper Ore.':'+2 Stone.')}
- private swing(){if(!this.inventory.sword)return this.say('Craft a sword at the workbench first.');const a=this.add.arc(this.player.x,this.player.y,42,20,140,false,0xffe39a,.65).setDepth(40);this.tweens.add({targets:a,alpha:0,scale:1.55,duration:160,onComplete:()=>a.destroy()});this.say('Sword swing!')}
- private onCraft=(e:Event)=>{const id=(e as CustomEvent).detail?.id as RecipeId;const cost=RECIPES[id];if(!cost)return;const missing=Object.entries(cost).find(([it,n])=>(this.inventory[it as Item]??0)<n);if(missing)return this.say(`Not enough ${missing[0]}.`);for(const [it,n] of Object.entries(cost))this.inventory[it as Item]-=n;if(id==='copperPickaxe')this.pickaxeLevel=Math.max(this.pickaxeLevel,2);if(id==='sword')this.inventory.sword=1;if(id==='torch')this.inventory.torch+=3;if(id==='healingSalve'){this.health=Math.min(100,this.health+30);this.say('Salve crafted and used.')}else this.say('Crafted successfully.')}
- private onMine=()=>{this.setTool('pick');this.actionSelected()};private onAttack=()=>this.swing();private onPlace=()=>this.actionSelected();private onSelect=(e:Event)=>{const s=Number((e as CustomEvent).detail?.slot),map:Tool[]=['sword','axe','pick','pick','seeds','water'];if(Number.isFinite(s)&&map[s])this.setTool(map[s])};private eat=()=>{if(!this.inventory.berry)return this.say('No berries to eat.');this.inventory.berry--;this.hunger=Math.min(100,this.hunger+28);this.health=Math.min(100,this.health+6);this.say('Berry eaten. Energy restored.')};
- private updateHud(){const h=Math.floor(this.clock/DAY_LENGTH*24),m=Math.floor((this.clock/DAY_LENGTH*24%1)*60);window.dispatchEvent(new CustomEvent('core2d:state',{detail:{version:VERSION,health:this.health,hunger:this.hunger,stamina:this.stamina,pickaxeLevel:this.pickaxeLevel,survivalTime:(this.day-1)*DAY_LENGTH+this.clock,threats:0,selectedSlot:['sword','axe','pick','pick','seeds','water'].indexOf(this.tool),inventory:{...this.inventory},inventoryCapacity:24,attackRange:1.8,hasSword:Boolean(this.inventory.sword)}}));this.hud.setText(`DAY ${this.day}  ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}\n♥ ${Math.ceil(this.health)}   Hunger ${Math.ceil(this.hunger)}   Stamina ${Math.ceil(this.stamina)}\n$ ${this.money}   ${this.tool.toUpperCase()}  Pick ${this.pickaxeLevel}`)}
- private say(text:string){this.message.setText(text);window.dispatchEvent(new CustomEvent('core2d:message',{detail:{text}}))}
+
+const VERSION = '0.3.21';
+const TILE = 24;
+const W = 70;
+const H = 52;
+const DAY_LENGTH = 120;
+
+type Tool = 'hoe' | 'seeds' | 'water' | 'axe' | 'pick' | 'sword';
+type Item = 'wood' | 'ore' | 'stone' | 'crystal' | 'berry' | 'seeds' | 'parsnip' | 'torch' | 'sword';
+type RecipeId = 'copperPickaxe' | 'sword' | 'torch' | 'healingSalve';
+type RecipeCost = Partial<Record<Item, number>>;
+type Crop = { stage: number; watered: boolean; g: Phaser.GameObjects.Graphics };
+
+const RECIPES: Record<RecipeId, RecipeCost> = {
+  copperPickaxe: { wood: 8, ore: 4 },
+  sword: { wood: 4, ore: 6 },
+  torch: { wood: 2, ore: 1 },
+  healingSalve: { berry: 2, crystal: 1 },
+};
+
+class CozyFarm extends Phaser.Scene {
+  private player!: Phaser.GameObjects.Rectangle;
+  private tiles: Phaser.GameObjects.Rectangle[][] = [];
+  private crops = new Map<string, Crop>();
+  private trees: Phaser.GameObjects.Container[] = [];
+  private rocks: Phaser.GameObjects.Rectangle[] = [];
+  private obstacles: Phaser.Geom.Rectangle[] = [];
+  private keys!: Record<string, Phaser.Input.Keyboard.Key>;
+  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private day = 1;
+  private clock = 0;
+  private stamina = 100;
+  private hunger = 100;
+  private health = 100;
+  private money = 120;
+  private pickaxeLevel = 1;
+  private tool: Tool = 'hoe';
+  private lastAction = 0;
+  private sprintUntil = 0;
+  private hud!: Phaser.GameObjects.Text;
+  private message!: Phaser.GameObjects.Text;
+  private night!: Phaser.GameObjects.Rectangle;
+  private selected = { x: 0, y: 0 };
+  private inventory: Record<Item, number> = {
+    wood: 12, ore: 8, stone: 10, crystal: 2, berry: 4, seeds: 4, parsnip: 0, torch: 6, sword: 1,
+  };
+
+  constructor() { super('farm'); }
+
+  create() {
+    const k = this.input.keyboard!;
+    this.cursors = k.createCursorKeys();
+    this.keys = {
+      W: k.addKey('W'), A: k.addKey('A'), S: k.addKey('S'), D: k.addKey('D'),
+      ONE: k.addKey('ONE'), TWO: k.addKey('TWO'), THREE: k.addKey('THREE'),
+      FOUR: k.addKey('FOUR'), FIVE: k.addKey('FIVE'), SIX: k.addKey('SIX'),
+      E: k.addKey('E'), SPACE: k.addKey('SPACE'), F: k.addKey('F'), SHIFT: k.addKey('SHIFT'),
+    };
+    this.world();
+    this.house();
+    this.treesForage();
+    this.quarry();
+    this.animals();
+    this.player = this.add.rectangle(35 * TILE + 12, 27 * TILE + 12, 15, 20, 0xf1cf91).setDepth(30);
+    this.cameras.main.setBounds(0, 0, W * TILE, H * TILE);
+    this.cameras.main.startFollow(this.player, true, 0.14, 0.14);
+    this.cameras.main.setZoom(1.3);
+    this.night = this.add.rectangle(480, 320, 960, 640, 0x17243b, 0).setScrollFactor(0).setDepth(90);
+    this.hud = this.add.text(14, 12, '', { fontFamily: 'Georgia', fontSize: '15px', color: '#fff', backgroundColor: '#26351ddd', padding: { x: 10, y: 8 } }).setScrollFactor(0).setDepth(100);
+    this.message = this.add.text(480, 14, '', { fontFamily: 'Georgia', fontSize: '15px', color: '#ffe9ad', backgroundColor: '#26351ddd', padding: { x: 10, y: 7 } }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(100);
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => { if (p.leftButtonDown()) this.actionAt(p.worldX, p.worldY); });
+    window.addEventListener('core2d:craft', this.onCraft as EventListener);
+    window.addEventListener('core2d:mine', this.onMine as EventListener);
+    window.addEventListener('core2d:attack', this.onAttack as EventListener);
+    window.addEventListener('core2d:place', this.onPlace as EventListener);
+    window.addEventListener('core2d:select', this.onSelect as EventListener);
+    window.addEventListener('core2d:eat', this.eat as EventListener);
+    window.addEventListener('core2d:salve', this.useSalve as EventListener);
+    window.addEventListener('core2d:sprint', this.sprint as EventListener);
+    this.say('Day 1 • Farm first, then gather in the forest and quarry.');
+    this.updateHud();
+  }
+
+  private world() {
+    for (let y = 0; y < H; y++) {
+      this.tiles[y] = [];
+      for (let x = 0; x < W; x++) {
+        let c = 0x6f9b4f;
+        if (x >= 27 && x <= 43 && y >= 19 && y <= 35) c = 0x9a6845;
+        if (x >= 4 && x <= 18 && y >= 39) c = 0xb49363;
+        if (x >= 53 && x <= 64 && y >= 19 && y <= 35) c = (x + y) % 3 === 0 ? 0x77736c : 0x88847b;
+        this.tiles[y][x] = this.add.rectangle(x * TILE + 12, y * TILE + 12, 23, 23, c);
+      }
+    }
+    const pond = this.add.ellipse(13 * TILE, 11 * TILE, 230, 150, 0x4f8fa3).setDepth(2);
+    pond.setStrokeStyle(4, 0x315f70);
+    for (let x = 29; x <= 41; x++) for (let y = 22; y <= 30; y++) if ((x + y) % 3 === 0) this.tiles[y][x].setFillStyle(0x9a6845);
+  }
+
+  private house() {
+    const x = 35 * TILE + 12, y = 17 * TILE + 12;
+    this.add.rectangle(x, y, 12 * TILE, 6 * TILE, 0xc18a55).setDepth(5).setStrokeStyle(3, 0x7b5537);
+    this.add.rectangle(x, y + 28, 42, 34, 0x65432e).setDepth(6);
+    this.add.polygon(x - 145, y - 55, [0, 55, 145, 0, 290, 55], 0x9a4e43).setDepth(6);
+    this.add.text(x, y - 8, 'HOME', { fontFamily: 'Georgia', fontSize: '13px', color: '#ffe6ad' }).setOrigin(0.5).setDepth(7);
+    this.obstacles.push(new Phaser.Geom.Rectangle(x - 144, y - 72, 288, 144));
+  }
+
+  private treesForage() {
+    for (let i = 0; i < 28; i++) {
+      const x = 4 + Math.floor(Math.random() * 62), y = 3 + Math.floor(Math.random() * 42);
+      if ((x > 25 && x < 46 && y > 15 && y < 37) || (x < 20 && y > 37) || (x > 52 && y > 18)) { i--; continue; }
+      const c = this.add.container(x * TILE + 12, y * TILE + 12).setDepth(5);
+      c.add(this.add.rectangle(0, 10, 11, 22, 0x60452e));
+      c.add(this.add.circle(0, -5, 17, 0x355d3b));
+      c.setData('x', x); c.setData('y', y);
+      this.trees.push(c);
+    }
+  }
+
+  private quarry() {
+    for (let i = 0; i < 18; i++) {
+      const x = 55 + Math.floor(Math.random() * 9), y = 21 + Math.floor(Math.random() * 13);
+      const r = this.add.rectangle(x * TILE + 12, y * TILE + 12, 17, 17, i % 3 === 0 ? 0xb7864f : 0x77736c).setDepth(3);
+      r.setData('x', x); r.setData('y', y); r.setData('ore', i % 3 === 0); this.rocks.push(r);
+    }
+    this.add.text(58 * TILE, 18 * TILE, 'QUARRY', { fontFamily: 'Georgia', fontSize: '13px', color: '#fff0c2' }).setDepth(8);
+  }
+
+  private animals() {
+    for (let i = 0; i < 5; i++) {
+      const a = this.add.ellipse((22 + i * 2) * TILE + 12, 34 * TILE + 12, 19, 14, 0xf1dfbd).setDepth(12);
+      this.tweens.add({ targets: a, y: a.y + 3, duration: 700 + i * 80, yoyo: true, repeat: -1 });
+    }
+  }
+
+  update(_t: number, delta: number) {
+    const dt = Math.min(delta, 50) / 1000;
+    this.clock += dt;
+    this.hunger = Math.max(0, this.hunger - dt * 0.18);
+    this.stamina = Math.min(100, this.stamina + dt * (this.tool === 'sword' ? 10 : 14));
+    let dx = 0, dy = 0;
+    if (this.cursors.left.isDown || this.keys.A.isDown) dx--;
+    if (this.cursors.right.isDown || this.keys.D.isDown) dx++;
+    if (this.cursors.up.isDown || this.keys.W.isDown) dy--;
+    if (this.cursors.down.isDown || this.keys.S.isDown) dy++;
+    if (dx || dy) {
+      const l = Math.hypot(dx, dy);
+      const sprinting = this.keys.SHIFT.isDown && this.stamina > 12;
+      const speed = sprinting ? 220 : 145;
+      const nx = Phaser.Math.Clamp(this.player.x + dx / l * speed * dt, 10, W * TILE - 10);
+      const ny = Phaser.Math.Clamp(this.player.y + dy / l * speed * dt, 10, H * TILE - 10);
+      if (!this.blocked(nx, this.player.y)) this.player.x = nx;
+      if (!this.blocked(this.player.x, ny)) this.player.y = ny;
+      this.stamina = Math.max(0, this.stamina - dt * (sprinting ? 18 : 4));
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.keys.ONE)) this.setTool('hoe');
+    if (Phaser.Input.Keyboard.JustDown(this.keys.TWO)) this.setTool('seeds');
+    if (Phaser.Input.Keyboard.JustDown(this.keys.THREE)) this.setTool('water');
+    if (Phaser.Input.Keyboard.JustDown(this.keys.FOUR)) this.setTool('axe');
+    if (Phaser.Input.Keyboard.JustDown(this.keys.FIVE)) this.setTool('pick');
+    if (Phaser.Input.Keyboard.JustDown(this.keys.SIX)) this.setTool('sword');
+    if (Phaser.Input.Keyboard.JustDown(this.keys.E)) this.actionSelected();
+    if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE)) this.eat();
+    if (Phaser.Input.Keyboard.JustDown(this.keys.F)) this.swing();
+    if (Phaser.Input.Keyboard.JustDown(this.keys.SHIFT)) this.sprint();
+    if (this.clock >= DAY_LENGTH) {
+      this.clock -= DAY_LENGTH;
+      this.day++;
+      this.growCrops();
+      this.stamina = 100;
+      this.hunger = Math.max(0, this.hunger - 8);
+      this.say(`Day ${this.day} • Morning! Crops grow when they were watered.`);
+    }
+    const hour = this.clock / DAY_LENGTH * 24;
+    this.night.setAlpha(hour >= 19 ? Math.min(0.48, (hour - 19) / 5 * 0.48) : hour < 6 ? (6 - hour) / 6 * 0.48 : 0);
+    this.selected.x = Math.floor(this.player.x / TILE);
+    this.selected.y = Math.floor(this.player.y / TILE);
+    this.updateHud();
+  }
+
+  private blocked(x: number, y: number) {
+    const body = new Phaser.Geom.Rectangle(x - 7, y - 9, 14, 18);
+    return this.obstacles.some(r => Phaser.Geom.Intersects.RectangleToRectangle(body, r));
+  }
+
+  private setTool(t: Tool) { this.tool = t; this.say(`${t.toUpperCase()} equipped • click a nearby tile`); }
+  private actionSelected() { this.actionAt(this.selected.x * TILE + 12, this.selected.y * TILE + 12); }
+
+  private actionAt(wx: number, wy: number) {
+    if (this.time.now - this.lastAction < 180) return;
+    this.lastAction = this.time.now;
+    const x = Math.floor(wx / TILE), y = Math.floor(wy / TILE);
+    if (Math.abs(x - this.selected.x) > 5 || Math.abs(y - this.selected.y) > 5) return this.say('Too far away.');
+    switch (this.tool) {
+      case 'hoe': this.hoe(x, y); break;
+      case 'seeds': this.plant(x, y); break;
+      case 'water': this.water(x, y); break;
+      case 'axe': this.chop(x, y); break;
+      case 'pick': this.mine(x, y); break;
+      case 'sword': this.swing(); break;
+    }
+  }
+
+  private k(x: number, y: number) { return `${x},${y}`; }
+  private plot(x: number, y: number) { return x >= 29 && x <= 41 && y >= 22 && y <= 30; }
+
+  private hoe(x: number, y: number) {
+    if (!this.plot(x, y)) return this.say('The hoe works only in your farm plot.');
+    this.tiles[y][x].setFillStyle(0x9a6845);
+    this.stamina = Math.max(0, this.stamina - 4);
+    this.say('Soil tilled. Switch to Seeds.');
+  }
+
+  private plant(x: number, y: number) {
+    if (!this.plot(x, y)) return this.say('Plant inside the farm plot.');
+    const key = this.k(x, y);
+    if (this.crops.has(key)) return this.say('A crop is already growing here.');
+    if (this.tiles[y][x].fillColor !== 0x9a6845) return this.say('Till the soil first.');
+    if (this.inventory.seeds < 1) return this.say('No seeds left. Find more at the farm shop later.');
+    this.inventory.seeds--;
+    const g = this.add.graphics().setDepth(15);
+    g.fillStyle(0x6b4b2f).fillCircle(x * TILE + 12, y * TILE + 15, 4);
+    this.crops.set(key, { stage: 0, watered: false, g });
+    this.stamina = Math.max(0, this.stamina - 2);
+    this.say('Parsnip planted. Water it before bedtime.');
+  }
+
+  private water(x: number, y: number) {
+    const c = this.crops.get(this.k(x, y));
+    if (!c) return this.say('Water a planted crop.');
+    if (c.watered) return this.say('Already watered today.');
+    c.watered = true;
+    c.g.clear().fillStyle(0x70b85a).fillCircle(x * TILE + 12, y * TILE + 10, 5 + c.stage);
+    this.stamina = Math.max(0, this.stamina - 1);
+    this.say('Crop watered.');
+  }
+
+  private growCrops() {
+    for (const [key, c] of this.crops) {
+      if (!c.watered) continue;
+      c.stage++;
+      c.watered = false;
+      const [x, y] = key.split(',').map(Number);
+      c.g.clear().fillStyle(c.stage >= 3 ? 0xffd45c : 0x70b85a).fillCircle(x * TILE + 12, y * TILE + 10, 5 + c.stage);
+    }
+    if ([...this.crops.values()].some(c => c.stage >= 3)) this.say('Some crops are ready. Use Seeds on them to harvest.');
+  }
+
+  private harvest(x: number, y: number) {
+    const key = this.k(x, y), c = this.crops.get(key);
+    if (!c || c.stage < 3) return false;
+    c.g.destroy(); this.crops.delete(key);
+    this.inventory.parsnip++;
+    this.money += 35;
+    this.say('+1 Parsnip • +$35 harvest value.');
+    return true;
+  }
+
+  private chop(x: number, y: number) {
+    const i = this.trees.findIndex(t => t.getData('x') === x && t.getData('y') === y);
+    if (i < 0) return this.say('There is no tree here.');
+    this.trees[i].destroy(); this.trees.splice(i, 1);
+    this.inventory.wood += 3; this.stamina = Math.max(0, this.stamina - 8);
+    this.say('+3 Wood.');
+  }
+
+  private mine(x: number, y: number) {
+    const i = this.rocks.findIndex(r => r.getData('x') === x && r.getData('y') === y);
+    if (i < 0) return this.say('Go east to the quarry for stone and copper.');
+    const r = this.rocks[i], ore = Boolean(r.getData('ore'));
+    r.destroy(); this.rocks.splice(i, 1);
+    if (ore) this.inventory.ore += this.pickaxeLevel >= 2 ? 3 : 2; else this.inventory.stone += 2;
+    this.stamina = Math.max(0, this.stamina - 7);
+    this.say(ore ? `+${this.pickaxeLevel >= 2 ? 3 : 2} Copper Ore.` : '+2 Stone.');
+  }
+
+  private swing() {
+    if (!this.inventory.sword) return this.say('Craft a sword at the workbench first.');
+    const a = this.add.arc(this.player.x, this.player.y, 42, 20, 140, false, 0xffe39a, 0.8).setDepth(40);
+    const hit = this.add.circle(this.player.x + 28, this.player.y, 6, 0xffd45c, 0.75).setDepth(39);
+    this.tweens.add({ targets: [a, hit], alpha: 0, scale: 1.7, duration: 160, onComplete: () => { a.destroy(); hit.destroy(); } });
+    this.tweens.add({ targets: this.player, x: this.player.x + 5, duration: 55, yoyo: true });
+    this.cameras.main.shake(55, 0.002);
+    this.say('Sword swing!');
+  }
+
+  private sprint = () => {
+    if (this.stamina < 12) return this.say('Too tired to sprint.');
+    this.stamina -= 12; this.sprintUntil = this.time.now + 500;
+    this.tweens.add({ targets: this.player, scaleX: 1.15, duration: 100, yoyo: true });
+    this.say('Sprint ready • hold Shift to run.');
+  };
+
+  private eat = () => {
+    if (!this.inventory.berry) return this.say('No berries to eat.');
+    this.inventory.berry--; this.hunger = Math.min(100, this.hunger + 28); this.health = Math.min(100, this.health + 6);
+    this.say('Berry eaten. Hunger restored.');
+  };
+
+  private useSalve = () => {
+    if (this.health >= 100) return this.say('You are already at full health.');
+    if (this.inventory.berry < 2 || this.inventory.crystal < 1) return this.say('Need 2 Berries + 1 Crystal.');
+    this.inventory.berry -= 2; this.inventory.crystal--; this.health = Math.min(100, this.health + 30); this.say('Healing salve used.');
+  };
+
+  private onCraft = (e: Event) => {
+    const id = (e as CustomEvent).detail?.id as RecipeId;
+    const cost = RECIPES[id]; if (!cost) return;
+    if (id === 'healingSalve') return this.useSalve();
+    const missing = Object.entries(cost).find(([it, n]) => (this.inventory[it as Item] ?? 0) < n);
+    if (missing) return this.say(`Not enough ${missing[0]}.`);
+    for (const [it, n] of Object.entries(cost)) this.inventory[it as Item] -= n;
+    if (id === 'copperPickaxe') this.pickaxeLevel = Math.max(this.pickaxeLevel, 2);
+    if (id === 'sword') this.inventory.sword = 1;
+    if (id === 'torch') this.inventory.torch += 3;
+    this.say(id === 'copperPickaxe' ? 'Copper Pickaxe crafted • mining improved.' : 'Crafted successfully.');
+  };
+
+  private onMine = () => { this.setTool('pick'); this.actionSelected(); };
+  private onAttack = () => this.swing();
+  private onPlace = () => this.actionSelected();
+  private onSelect = (e: Event) => {
+    const s = Number((e as CustomEvent).detail?.slot);
+    const map: Tool[] = ['sword', 'axe', 'pick', 'pick', 'seeds', 'water'];
+    if (Number.isFinite(s) && map[s]) this.setTool(map[s]);
+  };
+
+  private updateHud() {
+    const h = Math.floor(this.clock / DAY_LENGTH * 24);
+    const m = Math.floor((this.clock / DAY_LENGTH * 24 % 1) * 60);
+    window.dispatchEvent(new CustomEvent('core2d:state', { detail: {
+      version: VERSION, health: this.health, hunger: this.hunger, stamina: this.stamina,
+      pickaxeLevel: this.pickaxeLevel, survivalTime: (this.day - 1) * DAY_LENGTH + this.clock,
+      threats: 0, selectedSlot: ['sword', 'axe', 'pick', 'pick', 'seeds', 'water'].indexOf(this.tool),
+      inventory: { ...this.inventory }, inventoryCapacity: 24, attackRange: 2.3, hasSword: Boolean(this.inventory.sword),
+    }}));
+    this.hud.setText(`DAY ${this.day}  ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}\n♥ ${Math.ceil(this.health)}   Hunger ${Math.ceil(this.hunger)}   Stamina ${Math.ceil(this.stamina)}\n$ ${this.money}   ${this.tool.toUpperCase()}  Pick ${this.pickaxeLevel}`);
+  }
+
+  private say(text: string) {
+    this.message.setText(text);
+    window.dispatchEvent(new CustomEvent('core2d:message', { detail: { text } }));
+  }
 }
-new Phaser.Game({type:Phaser.AUTO,parent:'game',width:960,height:640,backgroundColor:'#5f8749',pixelArt:true,scene:[CozyFarm]});
+
+new Phaser.Game({ type: Phaser.AUTO, parent: 'game', width: 960, height: 640, backgroundColor: '#5f8749', pixelArt: true, scene: [CozyFarm] });
