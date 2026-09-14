@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-const CORE2D_VERSION = '0.3.6';
+const CORE2D_VERSION = '0.3.16';
 const TILE = 24, WIDTH = 100, HEIGHT = 75, WORLD_SEED = 1337;
 const PLAYER_SPEED = 170, SPRINT_SPEED = 270, MINE_RANGE = TILE * 3.5, ATTACK_RANGE = TILE * 2.25, ATTACK_COOLDOWN = 420;
 const MAX_HEALTH = 100, MAX_STAMINA = 100, STAMINA_DRAIN = 28, STAMINA_REGEN = 20, INVENTORY_CAPACITY = 24;
@@ -22,7 +22,7 @@ const RECIPES: Recipe[] = [
 class WorldScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle; private core!: Phaser.GameObjects.Arc; private world!: TileType[][]; private tiles!: Phaser.GameObjects.Rectangle[][];
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys; private keys!: Record<string, Phaser.Input.Keyboard.Key>;
-  private inventory: Partial<Record<ItemType, number>> = { wood: 6, berry: 2 }; private selectedSlot = 0;
+  private inventory: Partial<Record<ItemType, number>> = { wood: 20, ore: 12, berry: 4 }; private selectedSlot = 0;
   private hotbar: ItemType[] = ['sword', 'wood', 'stone', 'ore', 'berry', 'torch'];
   private health = MAX_HEALTH; private hunger = 100; private stamina = MAX_STAMINA; private pickaxeLevel = 1;
   private selected = { x: 0, y: 0 }; private hud!: Phaser.GameObjects.Text; private message!: Phaser.GameObjects.Text; private selection!: Phaser.GameObjects.Rectangle;
