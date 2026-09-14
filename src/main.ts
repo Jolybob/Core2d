@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 
+const CORE2D_VERSION = '0.2.0';
+
 const TILE = 24;
 const WIDTH = 100;
 const HEIGHT = 75;
@@ -108,6 +110,7 @@ class WorldScene extends Phaser.Scene {
     this.lastEnemySpawn = this.time.now;
     this.spawnEnemy(spawnX + 10, spawnY + 6);
     this.updateHud();
+    console.info(`[Core2D] v${CORE2D_VERSION}`);
     console.info('[Core2D] Gameplay systems online: sprinting, escalating enemies, survival loop');
   }
 
@@ -264,16 +267,13 @@ class WorldScene extends Phaser.Scene {
   private say(text: string) { this.message.setText(text); }
 
   private updateHud() {
-    const inv = this.hotbar.map((item, i) => `${i === this.selectedSlot ? '>' : ' '} ${i + 1}:${ITEM_NAMES[item]} ${(this.inventory[item] ?? 0)}`).join('\n');
     const minutes = Math.floor(this.survivalTime / 60);
     const seconds = Math.floor(this.survivalTime % 60).toString().padStart(2, '0');
-    const coreX = WIDTH / 2 * TILE, coreY = HEIGHT / 2 * TILE;
-    const distanceFromCore = Math.floor(Phaser.Math.Distance.Between(this.player.x, this.player.y, coreX, coreY) / TILE);
+    const inv = this.hotbar.map((item, i) => `${i === this.selectedSlot ? '>' : ' '} ${i + 1}:${ITEM_NAMES[item]} ${(this.inventory[item] ?? 0)}`).join('\n');
     this.hud.setText([
-      'CORE2D — UNDERGROUND SURVIVAL',
-      `HP ${Math.ceil(this.health)}/${MAX_HEALTH}   Hunger ${Math.ceil(this.hunger)}/100`,
-      `Stamina ${Math.ceil(this.stamina)}/${MAX_STAMINA}   Depth ${distanceFromCore}m`,
-      `Pickaxe Lv.${this.pickaxeLevel}   Threats ${this.enemies.length}   ${minutes}:${seconds}`,
+      `CORE2D v${CORE2D_VERSION} — UNDERGROUND SURVIVAL`,
+      `HP ${Math.ceil(this.health)}/${MAX_HEALTH}   Hunger ${Math.ceil(this.hunger)}/100   Stamina ${Math.ceil(this.stamina)}/100`,
+      `Pickaxe Lv.${this.pickaxeLevel}   Survival ${minutes}:${seconds}   Threat ${this.enemies.length}`,
       '──────── HOTBAR ────────', inv,
       'WASD / arrows move • SHIFT sprint • LMB mine/attack • RMB place',
       '1-5 select • E craft Copper Pickaxe • SPACE eat',
