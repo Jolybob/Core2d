@@ -4,22 +4,30 @@ const TILE = 24;
 const WIDTH = 80;
 const HEIGHT = 60;
 const WORLD_SEED = 1337;
+const PLAYER_SPEED = 180;
 
 const TILE_COLORS = {
   grass: 0x5d8c4a,
   dirt: 0x7a5236,
   stone: 0x4b4d55,
   ore: 0xb87333,
+  empty: 0x252b27,
 } as const;
 
 type TileType = keyof typeof TILE_COLORS;
+type MineableTile = Exclude<TileType, 'grass' | 'empty'>;
 
 class WorldScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
   private world!: TileType[][];
   private tiles!: Phaser.GameObjects.Rectangle[][];
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private keys!: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key };
+  private keys!: {
+    W: Phaser.Input.Keyboard.Key;
+    A: Phaser.Input.Keyboard.Key;
+    S: Phaser.Input.Keyboard.Key;
+    D: Phaser.Input.Keyboard.Key;
+  };
   private selected = { x: 0, y: 0 };
   private inventory = 0;
   private hud!: Phaser.GameObjects.Text;
@@ -30,6 +38,11 @@ class WorldScene extends Phaser.Scene {
   }
 
   create() {
+    const keyboard = this.input.keyboard;
+    if (!keyboard) {
+      throw new Error('Keyboard input is required for Core2D.');
+    }
+
     this.rng = this.seededRandom(WORLD_SEED);
     this.world = this.generateWorld();
     this.tiles = [];
@@ -59,16 +72,18 @@ class WorldScene extends Phaser.Scene {
     );
     this.player.setDepth(10);
 
-    this.cursors = this.input.keyboard!.createCursorKeys();
+    this.cursors = keyboard.createCursorKeys();
     this.keys = {
-      W: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.W),
-      A: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-      S: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.S),
-      D: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+      W: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
+      A: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+      S: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
+      D: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
     };
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (pointer.leftButtonDown()) this.mineAt(pointer.worldX, pointer.worldY);
+      if (pointer.leftButtonDown()) {
+        this.mineAt(pointer.worldX, pointer.worldY);
+      }
     });
 
     this.hud = this.add.text(16, 16, '', {
@@ -87,7 +102,6 @@ class WorldScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
-    const speed = 180;
     let dx = 0;
     let dy = 0;
 
@@ -100,13 +114,25 @@ class WorldScene extends Phaser.Scene {
       const length = Math.hypot(dx, dy);
       dx /= length;
       dy /= length;
-      const nextX = Phaser.Math.Clamp(this.player.x + dx * speed * delta / 1000, 8, WIDTH * TILE - 8);
-      const nextY = Phaser.Math.Clamp(this.player.y + dy * speed * delta / 1000, 10, HEIGHT * TILE - 10);
+
+      // Cap unusually large frame deltas so a tab switch or dropped frame
+      // cannot move the player a large distance in a single update.
+      const frameDelta = Math.min(delta, 50) / 1000;
+      const nextX = Phaser.Math.Clamp(
+        this.player.x + dx * PLAYER_SPEED * frameDelta,
+        8,
+        WIDTH * TILE - 8,
+      );
+      const nextY = Phaser.Math.Clamp(
+        this.player.y + dy * PLAYER_SPEED * frameDelta,
+        10,
+        HEIGHT * TILE - 10,
+      );
       this.player.setPosition(nextX, nextY);
     }
 
-    const tileX = Math.floor(this.player.x / TILE);
-    const tileY = Math.floor(this.player.y / TILE);
+    const tileX = Phaser.Math.Clamp(Math.floor(this.player.x / TILE), 0, WIDTH - 1);
+    const tileY = Phaser.Math.Clamp(Math.floor(this.player.y / TILE), 0, HEIGHT - 1);
     this.selected.x = tileX;
     this.selected.y = tileY;
     this.updateHud();
@@ -118,12 +144,16 @@ class WorldScene extends Phaser.Scene {
     if (x < 0 || y < 0 || x >= WIDTH || y >= HEIGHT) return;
 
     const type = this.world[y][x];
-    if (type === 'stone' || type === 'ore' || type === 'dirt') {
-      this.inventory += type === 'ore' ? 3 : 1;
-      this.world[y][x] = 'dirt';
-      this.tiles[y][x].setFillStyle(TILE_COLORS.dirt);
-      this.updateHud();
-    }
+    if (!this.isMineable(type)) return;
+
+    this.inventory += type === 'ore' ? 3 : 1;
+    this.world[y][x] = 'empty';
+    this.tiles[y][x].setFillStyle(TILE_COLORS.empty);
+    this.updateHud();
+  }
+
+  private isMineable(type: TileType): type is MineableTile {
+    return type === 'dirt' || type === 'stone' || type === 'ore';
   }
 
   private updateHud() {
@@ -149,6 +179,7 @@ class WorldScene extends Phaser.Scene {
         world[y][x] = type;
       }
     }
+
     return world;
   }
 
