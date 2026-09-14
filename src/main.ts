@@ -1,64 +1,88 @@
 import Phaser from 'phaser';
+import { Inventory } from './game/Inventory';
+import { TILE_COLORS, TILE_SIZE, TileType, isMineable, miningYield } from './game/Tile';
+import { WorldGenerator } from './game/WorldGenerator';
 
-const TILE = 24;
-const WIDTH = 80;
-const HEIGHT = 60;
+const WORLD_WIDTH = 80;
+const WORLD_HEIGHT = 60;
 const WORLD_SEED = 1337;
-
-const TILE_COLORS = {
-  grass: 0x5d8c4a,
-  dirt: 0x7a5236,
-  stone: 0x4b4d55,
-  ore: 0xb87333,
-} as const;
-
-type TileType = keyof typeof TILE_COLORS;
+const PLAYER_SPEED = 180;
+const MINE_RANGE = TILE_SIZE * 4;
 
 class WorldScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
   private world!: TileType[][];
   private tiles!: Phaser.GameObjects.Rectangle[][];
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private keys!: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key };
-  private selected = { x: 0, y: 0 };
-  private inventory = 0;
+  private keys!: Record<'W' | 'A' | 'S' | 'D', Phaser.Input.Keyboard.Key>;
+  private inventory = new Inventory();
   private hud!: Phaser.GameObjects.Text;
-  private rng!: () => number;
+  private target!: Phaser.GameObjects.Rectangle;
 
   constructor() {
     super('world');
   }
 
-  create() {
-    this.rng = this.seededRandom(WORLD_SEED);
-    this.world = this.generateWorld();
+  create(): void {
+    this.world = new WorldGenerator({
+      width: WORLD_WIDTH,
+      height: WORLD_HEIGHT,
+      seed: WORLD_SEED,
+      spawnClearRadius: 9,
+    }).generate();
+
+    this.renderWorld();
+    this.createPlayer();
+    this.createInput();
+    this.createHud();
+    this.createTargetIndicator();
+
+    this.cameras.main
+      .setBounds(0, 0, WORLD_WIDTH * TILE_SIZE, WORLD_HEIGHT * TILE_SIZE)
+      .setZoom(1.25)
+      .startFollow(this.player, true, 0.12, 0.12);
+
+    this.updateHud();
+  }
+
+  update(_time: number, delta: number): void {
+    this.movePlayer(delta);
+    this.updateTargetIndicator();
+  }
+
+  private renderWorld(): void {
     this.tiles = [];
 
-    for (let y = 0; y < HEIGHT; y++) {
+    for (let y = 0; y < WORLD_HEIGHT; y += 1) {
       this.tiles[y] = [];
-      for (let x = 0; x < WIDTH; x++) {
-        const type = this.world[y][x];
+      for (let x = 0; x < WORLD_WIDTH; x += 1) {
+        const tile = this.world[y][x];
         this.tiles[y][x] = this.add.rectangle(
-          x * TILE + TILE / 2,
-          y * TILE + TILE / 2,
-          TILE - 1,
-          TILE - 1,
-          TILE_COLORS[type],
+          x * TILE_SIZE + TILE_SIZE / 2,
+          y * TILE_SIZE + TILE_SIZE / 2,
+          TILE_SIZE - 1,
+          TILE_SIZE - 1,
+          TILE_COLORS[tile],
         );
       }
     }
+  }
 
-    const spawnX = Math.floor(WIDTH / 2);
-    const spawnY = Math.floor(HEIGHT / 2);
+  private createPlayer(): void {
+    const spawnX = Math.floor(WORLD_WIDTH / 2);
+    const spawnY = Math.floor(WORLD_HEIGHT / 2);
+
     this.player = this.add.rectangle(
-      spawnX * TILE + TILE / 2,
-      spawnY * TILE + TILE / 2,
+      spawnX * TILE_SIZE + TILE_SIZE / 2,
+      spawnY * TILE_SIZE + TILE_SIZE / 2,
       16,
       20,
       0xf0d090,
     );
     this.player.setDepth(10);
+  }
 
+  private createInput(): void {
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.keys = {
       W: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.W),
@@ -70,7 +94,9 @@ class WorldScene extends Phaser.Scene {
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.leftButtonDown()) this.mineAt(pointer.worldX, pointer.worldY);
     });
+  }
 
+  private createHud(): void {
     this.hud = this.add.text(16, 16, '', {
       fontFamily: 'monospace',
       fontSize: '16px',
@@ -78,16 +104,16 @@ class WorldScene extends Phaser.Scene {
       backgroundColor: '#111111cc',
       padding: { x: 10, y: 8 },
     }).setScrollFactor(0).setDepth(100);
-
-    this.cameras.main.setBounds(0, 0, WIDTH * TILE, HEIGHT * TILE);
-    this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
-    this.cameras.main.setZoom(1.25);
-
-    this.updateHud();
   }
 
-  update(_time: number, delta: number) {
-    const speed = 180;
+  private createTargetIndicator(): void {
+    this.target = this.add.rectangle(0, 0, TILE_SIZE - 2, TILE_SIZE - 2)
+      .setStrokeStyle(2, 0xffffff, 0.8)
+      .setFillStyle(0xffffff, 0.05)
+      .setDepth(20);
+  }
+
+  private movePlayer(delta: number): void {
     let dx = 0;
     let dy = 0;
 
@@ -96,68 +122,70 @@ class WorldScene extends Phaser.Scene {
     if (this.cursors.up.isDown || this.keys.W.isDown) dy -= 1;
     if (this.cursors.down.isDown || this.keys.S.isDown) dy += 1;
 
-    if (dx !== 0 || dy !== 0) {
-      const length = Math.hypot(dx, dy);
-      dx /= length;
-      dy /= length;
-      const nextX = Phaser.Math.Clamp(this.player.x + dx * speed * delta / 1000, 8, WIDTH * TILE - 8);
-      const nextY = Phaser.Math.Clamp(this.player.y + dy * speed * delta / 1000, 10, HEIGHT * TILE - 10);
-      this.player.setPosition(nextX, nextY);
-    }
+    if (dx === 0 && dy === 0) return;
 
-    const tileX = Math.floor(this.player.x / TILE);
-    const tileY = Math.floor(this.player.y / TILE);
-    this.selected.x = tileX;
-    this.selected.y = tileY;
+    const length = Math.hypot(dx, dy);
+    const distance = PLAYER_SPEED * delta / 1000;
+    dx = (dx / length) * distance;
+    dy = (dy / length) * distance;
+
+    this.player.x = Phaser.Math.Clamp(this.player.x + dx, 8, WORLD_WIDTH * TILE_SIZE - 8);
+    this.player.y = Phaser.Math.Clamp(this.player.y + dy, 10, WORLD_HEIGHT * TILE_SIZE - 10);
+  }
+
+  private mineAt(worldX: number, worldY: number): void {
+    const tileX = Math.floor(worldX / TILE_SIZE);
+    const tileY = Math.floor(worldY / TILE_SIZE);
+
+    if (!this.isInsideWorld(tileX, tileY)) return;
+
+    const tileCenterX = tileX * TILE_SIZE + TILE_SIZE / 2;
+    const tileCenterY = tileY * TILE_SIZE + TILE_SIZE / 2;
+    const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, tileCenterX, tileCenterY);
+    if (distance > MINE_RANGE) return;
+
+    const tile = this.world[tileY][tileX];
+    if (!isMineable(tile)) return;
+
+    this.inventory.addResources(miningYield(tile));
+    this.world[tileY][tileX] = TileType.Air;
+    this.tiles[tileY][tileX].setFillStyle(TILE_COLORS[TileType.Air]);
     this.updateHud();
   }
 
-  private mineAt(worldX: number, worldY: number) {
-    const x = Math.floor(worldX / TILE);
-    const y = Math.floor(worldY / TILE);
-    if (x < 0 || y < 0 || x >= WIDTH || y >= HEIGHT) return;
+  private updateTargetIndicator(): void {
+    const pointer = this.input.activePointer;
+    const tileX = Math.floor(pointer.worldX / TILE_SIZE);
+    const tileY = Math.floor(pointer.worldY / TILE_SIZE);
 
-    const type = this.world[y][x];
-    if (type === 'stone' || type === 'ore' || type === 'dirt') {
-      this.inventory += type === 'ore' ? 3 : 1;
-      this.world[y][x] = 'dirt';
-      this.tiles[y][x].setFillStyle(TILE_COLORS.dirt);
-      this.updateHud();
+    if (!this.isInsideWorld(tileX, tileY)) {
+      this.target.setVisible(false);
+      return;
     }
+
+    this.target
+      .setVisible(true)
+      .setPosition(tileX * TILE_SIZE + TILE_SIZE / 2, tileY * TILE_SIZE + TILE_SIZE / 2);
+
+    const distance = Phaser.Math.Distance.Between(
+      this.player.x,
+      this.player.y,
+      this.target.x,
+      this.target.y,
+    );
+    this.target.setAlpha(distance <= MINE_RANGE ? 1 : 0.25);
   }
 
-  private updateHud() {
+  private updateHud(): void {
     this.hud.setText([
-      'CORE2D — Phaser 4 prototype',
+      'CORE2D — Phaser 4',
       'WASD / arrows: move   |   LMB: mine',
-      `Resources: ${this.inventory}   |   Tile: ${this.selected.x},${this.selected.y}`,
+      `Resources: ${this.inventory.totalResources}   |   Mine range: ${MINE_RANGE / TILE_SIZE} tiles`,
     ]);
   }
 
-  private generateWorld(): TileType[][] {
-    const world: TileType[][] = [];
-    const cx = WIDTH / 2;
-    const cy = HEIGHT / 2;
-
-    for (let y = 0; y < HEIGHT; y++) {
-      world[y] = [];
-      for (let x = 0; x < WIDTH; x++) {
-        const distance = Math.hypot(x - cx, y - cy);
-        const noise = this.rng();
-        let type: TileType = distance < 9 ? 'grass' : noise > 0.66 ? 'stone' : 'dirt';
-        if (distance > 14 && noise > 0.91) type = 'ore';
-        world[y][x] = type;
-      }
-    }
-    return world;
-  }
-
-  private seededRandom(seed: number) {
-    let state = seed >>> 0;
-    return () => {
-      state = (1664525 * state + 1013904223) >>> 0;
-      return state / 0x100000000;
-    };
+  private isInsideWorld(x: number, y: number): boolean {
+    return x >= 0 && y >= 0 && x < WORLD_WIDTH && y < WORLD_HEIGHT;
   }
 }
 
