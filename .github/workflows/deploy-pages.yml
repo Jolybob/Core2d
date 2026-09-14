@@ -35,12 +35,16 @@ jobs:
       - name: Verify Vite output
         run: |
           test -f dist/index.html
-          if grep -Eq 'src/[^"'"' ]+\.(ts|tsx|css)(["'"' ]|$)' dist/index.html; then
+          if grep -Eq "src/[^\"' ]+\\.(ts|tsx|css)" dist/index.html; then
             echo 'ERROR: dist/index.html still references source files.'
             cat dist/index.html
             exit 1
           fi
-          echo 'Vite output verified: no raw TypeScript/CSS source imports in dist/index.html.'
+          if grep -Eq 'src/(ui|main|version|cozy-farm)\\.(ts|tsx|css)' dist/assets/*.js dist/assets/*.css 2>/dev/null; then
+            echo 'ERROR: built assets still reference raw source modules.'
+            exit 1
+          fi
+          echo 'Vite output verified: no raw TypeScript/CSS source imports in dist.'
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
