@@ -1,47 +1,62 @@
 import Phaser from 'phaser';
 
 const TILE = 24;
-const WIDTH = 80;
-const HEIGHT = 60;
+const WIDTH = 100;
+const HEIGHT = 75;
 const WORLD_SEED = 1337;
-const PLAYER_SPEED = 180;
+const PLAYER_SPEED = 170;
+const MINE_RANGE = TILE * 3.5;
+const MAX_HEALTH = 100;
 
 const TILE_COLORS = {
-  grass: 0x5d8c4a,
-  dirt: 0x7a5236,
-  stone: 0x4b4d55,
-  ore: 0xb87333,
-  empty: 0x252b27,
+  grass: 0x587c45,
+  dirt: 0x765037,
+  stone: 0x474a52,
+  ore: 0xb86f35,
+  water: 0x254b59,
+  empty: 0x171c1a,
+  crystal: 0x7862a8,
 } as const;
 
 type TileType = keyof typeof TILE_COLORS;
-type MineableTile = Exclude<TileType, 'grass' | 'empty'>;
+type MineableTile = Exclude<TileType, 'grass' | 'empty' | 'water'>;
+type ItemType = 'wood' | 'ore' | 'stone' | 'crystal' | 'berry';
+
+interface ItemStack { type: ItemType; count: number }
+
+const ITEM_NAMES: Record<ItemType, string> = {
+  wood: 'Wood', ore: 'Copper Ore', stone: 'Stone', crystal: 'Crystal', berry: 'Berry',
+};
+
+const RECIPES: Array<{ name: string; cost: Partial<Record<ItemType, number>>; result: ItemStack }> = [
+  { name: 'Wood Pickaxe', cost: { wood: 8, stone: 4 }, result: { type: 'wood', count: 1 } },
+  { name: 'Health Potion', cost: { berry: 3, crystal: 1 }, result: { type: 'berry', count: 1 } },
+];
 
 class WorldScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
   private world!: TileType[][];
   private tiles!: Phaser.GameObjects.Rectangle[][];
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private keys!: {
-    W: Phaser.Input.Keyboard.Key;
-    A: Phaser.Input.Keyboard.Key;
-    S: Phaser.Input.Keyboard.Key;
-    D: Phaser.Input.Keyboard.Key;
-  };
+  private keys!: Record<'W' | 'A' | 'S' | 'D' | 'E' | 'SPACE' | 'ONE' | 'TWO', Phaser.Input.Keyboard.Key>;
+  private inventory: Partial<Record<ItemType, number>> = { wood: 6, berry: 2 };
+  private selectedSlot = 0;
+  private hotbar: ItemType[] = ['wood', 'stone', 'ore', 'crystal', 'berry'];
+  private health = MAX_HEALTH;
+  private hunger = 100;
   private selected = { x: 0, y: 0 };
-  private inventory = 0;
   private hud!: Phaser.GameObjects.Text;
+  private message!: Phaser.GameObjects.Text;
+  private selection!: Phaser.GameObjects.Rectangle;
   private rng!: () => number;
+  private enemies: Array<{ body: Phaser.GameObjects.Rectangle; hp: number; hitAt: number }> = [];
+  private lastEnemySpawn = 0;
 
-  constructor() {
-    super('world');
-  }
+  constructor() { super('world'); }
 
   create() {
     const keyboard = this.input.keyboard;
-    if (!keyboard) {
-      throw new Error('Keyboard input is required for Core2D.');
-    }
+    if (!keyboard) throw new Error('Keyboard input is required for Core2D.');
 
     this.rng = this.seededRandom(WORLD_SEED);
     this.world = this.generateWorld();
@@ -50,161 +65,184 @@ class WorldScene extends Phaser.Scene {
     for (let y = 0; y < HEIGHT; y++) {
       this.tiles[y] = [];
       for (let x = 0; x < WIDTH; x++) {
-        const type = this.world[y][x];
-        this.tiles[y][x] = this.add.rectangle(
-          x * TILE + TILE / 2,
-          y * TILE + TILE / 2,
-          TILE - 1,
-          TILE - 1,
-          TILE_COLORS[type],
-        );
+        const tile = this.add.rectangle(x * TILE + TILE / 2, y * TILE + TILE / 2, TILE - 1, TILE - 1, TILE_COLORS[this.world[y][x]]);
+        this.tiles[y][x] = tile;
       }
     }
 
-    const spawnX = Math.floor(WIDTH / 2);
-    const spawnY = Math.floor(HEIGHT / 2);
-    this.player = this.add.rectangle(
-      spawnX * TILE + TILE / 2,
-      spawnY * TILE + TILE / 2,
-      16,
-      20,
-      0xf0d090,
-    );
-    this.player.setDepth(10);
+    const spawnX = Math.floor(WIDTH / 2), spawnY = Math.floor(HEIGHT / 2);
+    this.world[spawnY][spawnX] = 'grass';
+    this.player = this.add.rectangle(spawnX * TILE + TILE / 2, spawnY * TILE + TILE / 2, 15, 20, 0xf1cf91).setDepth(20);
 
     this.cursors = keyboard.createCursorKeys();
     this.keys = {
-      W: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
-      A: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-      S: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
-      D: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+      W: keyboard.addKey('W'), A: keyboard.addKey('A'), S: keyboard.addKey('S'), D: keyboard.addKey('D'),
+      E: keyboard.addKey('E'), SPACE: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
+      ONE: keyboard.addKey('ONE'), TWO: keyboard.addKey('TWO'),
     };
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (pointer.leftButtonDown()) {
-        this.mineAt(pointer.worldX, pointer.worldY);
-      }
+      if (pointer.leftButtonDown()) this.mineAt(pointer.worldX, pointer.worldY);
+      if (pointer.rightButtonDown()) this.placeAt(pointer.worldX, pointer.worldY);
     });
 
-    this.hud = this.add.text(16, 16, '', {
-      fontFamily: 'monospace',
-      fontSize: '16px',
-      color: '#ffffff',
-      backgroundColor: '#111111cc',
-      padding: { x: 10, y: 8 },
-    }).setScrollFactor(0).setDepth(100);
+    this.selection = this.add.rectangle(0, 0, TILE - 2, TILE - 2, 0xffffff, 0).setStrokeStyle(2, 0xf5df8b).setDepth(15);
+    this.hud = this.add.text(14, 12, '', { fontFamily: 'monospace', fontSize: '15px', color: '#fff', backgroundColor: '#101512dd', padding: { x: 9, y: 8 } }).setScrollFactor(0).setDepth(100);
+    this.message = this.add.text(480, 14, 'Explore • mine • craft • survive', { fontFamily: 'monospace', fontSize: '15px', color: '#f5df8b', backgroundColor: '#101512cc', padding: { x: 8, y: 6 } }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(100);
 
     this.cameras.main.setBounds(0, 0, WIDTH * TILE, HEIGHT * TILE);
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
     this.cameras.main.setZoom(1.25);
-
+    this.spawnEnemy(spawnX + 10, spawnY + 6);
     this.updateHud();
   }
 
   update(_time: number, delta: number) {
-    let dx = 0;
-    let dy = 0;
-
-    if (this.cursors.left.isDown || this.keys.A.isDown) dx -= 1;
-    if (this.cursors.right.isDown || this.keys.D.isDown) dx += 1;
-    if (this.cursors.up.isDown || this.keys.W.isDown) dy -= 1;
-    if (this.cursors.down.isDown || this.keys.S.isDown) dy += 1;
-
-    if (dx !== 0 || dy !== 0) {
+    const dt = Math.min(delta, 50) / 1000;
+    let dx = 0, dy = 0;
+    if (this.cursors.left.isDown || this.keys.A.isDown) dx--;
+    if (this.cursors.right.isDown || this.keys.D.isDown) dx++;
+    if (this.cursors.up.isDown || this.keys.W.isDown) dy--;
+    if (this.cursors.down.isDown || this.keys.S.isDown) dy++;
+    if (dx || dy) {
       const length = Math.hypot(dx, dy);
-      dx /= length;
-      dy /= length;
-
-      // Cap unusually large frame deltas so a tab switch or dropped frame
-      // cannot move the player a large distance in a single update.
-      const frameDelta = Math.min(delta, 50) / 1000;
-      const nextX = Phaser.Math.Clamp(
-        this.player.x + dx * PLAYER_SPEED * frameDelta,
-        8,
-        WIDTH * TILE - 8,
-      );
-      const nextY = Phaser.Math.Clamp(
-        this.player.y + dy * PLAYER_SPEED * frameDelta,
-        10,
-        HEIGHT * TILE - 10,
-      );
-      this.player.setPosition(nextX, nextY);
+      dx /= length; dy /= length;
+      this.player.x = Phaser.Math.Clamp(this.player.x + dx * PLAYER_SPEED * dt, 8, WIDTH * TILE - 8);
+      this.player.y = Phaser.Math.Clamp(this.player.y + dy * PLAYER_SPEED * dt, 10, HEIGHT * TILE - 10);
     }
+
+    if (Phaser.Input.Keyboard.JustDown(this.keys.E)) this.craft(0);
+    if (Phaser.Input.Keyboard.JustDown(this.keys.TWO)) this.craft(1);
+    if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE)) this.eatBerry();
+    if (Phaser.Input.Keyboard.JustDown(this.keys.ONE)) this.selectedSlot = 0;
+
+    this.hunger = Math.max(0, this.hunger - dt * 0.7);
+    if (this.hunger <= 0 && Math.floor(_time / 1000) % 3 === 0) this.health = Math.max(0, this.health - 0.03);
+    if (this.health <= 0) this.respawn();
 
     const tileX = Phaser.Math.Clamp(Math.floor(this.player.x / TILE), 0, WIDTH - 1);
     const tileY = Phaser.Math.Clamp(Math.floor(this.player.y / TILE), 0, HEIGHT - 1);
-    this.selected.x = tileX;
-    this.selected.y = tileY;
+    this.selected.x = tileX; this.selected.y = tileY;
+    this.selection.setPosition(tileX * TILE + TILE / 2, tileY * TILE + TILE / 2);
+    this.updateEnemies(dt, _time);
     this.updateHud();
   }
 
   private mineAt(worldX: number, worldY: number) {
-    const x = Math.floor(worldX / TILE);
-    const y = Math.floor(worldY / TILE);
+    const x = Math.floor(worldX / TILE), y = Math.floor(worldY / TILE);
     if (x < 0 || y < 0 || x >= WIDTH || y >= HEIGHT) return;
-
+    if (Phaser.Math.Distance.Between(this.player.x, this.player.y, x * TILE + TILE / 2, y * TILE + TILE / 2) > MINE_RANGE) return this.say('Too far away.');
     const type = this.world[y][x];
     if (!this.isMineable(type)) return;
-
-    this.inventory += type === 'ore' ? 3 : 1;
+    const item: ItemType = type === 'ore' ? 'ore' : type === 'stone' ? 'stone' : type === 'crystal' ? 'crystal' : 'wood';
+    this.addItem(item, type === 'ore' ? 2 : 1);
     this.world[y][x] = 'empty';
     this.tiles[y][x].setFillStyle(TILE_COLORS.empty);
-    this.updateHud();
+    this.say(`Mined ${ITEM_NAMES[item]}`);
   }
 
-  private isMineable(type: TileType): type is MineableTile {
-    return type === 'dirt' || type === 'stone' || type === 'ore';
+  private placeAt(worldX: number, worldY: number) {
+    const x = Math.floor(worldX / TILE), y = Math.floor(worldY / TILE);
+    const item = this.hotbar[this.selectedSlot];
+    if (x < 0 || y < 0 || x >= WIDTH || y >= HEIGHT || this.world[y][x] !== 'empty') return;
+    if ((this.inventory[item] ?? 0) < 1) return this.say(`No ${ITEM_NAMES[item]}.`);
+    this.inventory[item] = (this.inventory[item] ?? 0) - 1;
+    this.world[y][x] = item === 'crystal' ? 'crystal' : item === 'ore' ? 'ore' : item === 'stone' ? 'stone' : 'dirt';
+    this.tiles[y][x].setFillStyle(TILE_COLORS[this.world[y][x]]);
   }
+
+  private craft(index: number) {
+    const recipe = RECIPES[index];
+    if (!recipe) return;
+    const canCraft = Object.entries(recipe.cost).every(([type, count]) => (this.inventory[type as ItemType] ?? 0) >= (count ?? 0));
+    if (!canCraft) return this.say(`Need: ${Object.entries(recipe.cost).map(([t, c]) => `${c} ${ITEM_NAMES[t as ItemType]}`).join(', ')}`);
+    for (const [type, count] of Object.entries(recipe.cost)) this.inventory[type as ItemType] = (this.inventory[type as ItemType] ?? 0) - (count ?? 0);
+    this.addItem(recipe.result.type, recipe.result.count);
+    this.say(`Crafted ${recipe.name}`);
+  }
+
+  private eatBerry() {
+    if ((this.inventory.berry ?? 0) < 1) return this.say('No berries.');
+    this.inventory.berry!--;
+    this.hunger = Math.min(100, this.hunger + 30);
+    this.health = Math.min(MAX_HEALTH, this.health + 8);
+    this.say('Ate a berry.');
+  }
+
+  private spawnEnemy(tileX: number, tileY: number) {
+    const x = Phaser.Math.Clamp(tileX, 1, WIDTH - 2), y = Phaser.Math.Clamp(tileY, 1, HEIGHT - 2);
+    const body = this.add.rectangle(x * TILE + TILE / 2, y * TILE + TILE / 2, 16, 16, 0xa24b58).setDepth(19);
+    this.enemies.push({ body, hp: 20, hitAt: 0 });
+  }
+
+  private updateEnemies(dt: number, time: number) {
+    if (time - this.lastEnemySpawn > 15000 && this.enemies.length < 5) {
+      this.lastEnemySpawn = time;
+      this.spawnEnemy(Math.floor(this.player.x / TILE) + 8, Math.floor(this.player.y / TILE) + 4);
+    }
+    for (const enemy of this.enemies) {
+      const distance = Phaser.Math.Distance.Between(enemy.body.x, enemy.body.y, this.player.x, this.player.y);
+      if (distance < 220) {
+        const angle = Phaser.Math.Angle.Between(enemy.body.x, enemy.body.y, this.player.x, this.player.y);
+        enemy.body.x += Math.cos(angle) * 35 * dt;
+        enemy.body.y += Math.sin(angle) * 35 * dt;
+        if (distance < 22 && time > enemy.hitAt) {
+          enemy.hitAt = time + 900;
+          this.health = Math.max(0, this.health - 8);
+          this.say('Something hit you!');
+        }
+      }
+    }
+  }
+
+  private respawn() {
+    this.health = MAX_HEALTH; this.hunger = 70;
+    this.player.setPosition((WIDTH / 2) * TILE, (HEIGHT / 2) * TILE);
+    this.say('You fell. Back to the core.');
+  }
+
+  private addItem(type: ItemType, count: number) { this.inventory[type] = (this.inventory[type] ?? 0) + count; }
+  private isMineable(type: TileType): type is MineableTile { return type === 'dirt' || type === 'stone' || type === 'ore' || type === 'crystal'; }
+  private say(text: string) { this.message.setText(text); }
 
   private updateHud() {
+    const inv = this.hotbar.map((item, i) => `${i === this.selectedSlot ? '>' : ' '} ${i + 1}:${ITEM_NAMES[item]} ${(this.inventory[item] ?? 0)}`).join('\n');
     this.hud.setText([
-      'CORE2D — Phaser 4 prototype',
-      'WASD / arrows: move   |   LMB: mine',
-      `Resources: ${this.inventory}   |   Tile: ${this.selected.x},${this.selected.y}`,
+      'CORE2D — UNDERGROUND SURVIVAL',
+      `HP ${Math.ceil(this.health)}/${MAX_HEALTH}   Hunger ${Math.ceil(this.hunger)}/100`,
+      `Pos ${this.selected.x},${this.selected.y}`,
+      '──────── HOTBAR ────────', inv,
+      'WASD / arrows move • LMB mine • RMB place',
+      'E craft pickaxe • 2 craft potion • SPACE eat',
     ]);
   }
 
   private generateWorld(): TileType[][] {
     const world: TileType[][] = [];
-    const cx = WIDTH / 2;
-    const cy = HEIGHT / 2;
-
+    const cx = WIDTH / 2, cy = HEIGHT / 2;
     for (let y = 0; y < HEIGHT; y++) {
       world[y] = [];
       for (let x = 0; x < WIDTH; x++) {
         const distance = Math.hypot(x - cx, y - cy);
-        const noise = this.rng();
-        let type: TileType = distance < 9 ? 'grass' : noise > 0.66 ? 'stone' : 'dirt';
-        if (distance > 14 && noise > 0.91) type = 'ore';
+        const n = this.rng();
+        let type: TileType = distance < 7 ? 'grass' : n > 0.72 ? 'stone' : 'dirt';
+        if (distance > 10 && n > 0.92) type = 'ore';
+        if (distance > 20 && n > 0.975) type = 'crystal';
+        if (n < 0.035 && distance > 9) type = 'water';
         world[y][x] = type;
       }
     }
-
     return world;
   }
 
   private seededRandom(seed: number) {
     let state = seed >>> 0;
-    return () => {
-      state = (1664525 * state + 1013904223) >>> 0;
-      return state / 0x100000000;
-    };
+    return () => { state = (1664525 * state + 1013904223) >>> 0; return state / 0x100000000; };
   }
 }
 
 new Phaser.Game({
-  type: Phaser.WEBGL,
-  width: 960,
-  height: 540,
-  parent: 'game',
-  backgroundColor: '#172018',
-  scene: [WorldScene],
-  render: {
-    antialias: false,
-    pixelArt: true,
-  },
-  scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-  },
+  type: Phaser.WEBGL, width: 960, height: 540, parent: 'game', backgroundColor: '#101712', scene: [WorldScene],
+  render: { antialias: false, pixelArt: true },
+  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
 });
