@@ -1,75 +1,37 @@
 import './ui.css';
 
-const root = document.createElement('div');
-root.id = 'core-ui';
-root.innerHTML = `
-  <div class="ui-top">
-    <div class="ui-brand"><span class="core-dot"></span><span class="brand-title">CORE2D</span><span class="brand-version">v0.2.0</span></div>
-    <div class="ui-stats">
-      <div class="stat health"><div class="stat-label">Health</div><div class="stat-value" data-value="health">100 / 100</div><div class="bar"><div class="fill" data-fill="health"></div></div></div>
-      <div class="stat hunger"><div class="stat-label">Hunger</div><div class="stat-value" data-value="hunger">100 / 100</div><div class="bar"><div class="fill" data-fill="hunger"></div></div></div>
-      <div class="stat stamina"><div class="stat-label">Stamina</div><div class="stat-value" data-value="stamina">100 / 100</div><div class="bar"><div class="fill" data-fill="stamina"></div></div></div>
-    </div>
-  </div>
-  <div class="ui-message" id="ui-message">Find resources and protect the Core</div>
-  <aside class="ui-right">
-    <div class="panel-title">Mission</div>
-    <div class="objective"><strong>Protect the Core</strong>Mine deeper, gather materials, craft upgrades and survive the creatures that emerge from the dark.</div>
-    <div class="panel-title" style="margin-top:14px">Status</div>
-    <div class="objective">Pickaxe <strong style="display:inline;color:#eef5ed">Lv.1</strong><br>Survival <strong style="display:inline;color:#eef5ed" id="ui-time">00:00</strong><br>Threats <strong style="display:inline;color:#d86b6b" id="ui-threats">1</strong></div>
-  </aside>
-  <div class="ui-minimap"><div class="map"><span class="map-label">Local map</span><span class="map-core"></span><span class="map-player"></span></div></div>
-  <div class="ui-bottom">
-    <div class="hotbar">
-      <div class="slot selected"><span class="slot-key">1</span><span class="slot-icon">🪵</span><span class="slot-name">WOOD</span><span class="slot-count">6</span></div>
-      <div class="slot"><span class="slot-key">2</span><span class="slot-icon">🪨</span><span class="slot-name">STONE</span><span class="slot-count">0</span></div>
-      <div class="slot"><span class="slot-key">3</span><span class="slot-icon">◆</span><span class="slot-name">COPPER</span><span class="slot-count">0</span></div>
-      <div class="slot"><span class="slot-key">4</span><span class="slot-icon">✦</span><span class="slot-name">CRYSTAL</span><span class="slot-count">0</span></div>
-      <div class="slot"><span class="slot-key">5</span><span class="slot-icon">🍓</span><span class="slot-name">BERRY</span><span class="slot-count">2</span></div>
-    </div>
-    <div class="controls"><b>WASD</b> move &nbsp; <b>SHIFT</b> sprint<br><b>LMB</b> mine/attack &nbsp; <b>RMB</b> place</div>
-  </div>
-  <button class="ui-button" id="ui-help-button">?</button>
-  <div class="ui-help" id="ui-help">
-    <div class="help-card"><h2>Core2D Controls</h2><p>Everything you need to survive underground.</p>
-      <div class="help-grid">
-        <div class="help-row"><span>Move</span><span class="keycap">W A S D / Arrows</span></div>
-        <div class="help-row"><span>Sprint</span><span class="keycap">SHIFT</span></div>
-        <div class="help-row"><span>Mine / Attack</span><span class="keycap">Left Click</span></div>
-        <div class="help-row"><span>Place Block</span><span class="keycap">Right Click</span></div>
-        <div class="help-row"><span>Select Hotbar</span><span class="keycap">1 — 5</span></div>
-        <div class="help-row"><span>Craft Pickaxe</span><span class="keycap">E</span></div>
-        <div class="help-row"><span>Eat Berry</span><span class="keycap">SPACE</span></div>
-        <div class="help-row"><span>Help</span><span class="keycap">?</span></div>
-      </div>
-      <button class="help-close" id="ui-help-close">Close</button>
-    </div>
-  </div>
-`;
+const VERSION = '0.3.0';
+type Item = 'wood' | 'ore' | 'stone' | 'crystal' | 'berry' | 'torch';
+type RecipeId = 'copperPickaxe' | 'torch' | 'healingSalve';
+type State = { version:string; health:number; hunger:number; stamina:number; pickaxeLevel:number; survivalTime:number; threats:number; selectedSlot:number; inventory:Partial<Record<Item,number>> };
+const items:Record<Item,{name:string;icon:string}>={wood:{name:'WOOD',icon:'🪵'},stone:{name:'STONE',icon:'🪨'},ore:{name:'COPPER',icon:'◆'},crystal:{name:'CRYSTAL',icon:'✦'},berry:{name:'BERRY',icon:'🍓'},torch:{name:'TORCH',icon:'🔥'}};
+const recipes:Array<{id:RecipeId;icon:string;name:string;cost:Partial<Record<Item,number>>;action:string}>=[
+{id:'copperPickaxe',icon:'⛏',name:'Copper Pickaxe',cost:{wood:8,ore:4},action:'CRAFT'},
+{id:'torch',icon:'🔥',name:'Torch ×3',cost:{wood:2,ore:1},action:'CRAFT'},
+{id:'healingSalve',icon:'✚',name:'Healing Salve',cost:{berry:2,crystal:1},action:'MAKE + USE'}];
+const root=document.createElement('div');root.id='core-ui';root.innerHTML=`
+<div class="ui-top"><div class="ui-brand"><span class="core-dot"></span><span class="brand-title">CORE2D</span><span class="brand-version">v${VERSION}</span></div><div class="ui-stats">
+<div class="stat health"><div class="stat-label">Health</div><div class="stat-value" data-value="health">100 / 100</div><div class="bar"><div class="fill" data-fill="health"></div></div></div>
+<div class="stat hunger"><div class="stat-label">Hunger</div><div class="stat-value" data-value="hunger">100 / 100</div><div class="bar"><div class="fill" data-fill="hunger"></div></div></div>
+<div class="stat stamina"><div class="stat-label">Stamina</div><div class="stat-value" data-value="stamina">100 / 100</div><div class="bar"><div class="fill" data-fill="stamina"></div></div></div></div></div>
+<div class="ui-message" id="ui-message">Find resources, craft gear and protect the Core</div>
+<aside class="ui-right"><div class="panel-title">Mission</div><div class="objective"><strong>Protect the Core</strong>Mine deeper, gather materials, craft upgrades and survive the creatures that emerge from the dark.</div><div class="panel-title" style="margin-top:14px">Status</div><div class="objective">Pickaxe <strong style="display:inline;color:#eef5ed" id="ui-pickaxe">Lv.1</strong><br>Survival <strong style="display:inline;color:#eef5ed" id="ui-time">00:00</strong><br>Threats <strong style="display:inline;color:#d86b6b" id="ui-threats">1</strong></div></aside>
+<div class="ui-minimap"><div class="map"><span class="map-label">Local map</span><span class="map-core"></span><span class="map-player"></span></div></div>
+<div class="ui-bottom"><div class="hotbar" id="hotbar"></div><div class="controls"><b>WASD</b> move &nbsp; <b>SHIFT</b> sprint<br><b>LMB</b> mine/attack &nbsp; <b>RMB</b> place</div></div>
+<button class="ui-button ui-craft-button" id="ui-craft-button">CRAFT <span class="keycap">C</span></button><button class="ui-button" id="ui-help-button">?</button>
+<div class="ui-crafting" id="ui-crafting"><div class="craft-card"><div class="craft-head"><div><h2>Workbench</h2><p class="craft-sub">Turn gathered materials into tools, light and survival gear.</p></div><button class="help-close" id="ui-craft-close" style="width:auto;margin:0">Close</button></div><div class="craft-grid" id="craft-grid"></div><div class="craft-hint">C opens crafting • click a recipe to craft • E quick-crafts the Copper Pickaxe • Q uses a Healing Salve</div></div></div>
+<div class="ui-help" id="ui-help"><div class="help-card"><h2>Core2D Controls</h2><p>Everything you need to survive underground.</p><div class="help-grid">
+<div class="help-row"><span>Move</span><span class="keycap">W A S D / Arrows</span></div><div class="help-row"><span>Sprint</span><span class="keycap">SHIFT</span></div><div class="help-row"><span>Mine / Attack</span><span class="keycap">Left Click</span></div><div class="help-row"><span>Place Block</span><span class="keycap">Right Click</span></div><div class="help-row"><span>Select Hotbar</span><span class="keycap">1 — 6</span></div><div class="help-row"><span>Crafting</span><span class="keycap">C</span></div><div class="help-row"><span>Quick Pickaxe</span><span class="keycap">E</span></div><div class="help-row"><span>Healing Salve</span><span class="keycap">Q</span></div><div class="help-row"><span>Eat Berry</span><span class="keycap">SPACE</span></div><div class="help-row"><span>Help</span><span class="keycap">?</span></div></div><button class="help-close" id="ui-help-close">Close</button></div></div>`;
 document.body.appendChild(root);
-
-const help = document.querySelector<HTMLDivElement>('#ui-help')!;
-const openHelp = () => help.classList.add('open');
-const closeHelp = () => help.classList.remove('open');
-document.querySelector('#ui-help-button')?.addEventListener('click', openHelp);
-document.querySelector('#ui-help-close')?.addEventListener('click', closeHelp);
-help.addEventListener('click', (event) => { if (event.target === help) closeHelp(); });
-
-const slots = [...document.querySelectorAll<HTMLElement>('.slot')];
-const selectSlot = (index: number) => slots.forEach((slot, i) => slot.classList.toggle('selected', i === index));
-window.addEventListener('keydown', (event) => {
-  if (event.key >= '1' && event.key <= '5') selectSlot(Number(event.key) - 1);
-  if (event.key === '?' || (event.shiftKey && event.key === '/')) openHelp();
-  if (event.key === 'Escape') closeHelp();
-});
-
-let seconds = 0;
-window.setInterval(() => {
-  seconds += 1;
-  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-  const s = (seconds % 60).toString().padStart(2, '0');
-  const timer = document.querySelector('#ui-time');
-  if (timer) timer.textContent = `${m}:${s}`;
-}, 1000);
-
-console.info('[Core2D UI] Complete HUD loaded');
+const hotbar=document.querySelector<HTMLDivElement>('#hotbar')!,message=document.querySelector<HTMLDivElement>('#ui-message')!,crafting=document.querySelector<HTMLDivElement>('#ui-crafting')!,craftGrid=document.querySelector<HTMLDivElement>('#craft-grid')!,help=document.querySelector<HTMLDivElement>('#ui-help')!;
+let latestState:State={version:VERSION,health:100,hunger:100,stamina:100,pickaxeLevel:1,survivalTime:0,threats:1,selectedSlot:0,inventory:{wood:6,berry:2}};
+const formatTime=(seconds:number)=>{const total=Math.floor(seconds);return `${Math.floor(total/60).toString().padStart(2,'0')}:${(total%60).toString().padStart(2,'0')}`};
+const renderHotbar=()=>{const slots:Item[]=['wood','stone','ore','crystal','berry','torch'];hotbar.innerHTML=slots.map((item,index)=>`<div class="slot ${index===latestState.selectedSlot?'selected':''}"><span class="slot-key">${index+1}</span><span class="slot-icon">${items[item].icon}</span><span class="slot-name">${items[item].name}</span><span class="slot-count">${latestState.inventory[item]??0}</span></div>`).join('')};
+const renderCrafting=()=>{craftGrid.innerHTML=recipes.map(recipe=>{const locked=recipe.id==='healingSalve'&&latestState.pickaxeLevel<2;const enough=Object.entries(recipe.cost).every(([item,amount])=>(latestState.inventory[item as Item]??0)>=amount);const disabled=locked||!enough||(recipe.id==='copperPickaxe'&&latestState.pickaxeLevel>=2);const costs=Object.entries(recipe.cost).map(([item,amount])=>`${amount} ${items[item as Item].name.toLowerCase()}`).join('  •  ');const label=locked?'LOCKED':recipe.id==='copperPickaxe'&&latestState.pickaxeLevel>=2?'BUILT':recipe.action;return `<div class="recipe"><div class="recipe-icon">${recipe.icon}</div><div><div class="recipe-name">${recipe.name}</div><div class="recipe-cost">${locked?'Requires Copper Pickaxe':costs}</div></div><button class="recipe-button" data-recipe="${recipe.id}" ${disabled?'disabled':''}>${label}</button></div>`}).join('');craftGrid.querySelectorAll<HTMLButtonElement>('[data-recipe]').forEach(button=>button.addEventListener('click',()=>window.dispatchEvent(new CustomEvent('core2d:craft',{detail:{id:button.dataset.recipe}}))))};
+const setBar=(name:string,value:number,max:number)=>{const valueEl=document.querySelector<HTMLElement>(`[data-value="${name}"]`),fill=document.querySelector<HTMLElement>(`[data-fill="${name}"]`);if(valueEl)valueEl.textContent=`${Math.ceil(value)} / ${max}`;if(fill)fill.style.width=`${Math.max(0,Math.min(100,value/max*100))}%`};
+window.addEventListener('core2d:state',event=>{latestState={...latestState,...(event as CustomEvent<State>).detail};setBar('health',latestState.health,100);setBar('hunger',latestState.hunger,100);setBar('stamina',latestState.stamina,100);document.querySelector('#ui-pickaxe')!.textContent=`Lv.${latestState.pickaxeLevel}`;document.querySelector('#ui-time')!.textContent=formatTime(latestState.survivalTime);document.querySelector('#ui-threats')!.textContent=String(latestState.threats);renderHotbar();renderCrafting()});
+window.addEventListener('core2d:message',event=>{const text=(event as CustomEvent<{text?:string}>).detail?.text;if(text)message.textContent=text});
+const toggleCrafting=()=>crafting.classList.toggle('open');window.addEventListener('core2d:toggle-crafting',toggleCrafting);document.querySelector('#ui-craft-button')?.addEventListener('click',toggleCrafting);document.querySelector('#ui-craft-close')?.addEventListener('click',()=>crafting.classList.remove('open'));crafting.addEventListener('click',event=>{if(event.target===crafting)crafting.classList.remove('open')});
+document.querySelector('#ui-help-button')?.addEventListener('click',()=>help.classList.add('open'));document.querySelector('#ui-help-close')?.addEventListener('click',()=>help.classList.remove('open'));help.addEventListener('click',event=>{if(event.target===help)help.classList.remove('open')});
+window.addEventListener('keydown',event=>{if(event.key==='?'||(event.shiftKey&&event.key==='/'))help.classList.add('open');if(event.key==='Escape'){help.classList.remove('open');crafting.classList.remove('open')}});
+renderHotbar();renderCrafting();console.info(`[Core2D UI] v${VERSION} complete HUD + crafting loaded`);
