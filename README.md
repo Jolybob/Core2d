@@ -25,14 +25,16 @@ npm run preview
 
 - `src/main.ts` — Phaser bootstrap and scene orchestration
 - `src/game/Tile.ts` — tile domain model and mining rules
-- `src/game/WorldGenerator.ts` — deterministic procedural world generation
+- `src/game/Chunk.ts` — fixed-size chunk data container
+- `src/game/World.ts` — lazy chunk lookup and world-coordinate access
+- `src/game/WorldGenerator.ts` — deterministic, coordinate-based procedural generation
 - `src/game/Inventory.ts` — inventory state
 
-The prototype keeps gameplay state separate from rendering concerns where practical. The temporary rectangle renderer can therefore be replaced with proper tile/chunk rendering without rewriting the core game rules.
+The gameplay domain is separated from rendering where practical. World chunks are generated lazily, so the storage layer is ready to evolve into viewport-based chunk streaming without changing mining or inventory rules.
 
 ## Roadmap
 
-1. Chunked world storage and streaming
+1. Viewport-based chunk streaming and unload policy
 2. Proper tile textures / sprite atlas
 3. Tool and mining progression
 4. Inventory + hotbar + item entities
