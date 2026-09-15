@@ -69,8 +69,11 @@ export class InventorySystem {
     this.store.update((state) => {
       const layout = this.ensureLayout(state.inventoryLayout);
       if (layout.locked[target] || layout.locked[source]) return;
-      if (!layout.slots[source] && !layout.slots[target]) return;
-      [layout.slots[source], layout.slots[target]] = [layout.slots[target], layout.slots[source]];
+      const sourceItem = layout.slots[source] ?? null;
+      const targetItem = layout.slots[target] ?? null;
+      if (!sourceItem && !targetItem) return;
+      layout.slots[source] = targetItem;
+      layout.slots[target] = sourceItem;
       changed = true;
       state.inventoryLayout = layout;
     });
@@ -127,9 +130,9 @@ export class InventorySystem {
     this.store.update((state) => {
       const layout = this.ensureLayout(state.inventoryLayout);
       if (layout.locked[slot]) return;
-      const item = layout.slots[slot];
+      const item = layout.slots[slot] ?? null;
       if (!item) return;
-      const previous = layout.equipment[target];
+      const previous = layout.equipment[target] ?? null;
       layout.equipment[target] = item;
       layout.slots[slot] = previous;
       changed = true;
@@ -143,11 +146,13 @@ export class InventorySystem {
   private isSlot(slot: number): boolean { return Number.isInteger(slot) && slot >= 0 && slot < INVENTORY_SLOT_COUNT; }
 
   private ensureLayout(layout: InventoryLayoutState | undefined): InventoryLayoutState {
-    const next = layout ?? createInitialInventoryLayout();
-    if (!Array.isArray(next.slots) || next.slots.length !== INVENTORY_SLOT_COUNT) next.slots = [...createInitialInventoryLayout().slots];
-    if (!Array.isArray(next.locked) || next.locked.length !== INVENTORY_SLOT_COUNT) next.locked = [...createInitialInventoryLayout().locked];
-    if (!Number.isInteger(next.activeHotbarRow) || next.activeHotbarRow < 0 || next.activeHotbarRow >= HOTBAR_ROWS) next.activeHotbarRow = 0;
-    next.equipment = { ...EMPTY_EQUIPMENT, ...(next.equipment ?? {}) };
+    const source = layout ?? createInitialInventoryLayout();
+    const next: InventoryLayoutState = {
+      slots: Array.from({ length: INVENTORY_SLOT_COUNT }, (_, index) => source.slots?.[index] ?? null),
+      locked: Array.from({ length: INVENTORY_SLOT_COUNT }, (_, index) => source.locked?.[index] ?? false),
+      activeHotbarRow: Number.isInteger(source.activeHotbarRow) && source.activeHotbarRow >= 0 && source.activeHotbarRow < HOTBAR_ROWS ? source.activeHotbarRow : 0,
+      equipment: { ...EMPTY_EQUIPMENT, ...(source.equipment ?? {}) },
+    };
     return next;
   }
 }
