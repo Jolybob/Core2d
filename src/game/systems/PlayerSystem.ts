@@ -2,20 +2,16 @@ import type { ConsumableId, PlayerState, ToolId } from '../types';
 import type { GameStatePort } from '../store-ports';
 import { createEntityId, type EntityId } from '../entity';
 import { WorldRuntime } from '../world/runtime';
-import type { WorldSystem } from '../world/WorldSystem';
 
 const isFiniteNonNegative = (value: number): boolean => Number.isFinite(value) && value >= 0;
 type PlayerComponent = PlayerState & Record<string, unknown>;
 const PLAYER_ENTITY_ID = createEntityId('player');
 
+/** Player simulation is owned by WorldRuntime; GameState is the persistence/UI mirror. */
 export class PlayerSystem {
   private playerId: EntityId;
-  private readonly runtime: WorldRuntime;
-  constructor(store: GameStatePort, runtime: WorldRuntime);
-  /** @deprecated Use the WorldRuntime constructor. Kept for existing adapters/tests during migration. */
-  constructor(store: GameStatePort, world: WorldSystem, runtime: WorldRuntime);
-  constructor(private readonly store: GameStatePort, runtimeOrWorld: WorldRuntime | WorldSystem, compatibilityRuntime?: WorldRuntime) {
-    this.runtime = compatibilityRuntime ?? (runtimeOrWorld instanceof WorldRuntime ? runtimeOrWorld : new WorldRuntime(this.store.getState().world)); this.playerId = this.ensureEntity(); this.refresh(); this.persist();
+  constructor(private readonly store: GameStatePort, private readonly runtime: WorldRuntime) {
+    this.playerId = this.ensureEntity(); this.refresh(); this.persist();
   }
   refresh(): void { this.setComponent(this.store.select((current) => current.player)); }
   persist(): void { const entity = this.runtime.entities.get(this.playerId); const component = this.runtime.components.get<PlayerComponent>('player', this.playerId); if (!entity || !component) return; this.store.update((state) => { state.player.x = component.x; state.player.y = component.y; state.player.health = component.health; state.player.stamina = component.stamina; state.player.hunger = component.hunger; state.player.tool = component.tool; state.world.entities.entities[this.playerId] = { ...entity }; const components = state.world.entities.components ??= {}; components[this.playerId] = { player: { ...component }, position: { x: component.x, y: component.y } }; }); }
@@ -27,7 +23,7 @@ export class PlayerSystem {
   advanceTime(deltaSeconds: number): void { if (!isFiniteNonNegative(deltaSeconds)) return; const player = this.readComponent(); player.hunger = Math.max(0, player.hunger - deltaSeconds * 0.1); player.stamina = Math.min(100, player.stamina + deltaSeconds * (player.hunger < 20 ? 5 : 12)); this.setComponent(player); this.syncToState(player); }
   startNewDay(): void { const player = this.readComponent(); player.stamina = 100; player.health = Math.min(100, player.health + 10); player.hunger = Math.max(0, player.hunger - 6); this.setComponent(player); this.syncToState(player); }
   private ensureEntity(): EntityId { const existing = this.runtime.query.with('player').find((entity) => entity.kind === 'player'); if (existing) return existing.id; if (this.runtime.entities.has(PLAYER_ENTITY_ID)) return PLAYER_ENTITY_ID; return this.runtime.createEntity('player', { player: { ...this.store.select((state) => state.player) }, position: this.store.select((state) => ({ x: state.player.x, y: state.player.y })) }); }
-  private readComponent(): PlayerComponent { const value = this.runtime.components.get<PlayerComponent>('player', this.playerId); const state = this.store.select((current) => current.player); if (!value || ['x','y','health','stamina','hunger','tool'].some((field) => value[field as keyof PlayerState] !== state[field as keyof PlayerState])) { this.setComponent(state); return { ...state }; } return { ...value }; }
+  private readComponent(): PlayerComponent { const value = this.runtime.components.get<PlayerComponent>('player', this.playerId); if (!value) { const state = this.store.select((current) => current.player); this.setComponent(state); return { ...state }; } return { ...value }; }
   private setComponent(player: PlayerState): void { const component: PlayerComponent = { ...player }; if (!this.runtime.entities.has(this.playerId)) { this.playerId = this.runtime.createEntity('player', { player: component, position: { x: player.x, y: player.y } }); return; } this.runtime.setComponent(this.playerId, 'player', component); this.runtime.setComponent(this.playerId, 'position', { x: player.x, y: player.y }); }
   private syncToState(player: PlayerState): void { this.store.update((state) => { state.player.x = player.x; state.player.y = player.y; state.player.health = player.health; state.player.stamina = player.stamina; state.player.hunger = player.hunger; state.player.tool = player.tool; }); }
 }
