@@ -10,17 +10,21 @@ export type ConsumableId = Extract<ItemId, 'berry' | 'fish' | 'parsnip'>;
 export const RECIPE_IDS = ['copperPickaxe', 'sword', 'torch', 'healingSalve', 'fishingRod'] as const;
 export type RecipeId = typeof RECIPE_IDS[number];
 export type InventoryState = Record<ItemId, number>;
+export type EquipmentSlot = 'helm' | 'chest' | 'pants' | 'lantern' | 'offhand' | 'necklace' | 'ring1' | 'ring2' | 'bag' | 'pouch1' | 'pouch2' | 'pouch3' | 'pouch4' | 'pet';
+export interface InventoryLayoutState {
+  slots: Array<ItemId | null>;
+  locked: boolean[];
+  activeHotbarRow: number;
+  equipment: Record<EquipmentSlot, ItemId | null>;
+}
 export interface CropState { stage: number; watered: boolean; tilled: boolean; }
 export interface QuestState { id: string; title: string; need: number; progress: number; reward: number; done: boolean; }
 export interface CalendarState { day: number; clock: number; season: number; weather: 'Sunny' | 'Rainy' | 'Cloudy'; }
 export interface PlayerState { x: number; y: number; health: number; stamina: number; hunger: number; money: number; pickaxeLevel: number; tool: ToolId; }
-/** Durable world data is owned by WorldRuntime and is intentionally not part of GameState. */
 export type WorldState = WorldSaveData;
 export interface EconomyState { fishCaught: number; shipped: number; totalHarvests: number; }
-/** Player/application state. World simulation state lives exclusively in WorldRuntime. */
-export interface GameState { player: PlayerState; inventory: InventoryState; quests: QuestState[]; calendar: CalendarState; economy: EconomyState; }
-export interface PlayerSaveData { player: PlayerState; inventory: InventoryState; quests: QuestState[]; economy: EconomyState; }
-export interface SaveData { schemaVersion: 5; player: PlayerSaveData; calendar: CalendarState; world: WorldSaveData; }
-/** Explicit load boundary joining independent player/application and world authorities. */
+export interface GameState { player: PlayerState; inventory: InventoryState; inventoryLayout: InventoryLayoutState; quests: QuestState[]; calendar: CalendarState; economy: EconomyState; }
+export interface PlayerSaveData { player: PlayerState; inventory: InventoryState; inventoryLayout: InventoryLayoutState; quests: QuestState[]; economy: EconomyState; }
+export interface SaveData { schemaVersion: 6; player: PlayerSaveData; calendar: CalendarState; world: WorldSaveData; }
 export interface LoadedGame { state: GameState; world: WorldSaveData; }
 export type { EntityRegistryState, ChunkPersistence };
