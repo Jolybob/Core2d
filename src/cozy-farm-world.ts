@@ -12,14 +12,16 @@ const TILESET_FRAME_SIZE = 16;
  * The imported art is a 16x16 atlas. Keep the semantic mapping here so the
  * simulation never knows about art-frame indices.
  *
- * These are intentionally centralized: if the atlas is replaced later, only
- * this adapter mapping needs to change.
+ * The world generator currently emits `ground`, `water`, and `stone`. Unknown
+ * terrain falls back to grass so a future generator change cannot produce an
+ * invalid Phaser frame lookup.
  */
-const TILE_FRAMES = {
+const TILE_FRAMES: Record<string, number> = {
+  ground: 0,
   grass: 0,
   water: 1,
   stone: 2,
-} as const;
+};
 
 export type ResourceView = {
   key: string;
@@ -111,7 +113,7 @@ export class FarmWorldRenderer {
         const worldX = coord.x * CHUNK_SIZE + localX;
         const worldY = coord.y * CHUNK_SIZE + localY;
         const tile = runtime.getTile(worldX, worldY);
-        const frame = TILE_FRAMES[tile];
+        const frame = TILE_FRAMES[tile] ?? TILE_FRAMES.ground;
         const image = this.scene.add.image(worldX * TILE + TILE / 2, worldY * TILE + TILE / 2, TILESET_KEY, frame);
         image.setDisplaySize(TILE, TILE);
         image.setOrigin(0.5);
