@@ -12,7 +12,7 @@ describe('GameStore', () => {
   it('returns isolated selected read models', () => {
     const store = new GameStore(createInitialState());
     const player = store.select((state) => state.player);
-    const mutablePlayer = structuredClone(player);
+    const mutablePlayer = structuredClone(player) as typeof createInitialState extends () => infer S ? S extends { player: infer P } ? P : never : never;
     mutablePlayer.x = 999;
     expect(store.select((state) => state.player.x)).toBe(35 * 24 + 12);
   });
