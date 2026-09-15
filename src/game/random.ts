@@ -39,7 +39,10 @@ export function createSeededRandom(initialSeed: number): RandomSource {
     },
     pick<T>(values: readonly T[]): T {
       if (values.length === 0) throw new Error('Cannot pick from an empty collection');
-      return values[Math.floor(next() * values.length)];
+      const index = Math.floor(next() * values.length);
+      const value = values[index];
+      if (value === undefined) throw new Error('Random selection failed');
+      return value;
     },
     getState: () => ({ seed: state }),
   };
