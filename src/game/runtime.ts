@@ -31,7 +31,7 @@ export class GameRuntime {
   readonly resources: ResourceSystem;
   private readonly commandHandler: GameCommandHandler;
 
-  constructor() {
+  constructor(autoStart = true) {
     this.store = new GameStore(createInitialState());
     this.events = new DomainEventBus();
     this.quests = new QuestSystem(this.store, this.events);
@@ -45,6 +45,7 @@ export class GameRuntime {
     this.day = new DaySystem(this.store, this.farming, this.worldRuntime, this.player);
     this.resources = new ResourceSystem(this.store, this.events, this.worldRuntime);
     this.commandHandler = new GameCommandHandler({ store: this.store, worldRuntime: this.worldRuntime, combat: this.combat, crafting: this.crafting, day: this.day, economy: this.economy, farming: this.farming, fishing: this.fishing, player: this.player, resources: this.resources });
+    if (autoStart) this.startNewGame();
   }
 
   startNewGame(): void {
