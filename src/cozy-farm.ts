@@ -52,11 +52,11 @@ export class CozyFarm extends Phaser.Scene {
     this.say('Spring • Day 1 • Welcome home.');
   }
 
-  override update(_time: number, delta: number): void {
+  update(_time: number, delta: number): void {
     const dt = Math.min(delta, 50) / 1000;
-    const dx = (this.cursors.left!.isDown || this.keys.A!.isDown ? -1 : 0) + (this.cursors.right!.isDown || this.keys.D!.isDown ? 1 : 0);
-    const dy = (this.cursors.up!.isDown || this.keys.W!.isDown ? -1 : 0) + (this.cursors.down!.isDown || this.keys.S!.isDown ? 1 : 0);
-    const sprint = this.keys.SHIFT!.isDown;
+    const dx = ((this.cursors.left?.isDown ?? false) || this.isKeyDown('A') ? -1 : 0) + ((this.cursors.right?.isDown ?? false) || this.isKeyDown('D') ? 1 : 0);
+    const dy = ((this.cursors.up?.isDown ?? false) || this.isKeyDown('W') ? -1 : 0) + ((this.cursors.down?.isDown ?? false) || this.isKeyDown('S') ? 1 : 0);
+    const sprint = this.isKeyDown('SHIFT');
 
     if (dx || dy) {
       const state = appRuntime.store.getState();
@@ -120,7 +120,7 @@ export class CozyFarm extends Phaser.Scene {
     const removedSignature = JSON.stringify(state.world.removedResources);
     if (removedSignature !== this.lastRemovedSignature) {
       this.lastRemovedSignature = removedSignature;
-      for (const node of [...this.trees, ...this.rocks]) node.object.setVisible(!Boolean(state.world.removedResources[node.key]));
+      for (const node of [...this.trees, ...this.rocks]) node.object.visible = !Boolean(state.world.removedResources[node.key]);
     }
   }
 
@@ -159,5 +159,6 @@ export class CozyFarm extends Phaser.Scene {
   private blocked(x: number, y: number): boolean { const tx = Math.floor(x / TILE); const ty = Math.floor(y / TILE); return tx >= 33 && tx <= 37 && ty >= 14 && ty <= 20; }
   private updateNight(clock: number): void { const phase = clock / DAY_SECONDS; this.night.setAlpha(phase > 0.68 ? Math.min(0.62, (phase - 0.68) * 2.2) : 0); }
   private say(text: string): void { if (text === this.lastMessage) return; this.lastMessage = text; this.message?.setText(text); }
+  private isKeyDown(key: string): boolean { return this.keys[key]?.isDown ?? false; }
   private seeded(seed: number): () => number { let value = seed >>> 0; return () => { value = (value * 1664525 + 1013904223) >>> 0; return value / 4294967296; }; }
 }
