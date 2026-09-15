@@ -50,6 +50,7 @@ export class GameRuntime {
 
   startNewGame(): void {
     this.worldRuntime.ensureChunksAroundPixelPosition({ x: this.store.getState().player.x, y: this.store.getState().player.y }, INITIAL_CHUNK_RADIUS);
+    this.resources.refresh();
     this.combat.refresh();
   }
 
