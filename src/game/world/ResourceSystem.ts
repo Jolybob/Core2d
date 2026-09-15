@@ -1,5 +1,6 @@
 import type { GameState } from '../types';
 import type { GameStore } from '../store';
+import { TILE_SIZE } from './WorldSystem';
 
 export type ResourceType = 'tree' | 'rock';
 
@@ -62,8 +63,8 @@ export class ResourceSystem {
   private findAt(x: number, y: number, type: ResourceType): ResourceNode | undefined {
     if (!Number.isInteger(x) || !Number.isInteger(y)) return undefined;
     const state = this.store.getState();
-    const playerX = Math.floor(state.player.x / 24);
-    const playerY = Math.floor(state.player.y / 24);
+    const playerX = Math.floor(state.player.x / TILE_SIZE);
+    const playerY = Math.floor(state.player.y / TILE_SIZE);
     if (Math.hypot(x - playerX, y - playerY) > INTERACTION_RANGE) return undefined;
     return this.getAll().find((resource) => resource.type === type && !this.isRemoved(resource.key) && Math.abs(resource.x - x) <= 1 && Math.abs(resource.y - y) <= 1);
   }
