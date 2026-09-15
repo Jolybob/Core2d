@@ -25,10 +25,7 @@ const positionFromKey = (key: string): { x: number; y: number } | undefined => {
   return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
 };
 
-/**
- * Crop simulation is ECS-authoritative. world.crops remains a compatibility mirror while
- * callers migrate to entity queries; persisted ECS components make crop state durable.
- */
+/** Crop simulation is ECS-authoritative; world.crops remains a compatibility mirror. */
 export class FarmingSystem {
   constructor(
     private readonly store: GameStatePort,
@@ -69,11 +66,7 @@ export class FarmingSystem {
     for (const entity of this.runtime?.query.with('crop') ?? []) {
       const crop = this.runtime?.components.get<CropComponent>('crop', entity.id);
       if (!crop || !crop.watered || crop.stage <= 0 || crop.stage >= 3) continue;
-      this.runtime?.setComponent(entity.id, 'crop', {
-        ...crop,
-        stage: crop.stage + 1,
-        watered: false,
-      });
+      this.runtime?.setComponent(entity.id, 'crop', { ...crop, stage: crop.stage + 1, watered: false });
     }
     this.syncToState();
   }
@@ -96,6 +89,10 @@ export class FarmingSystem {
     this.syncFromState();
     const crop = this.getComponent(key);
     return crop ? { stage: crop.stage, watered: crop.watered, tilled: crop.tilled } : undefined;
+  }
+
+  refresh(): void {
+    this.syncFromState();
   }
 
   private getComponent(key: string): CropComponent | undefined {
