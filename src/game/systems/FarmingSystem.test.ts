@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { EntityId } from '../entity';
 import { GameRuntime } from '../runtime';
+import { GameStore, createInitialState } from '../store';
+import { DomainEventBus } from '../events';
+import { FarmingSystem } from './FarmingSystem';
+import { WorldRuntime } from '../world/runtime';
 
 const cropId = (key: string): EntityId => `crop-${encodeURIComponent(key)}` as EntityId;
 
 describe('FarmingSystem ECS runtime', () => {
-  it('stores crops as persisted ECS entities while keeping the legacy mirror', () => {
+  it('stores crops as persisted ECS entities while keeping the explicit legacy mirror', () => {
     const runtime = new GameRuntime();
 
     expect(runtime.dispatch({ type: 'TILL', key: '4,7' })).toBe(true);
@@ -42,14 +46,21 @@ describe('FarmingSystem ECS runtime', () => {
     expect(runtime.store.getState().world.crops['2,3']).toBeUndefined();
   });
 
-  it('rehydrates legacy crops into ECS on first access', () => {
-    const runtime = new GameRuntime();
-    runtime.store.update((state) => {
+  it('hydrates persisted crops only at the explicit persistence boundary', () => {
+    const store = new GameStore(createInitialState());
+    const events = new DomainEventBus();
+    const worldRuntime = new WorldRuntime(store.getState().world);
+    const farming = new FarmingSystem(store, events, worldRuntime);
+
+    store.update((state) => {
       state.world.crops['9,10'] = { stage: 2, watered: true, tilled: true };
     });
 
-    expect(runtime.farming.getCrop('9,10')).toEqual({ stage: 2, watered: true, tilled: true });
-    expect(runtime.worldRuntime.query.with('crop')).toHaveLength(1);
-    expect(runtime.worldRuntime.components.get('position', cropId('9,10'))).toEqual({ x: 9, y: 10 });
+    expect(farming.getCrop('9,10')).toBeUndefined();
+    farming.hydrateFromPersistence();
+
+    expect(farming.getCrop('9,10')).toEqual({ stage: 2, watered: true, tilled: true });
+    expect(worldRuntime.query.with('crop')).toHaveLength(1);
+    expect(worldRuntime.components.get('position', cropId('9,10'))).toEqual({ x: 9, y: 10 });
   });
 });
