@@ -9,12 +9,12 @@ import type { ComponentValue } from './game/world/runtime';
 
 interface CropComponent extends ComponentValue { key: string; stage: number; watered: boolean; tilled: boolean; }
 interface PositionComponent extends ComponentValue { x: number; y: number; }
-interface PlayerComponent extends ComponentValue { x: number; y: number; health: number; stamina: number; hunger: number; tool: string; }
+interface PlayerComponent extends ComponentValue { x: number; y: number; health: number; stamina: number; hunger: number; money: number; tool: string; }
 interface WorldObjectComponent extends ComponentValue { shape: 'ellipse' | 'rectangle' | 'label' | 'animal'; width?: number; height?: number; color?: number; stroke?: number; text?: string; }
 
 const isCrop = (value: ComponentValue | undefined): value is CropComponent => typeof value?.key === 'string' && typeof value.stage === 'number' && typeof value.watered === 'boolean' && typeof value.tilled === 'boolean';
 const isPosition = (value: ComponentValue | undefined): value is PositionComponent => typeof value?.x === 'number' && typeof value?.y === 'number';
-const isPlayer = (value: ComponentValue | undefined): value is PlayerComponent => typeof value?.x === 'number' && typeof value?.y === 'number' && typeof value?.health === 'number' && typeof value?.stamina === 'number' && typeof value?.hunger === 'number' && typeof value?.tool === 'string';
+const isPlayer = (value: ComponentValue | undefined): value is PlayerComponent => typeof value?.x === 'number' && typeof value?.y === 'number' && typeof value?.health === 'number' && typeof value?.stamina === 'number' && typeof value?.hunger === 'number' && typeof value?.money === 'number' && typeof value?.tool === 'string';
 const isWorldObject = (value: ComponentValue | undefined): value is WorldObjectComponent => value?.shape === 'ellipse' || value?.shape === 'rectangle' || value?.shape === 'label' || value?.shape === 'animal';
 
 export class FarmRenderer {
@@ -39,7 +39,7 @@ export class FarmRenderer {
     }
     const season = ['Spring', 'Summer', 'Autumn', 'Winter'][state.calendar.season] ?? 'Spring';
     const hudPlayer = isPlayer(playerComponent) ? playerComponent : state.player;
-    this.hud.setText(`${season} • DAY ${state.calendar.day}  $${hudPlayer.money ?? state.player.money}\nHP ${Math.ceil(hudPlayer.health)}  HUN ${Math.ceil(hudPlayer.hunger)}  STA ${Math.ceil(hudPlayer.stamina)}\n${hudPlayer.tool.toUpperCase()} • ${state.calendar.weather}`);
+    this.hud.setText(`${season} • DAY ${state.calendar.day}  $${hudPlayer.money}\nHP ${Math.ceil(hudPlayer.health)}  HUN ${Math.ceil(hudPlayer.hunger)}  STA ${Math.ceil(hudPlayer.stamina)}\n${hudPlayer.tool.toUpperCase()} • ${state.calendar.weather}`);
     const removedSignature = JSON.stringify(runtime.world.removedResources);
     if (removedSignature !== this.lastRemovedSignature) {
       this.lastRemovedSignature = removedSignature;
