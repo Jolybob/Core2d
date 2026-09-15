@@ -39,14 +39,16 @@ describe('GameRuntime', () => {
     expect(runtime.store.getState()).toEqual(before);
   });
 
-  it('validates resource targets in the domain and prevents repeat gathering', () => {
+  it('validates resource targets in the domain, prevents repeat gathering, and routes copper progress through QuestSystem', () => {
     const runtime = new GameRuntime();
     const tree = runtime.resources.getAll().find((resource) => resource.type === 'tree');
     const rock = runtime.resources.getAll().find((resource) => resource.type === 'rock');
+    const oreRock = runtime.resources.getAll().find((resource) => resource.type === 'rock' && resource.ore);
 
     expect(tree).toBeDefined();
     expect(rock).toBeDefined();
-    if (!tree || !rock) return;
+    expect(oreRock).toBeDefined();
+    if (!tree || !rock || !oreRock) return;
 
     runtime.store.update((state) => {
       state.player.x = tree.x * 24;
@@ -56,11 +58,13 @@ describe('GameRuntime', () => {
     expect(runtime.dispatch({ type: 'CHOP_AT', x: tree.x, y: tree.y })).toBe(false);
 
     runtime.store.update((state) => {
-      state.player.x = rock.x * 24;
-      state.player.y = rock.y * 24;
+      state.player.x = oreRock.x * 24;
+      state.player.y = oreRock.y * 24;
     });
-    expect(runtime.dispatch({ type: 'MINE_AT', x: rock.x, y: rock.y })).toBe(true);
-    expect(runtime.dispatch({ type: 'MINE_AT', x: rock.x, y: rock.y })).toBe(false);
+    const copperBefore = runtime.store.getState().quests.find((quest) => quest.id === 'copper')?.progress ?? 0;
+    expect(runtime.dispatch({ type: 'MINE_AT', x: oreRock.x, y: oreRock.y })).toBe(true);
+    expect(runtime.store.getState().quests.find((quest) => quest.id === 'copper')?.progress).toBe(copperBefore + 1);
+    expect(runtime.dispatch({ type: 'MINE_AT', x: oreRock.x, y: oreRock.y })).toBe(false);
 
     runtime.store.update((state) => {
       state.player.x = 1 * 24;
