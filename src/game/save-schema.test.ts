@@ -30,10 +30,15 @@ describe('save schema', () => {
     const migrated = migrateSave({ schemaVersion: 4, state });
 
     expect(migrated).not.toBeNull();
-    expect(migrated?.world.chunks['0,0']).toBeDefined();
-    const chunk = migrated!.world.chunks['0,0'];
-    expect(chunk.modifiedTiles['1,2'].tile).toBe('tilled');
-    expect(migrated!.world.generatorVersion).toBe(1);
+    if (!migrated) return;
+    const chunk = migrated.world.chunks['0,0'];
+    expect(chunk).toBeDefined();
+    if (!chunk) return;
+    const modification = chunk.modifiedTiles['1,2'];
+    expect(modification).toBeDefined();
+    if (!modification) return;
+    expect(modification.tile).toBe('tilled');
+    expect(migrated.world.generatorVersion).toBe(1);
     expect(isGameState(migrated)).toBe(true);
   });
 
@@ -60,6 +65,9 @@ describe('save schema', () => {
 
     expect(state?.inventory.wood).toBe(7);
     expect(state?.inventory.berry).toBe(3);
+    expect(state?.player.health).toBe(60);
+    expect(state?.player.money).toBe(25);
+    expect(state?.calendar.day).toBe(9);
     expect(state?.player.health).toBe(60);
     expect(state?.player.money).toBe(25);
     expect(state?.calendar.day).toBe(9);
