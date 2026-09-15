@@ -40,12 +40,14 @@ describe('WorldRuntime lifecycle', () => {
     const resources = new ResourceSystem(store, events, runtime);
     const firstSeed = runtime.readPersistence((world) => world.seed);
 
+    runtime.loadChunk({ x: 0, y: 0 });
     store.update((state) => {
       state.world.seed = firstSeed + 1;
       state.world.entities.entities = {};
       state.world.entities.components = {};
     });
     rehydrateWorld(runtime, store.getState());
+    runtime.loadChunk({ x: 0, y: 0 });
     resources.hydrateFromPersistence();
 
     expect(runtime.readPersistence((world) => world.seed)).toBe(firstSeed + 1);
