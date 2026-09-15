@@ -17,4 +17,37 @@ describe('GameStore', () => {
     unsubscribe();
     expect(money).toBe(145);
   });
+
+  it('only notifies selector subscribers when the selected value changes', () => {
+    const store = new GameStore(createInitialState());
+    let calls = 0;
+    const unsubscribe = store.subscribe(
+      (state) => state.player.money,
+      () => { calls += 1; },
+    );
+
+    expect(calls).toBe(1);
+    store.update((state) => { state.player.health -= 5; });
+    expect(calls).toBe(1);
+    store.update((state) => { state.player.money += 10; });
+    expect(calls).toBe(2);
+    unsubscribe();
+  });
+
+  it('supports custom equality for structured selections', () => {
+    const store = new GameStore(createInitialState());
+    let calls = 0;
+    const unsubscribe = store.subscribe(
+      (state) => [state.player.health, state.player.hunger],
+      () => { calls += 1; },
+      (previous, next) => previous[0] === next[0] && previous[1] === next[1],
+    );
+
+    expect(calls).toBe(1);
+    store.update((state) => { state.player.money += 10; });
+    expect(calls).toBe(1);
+    store.update((state) => { state.player.hunger -= 1; });
+    expect(calls).toBe(2);
+    unsubscribe();
+  });
 });
