@@ -18,12 +18,12 @@ export class GameRuntime {
   readonly store = new GameStore(createInitialState());
   readonly events = new DomainEventBus();
   readonly quests = new QuestSystem(this.store, this.events);
-  readonly farming = new FarmingSystem(this.store, this.events);
+  readonly world = new WorldSystem();
+  readonly worldRuntime = new WorldRuntime(this.store.getState().world);
+  readonly farming = new FarmingSystem(this.store, this.events, this.worldRuntime);
   readonly crafting = new CraftingSystem(this.store);
   readonly economy = new EconomySystem(this.store);
   readonly fishing = new FishingSystem(this.store, this.events);
-  readonly world = new WorldSystem();
-  readonly worldRuntime = new WorldRuntime(this.store.getState().world);
   readonly player = new PlayerSystem(this.store, this.world, this.worldRuntime);
   readonly combat = new CombatSystem(this.store, this.player);
   readonly day = new DaySystem(this.store, this.farming, this.player);
@@ -45,14 +45,11 @@ export class GameRuntime {
   }
 
   save(): boolean {
-    this.player.persist();
     return this.commandHandler.save();
   }
 
   load(): boolean {
-    const loaded = this.commandHandler.load();
-    if (loaded) this.player.refresh();
-    return loaded;
+    return this.commandHandler.load();
   }
 
   destroy(): void {
