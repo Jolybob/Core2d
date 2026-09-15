@@ -4,6 +4,8 @@ export * from './persistence';
 export * from './store';
 export * from './types';
 export * from './runtime';
+export * from './world/ResourceSystem';
+export * from './world/WorldSystem';
 export * from './systems/CombatSystem';
 export * from './systems/CraftingSystem';
 export * from './systems/DaySystem';
