@@ -11,11 +11,10 @@ import { FishingSystem } from './systems/FishingSystem';
 import { PlayerSystem } from './systems/PlayerSystem';
 import { QuestSystem } from './systems/QuestSystem';
 import { ResourceSystem } from './world/ResourceSystem';
+import { TILE_SIZE, WorldRuntime } from './world/runtime';
 import { worldToChunk } from './world/chunks';
-import { WorldRuntime } from './world/runtime';
 
 const INITIAL_CHUNK_RADIUS = 1;
-const TILE_SIZE = 24;
 
 export class GameRuntime {
   readonly store: GameStore;
@@ -38,15 +37,7 @@ export class GameRuntime {
     this.quests = new QuestSystem(this.store, this.events);
     const initialState = this.store.getState();
     this.worldRuntime = new WorldRuntime(initialState.world);
-    const center = worldToChunk({
-      x: Math.floor(initialState.player.x / TILE_SIZE),
-      y: Math.floor(initialState.player.y / TILE_SIZE),
-    });
-    for (let y = center.y - INITIAL_CHUNK_RADIUS; y <= center.y + INITIAL_CHUNK_RADIUS; y += 1) {
-      for (let x = center.x - INITIAL_CHUNK_RADIUS; x <= center.x + INITIAL_CHUNK_RADIUS; x += 1) {
-        this.worldRuntime.chunks.load({ x, y });
-      }
-    }
+    this.worldRuntime.ensureChunksAroundPixelPosition({ x: initialState.player.x, y: initialState.player.y }, INITIAL_CHUNK_RADIUS);
     this.farming = new FarmingSystem(this.store, this.events, this.worldRuntime);
     this.crafting = new CraftingSystem(this.store);
     this.economy = new EconomySystem(this.store);
@@ -55,7 +46,7 @@ export class GameRuntime {
     this.combat = new CombatSystem(this.store, this.player);
     this.day = new DaySystem(this.store, this.farming, this.player);
     this.resources = new ResourceSystem(this.store, this.events, this.worldRuntime);
-    this.commandHandler = new GameCommandHandler({ store: this.store, combat: this.combat, crafting: this.crafting, day: this.day, economy: this.economy, farming: this.farming, fishing: this.fishing, player: this.player, resources: this.resources });
+    this.commandHandler = new GameCommandHandler({ store: this.store, worldRuntime: this.worldRuntime, combat: this.combat, crafting: this.crafting, day: this.day, economy: this.economy, farming: this.farming, fishing: this.fishing, player: this.player, resources: this.resources });
   }
 
   dispatch(command: GameCommand): boolean { return this.commandHandler.dispatch(command); }
