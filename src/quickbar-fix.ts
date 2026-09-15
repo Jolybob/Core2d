@@ -16,8 +16,8 @@ const patchQuickbar = () => {
     if (!item) return;
     const icon = slot.querySelector<HTMLElement>('.slot-icon');
     const name = slot.querySelector<HTMLElement>('.slot-name');
-    if (icon) icon.textContent = item.icon;
-    if (name) name.textContent = item.name;
+    if (icon && icon.textContent !== item.icon) icon.textContent = item.icon;
+    if (name && name.textContent !== item.name) name.textContent = item.name;
   });
 };
 
