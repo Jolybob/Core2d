@@ -24,8 +24,8 @@ export class ResourceSystem {
 
   refresh(): void {
     this.store.update((state) => {
-      this.runtime.rehydrate(state.world);
-      this.ensureGenerated(this.runtime, this.runtime.chunks.loadedCoords());
+      const chunks = this.rehydrateForResources(state);
+      this.ensureGenerated(this.runtime, chunks);
       this.commitRuntime(state, this.runtime);
     });
   }
@@ -33,8 +33,7 @@ export class ResourceSystem {
   getAll(): ResourceNode[] {
     let chunks: ChunkCoord[] = [];
     this.store.update((state) => {
-      this.runtime.rehydrate(state.world);
-      chunks = this.runtime.chunks.loadedCoords();
+      chunks = this.rehydrateForResources(state);
       this.ensureGenerated(this.runtime, chunks);
       this.commitRuntime(state, this.runtime);
     });
@@ -42,7 +41,7 @@ export class ResourceSystem {
   }
 
   get(key: string): ResourceNode | undefined { return this.getAll().find((resource) => resource.key === key); }
-  chopAt(x: number, y: number): boolean { const resource = this.findAt(x, y, 'tree'); return resource ? this.chop(resource.key) : false; }
+  chopAt(x: number, y: number, type: ResourceType = 'tree'): boolean { const resource = this.findAt(x, y, type); return resource ? this.remove(resource.key, type, (state) => { state.inventory.wood += 3; }) : false; }
   mineAt(x: number, y: number): boolean { const resource = this.findAt(x, y, 'rock'); return resource ? this.mine(resource.key) : false; }
   chop(key: string): boolean { return this.remove(key, 'tree', (state) => { state.inventory.wood += 3; }); }
   mine(key: string): boolean {
@@ -91,6 +90,14 @@ export class ResourceSystem {
 
   private isRemoved(key: string): boolean { return this.store.select((state) => Boolean(state.world.removedResources[key])); }
   private commitRuntime(state: GameState, runtime: WorldRuntime): void { state.world = runtime.world; }
+
+  private rehydrateForResources(state: GameState): ChunkCoord[] {
+    const loaded = this.runtime.chunks.loadedCoords();
+    this.runtime.rehydrate(state.world);
+    const chunks = loaded.length > 0 ? loaded : [worldToChunk({ x: Math.floor(state.player.x / TILE_SIZE), y: Math.floor(state.player.y / TILE_SIZE) })];
+    for (const chunk of chunks) this.runtime.chunks.load(chunk);
+    return chunks;
+  }
 
   private ensureGenerated(runtime: WorldRuntime, chunks: readonly ChunkCoord[]): void {
     const existing = new Set<string>();
