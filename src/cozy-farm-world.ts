@@ -34,9 +34,12 @@ export class FarmWorldRenderer {
       if (desiredKeys.has(key)) continue;
       this.chunkObjects.get(key)?.destroy();
       this.chunkObjects.delete(key);
+      const [x, y] = key.split(',').map(Number);
+      appRuntime.worldRuntime.chunks.unload({ x, y });
     }
     for (const coord of desired) {
       const key = chunkKey(coord);
+      appRuntime.worldRuntime.chunks.load(coord);
       if (this.chunkObjects.has(key)) continue;
       this.chunkObjects.set(key, this.renderChunk(coord));
     }
@@ -49,6 +52,10 @@ export class FarmWorldRenderer {
   destroy(): void {
     for (const graphics of this.chunkObjects.values()) graphics.destroy();
     this.chunkObjects.clear();
+    for (const key of this.loadedKeys) {
+      const [x, y] = key.split(',').map(Number);
+      appRuntime.worldRuntime.chunks.unload({ x, y });
+    }
     for (const resource of this.resourceObjects.values()) resource.object.destroy();
     this.resourceObjects.clear();
     this.resources.splice(0, this.resources.length);
