@@ -9,7 +9,6 @@ const CHARACTER_PATH = `${import.meta.env.BASE_URL}assets/characters/main%20char
 const CHARACTER_FRAME_SIZE = 96;
 const CHARACTER_DISPLAY_SIZE = 48;
 const CHARACTER_COLUMNS = 12;
-const CHARACTER_ROWS = 6;
 const CHARACTER_ASSETS = {
   idle: 'character-idle',
   walk: 'character-walk',
@@ -155,12 +154,5 @@ export class CozyFarm extends Phaser.Scene {
   private playOneShot(type: 'attack' | 'hurt' | 'death'): void {
     const key = `${CHARACTER_ASSETS[type]}-${this.direction}`;
     this.player.play(key, true);
-  }
-
-  private cleanup(): void {
-    this.unsubscribe?.();
-    this.unsubscribe = undefined;
-    this.worldRenderer?.destroy();
-    this.farmRenderer?.destroy();
   }
 }
