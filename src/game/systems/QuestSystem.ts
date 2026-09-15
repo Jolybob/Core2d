@@ -1,11 +1,11 @@
 import type { DomainEvent, DomainEventBus } from '../events';
 import type { GameState, QuestState } from '../types';
-import type { GameStore } from '../store';
+import type { GameStatePort } from '../store-ports';
 
 export class QuestSystem {
   private unsubscribe: (() => void) | undefined;
 
-  constructor(store?: GameStore, events?: DomainEventBus) {
+  constructor(store?: GameStatePort, events?: DomainEventBus) {
     if (store && events) {
       this.unsubscribe = events.subscribe((event) => this.handleEvent(event, store));
     }
@@ -34,7 +34,7 @@ export class QuestSystem {
     this.unsubscribe = undefined;
   }
 
-  private handleEvent(event: DomainEvent, store: GameStore): void {
+  private handleEvent(event: DomainEvent, store: GameStatePort): void {
     switch (event.type) {
       case 'CROP_HARVESTED':
         store.update((state) => {
