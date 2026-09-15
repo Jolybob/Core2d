@@ -88,21 +88,22 @@ function buildMigratedState(old: Record<string, unknown>, includeEntities: boole
   const economy = isObject(old['economy']) ? old['economy'] : {};
   const quests = Array.isArray(old['quests']) ? old['quests'] : [];
   const world = isObject(old['world']) ? old['world'] : {};
+  const legacyPlayer = !isObject(old['player']) ? old : {};
   return {
     player: {
-      x: isFiniteNonNegative(player['x']) ? player['x'] : 35 * 24 + 12,
-      y: isFiniteNonNegative(player['y']) ? player['y'] : 27 * 24 + 12,
-      health: isBoundedNumber(player['health'], 0, 100) ? player['health'] : 100,
-      stamina: isBoundedNumber(player['stamina'], 0, 100) ? player['stamina'] : 100,
-      hunger: isBoundedNumber(player['hunger'], 0, 100) ? player['hunger'] : 100,
-      money: isFiniteNonNegative(player['money']) ? player['money'] : 120,
+      x: isFiniteNonNegative(player['x']) ? player['x'] : (isFiniteNonNegative(legacyPlayer['x']) ? legacyPlayer['x'] : 35 * 24 + 12),
+      y: isFiniteNonNegative(player['y']) ? player['y'] : (isFiniteNonNegative(legacyPlayer['y']) ? legacyPlayer['y'] : 27 * 24 + 12),
+      health: isBoundedNumber(player['health'], 0, 100) ? player['health'] : (isBoundedNumber(legacyPlayer['health'], 0, 100) ? legacyPlayer['health'] : 100),
+      stamina: isBoundedNumber(player['stamina'], 0, 100) ? player['stamina'] : (isBoundedNumber(legacyPlayer['stamina'], 0, 100) ? legacyPlayer['stamina'] : 100),
+      hunger: isBoundedNumber(player['hunger'], 0, 100) ? player['hunger'] : (isBoundedNumber(legacyPlayer['hunger'], 0, 100) ? legacyPlayer['hunger'] : 100),
+      money: isFiniteNonNegative(player['money']) ? player['money'] : (isFiniteNonNegative(legacyPlayer['money']) ? legacyPlayer['money'] : 120),
       pickaxeLevel: isFiniteInteger(player['pickaxeLevel']) && player['pickaxeLevel'] >= 1 ? player['pickaxeLevel'] : 1,
       tool: typeof player['tool'] === 'string' && TOOL_IDS.includes(player['tool'] as ToolId) ? player['tool'] as ToolId : 'hoe',
     },
     inventory: normalizeInventory(old['inventory']),
     quests: quests.filter(isObject).map((quest) => ({ id: String(quest['id'] ?? 'quest'), title: String(quest['title'] ?? 'Quest'), need: Math.max(1, Number(quest['need']) || 1), progress: Math.max(0, Number(quest['progress']) || 0), reward: Math.max(0, Number(quest['reward']) || 0), done: Boolean(quest['done']) })),
     calendar: {
-      day: isFiniteInteger(calendar['day']) && calendar['day'] >= 1 ? calendar['day'] : 1,
+      day: isFiniteInteger(calendar['day']) && calendar['day'] >= 1 ? calendar['day'] : (isFiniteInteger(legacyPlayer['day']) && legacyPlayer['day'] >= 1 ? legacyPlayer['day'] : 1),
       clock: isFiniteNonNegative(calendar['clock']) ? calendar['clock'] : 0,
       season: isFiniteInteger(calendar['season']) && calendar['season'] >= 0 ? calendar['season'] : 0,
       weather: calendar['weather'] === 'Rainy' || calendar['weather'] === 'Cloudy' ? calendar['weather'] : 'Sunny',
