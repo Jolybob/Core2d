@@ -19,7 +19,13 @@ export class ResourceSystem {
   private readonly removedKeys = new Set<string>();
 
   constructor(private readonly store: GameStore) {
-    const state = store.getState();
+    this.refresh();
+  }
+
+  refresh(): void {
+    const state = this.store.getState();
+    this.resources.clear();
+    this.removedKeys.clear();
     this.generate(state.world.seed);
     for (const key of Object.keys(state.world.removedResources)) this.removedKeys.add(key);
   }
