@@ -59,7 +59,7 @@ export class GameRuntime {
     this.combat = new CombatSystem(this.store, this.player);
     this.day = new DaySystem(this.store, this.farming, this.player);
     this.resources = new ResourceSystem(this.store, this.events, this.worldRuntime);
-    this.commandHandler = new GameCommandHandler({ store: this.store, combat: this.combat, crafting: this.crafting, day: this.day, economy: this.economy, farming: this.farming, fishing: this.fishing, player: this.player, resources: this.resources });
+    this.commandHandler = new GameCommandHandler({ store: this.store, worldRuntime: this.worldRuntime, combat: this.combat, crafting: this.crafting, day: this.day, economy: this.economy, farming: this.farming, fishing: this.fishing, player: this.player, resources: this.resources });
   }
 
   dispatch(command: GameCommand): boolean { return this.commandHandler.dispatch(command); }
