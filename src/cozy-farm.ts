@@ -52,7 +52,7 @@ export class CozyFarm extends Phaser.Scene {
     this.say('Spring • Day 1 • Welcome home.');
   }
 
-  update(_time: number, delta: number): void {
+  override update(_time: number, delta: number): void {
     const dt = Math.min(delta, 50) / 1000;
     const dx = ((this.cursors.left?.isDown ?? false) || this.isKeyDown('A') ? -1 : 0) + ((this.cursors.right?.isDown ?? false) || this.isKeyDown('D') ? 1 : 0);
     const dy = ((this.cursors.up?.isDown ?? false) || this.isKeyDown('W') ? -1 : 0) + ((this.cursors.down?.isDown ?? false) || this.isKeyDown('S') ? 1 : 0);
