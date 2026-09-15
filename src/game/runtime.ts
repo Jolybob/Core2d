@@ -8,6 +8,7 @@ import { DaySystem } from './systems/DaySystem';
 import { EconomySystem } from './systems/EconomySystem';
 import { FarmingSystem } from './systems/FarmingSystem';
 import { FishingSystem } from './systems/FishingSystem';
+import { InventorySystem } from './systems/InventorySystem';
 import { PlayerSystem } from './systems/PlayerSystem';
 import { QuestSystem } from './systems/QuestSystem';
 import { ResourceSystem } from './world/ResourceSystem';
@@ -25,6 +26,7 @@ export class GameRuntime {
   readonly crafting: CraftingSystem;
   readonly economy: EconomySystem;
   readonly fishing: FishingSystem;
+  readonly inventory: InventorySystem;
   readonly player: PlayerSystem;
   readonly combat: CombatSystem;
   readonly day: DaySystem;
@@ -40,11 +42,13 @@ export class GameRuntime {
     this.crafting = new CraftingSystem(this.store);
     this.economy = new EconomySystem(this.store);
     this.fishing = new FishingSystem(this.store, this.events);
+    this.inventory = new InventorySystem(this.store);
     this.player = new PlayerSystem(this.store, this.worldRuntime, this.events);
     this.combat = new CombatSystem(this.store, this.player, this.worldRuntime, this.events);
     this.day = new DaySystem(this.store, this.farming, this.worldRuntime, this.player);
     this.resources = new ResourceSystem(this.store, this.events, this.worldRuntime);
-    this.commandHandler = new GameCommandHandler({ store: this.store, worldRuntime: this.worldRuntime, combat: this.combat, crafting: this.crafting, day: this.day, economy: this.economy, farming: this.farming, fishing: this.fishing, player: this.player, resources: this.resources });
+    this.commandHandler = new GameCommandHandler({ store: this.store, worldRuntime: this.worldRuntime, combat: this.combat, crafting: this.crafting, day: this.day, economy: this.economy, farming: this.farming, fishing: this.fishing, inventory: this.inventory, player: this.player, resources: this.resources });
+    this.inventory.initialize();
     if (autoStart) this.startNewGame();
   }
 
