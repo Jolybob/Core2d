@@ -1,5 +1,5 @@
 import { createEntityId, type EntityId, type EntityState, type PositionComponent } from '../entity';
-import { CHUNK_SIZE, chunkKey, tileKey, worldToChunk, worldToLocalTile, type ChunkCoord, type ChunkPersistence, type ChunkGenerator, type GeneratedChunk, defaultChunkGenerator } from './chunks';
+import { CHUNK_SIZE, chunkKey, ChunkCache, tileKey, worldToChunk, worldToLocalTile, type ChunkCoord, type ChunkPersistence, type ChunkGenerator, type GeneratedChunk, defaultChunkGenerator } from './chunks';
 import type { WorldState } from '../types';
 
 export type ComponentName = string;
@@ -7,8 +7,10 @@ export type ComponentValue = Record<string, unknown>;
 
 const isPositionComponent = (value: unknown): value is PositionComponent =>
   typeof value === 'object' && value !== null
-  && 'x' in value && typeof value.x === 'number' && Number.isFinite(value.x)
-  && 'y' in value && typeof value.y === 'number' && Number.isFinite(value.y);
+  && typeof (value as Record<string, unknown>).x === 'number'
+  && Number.isFinite((value as Record<string, unknown>).x)
+  && typeof (value as Record<string, unknown>).y === 'number'
+  && Number.isFinite((value as Record<string, unknown>).y);
 
 /** Owns entity identity and the minimal entity metadata. Components live separately. */
 export class EntityStore {
@@ -184,13 +186,13 @@ export class WorldMutationQueue {
 }
 
 export class ChunkManager {
-  private readonly cache: ChunkCacheLike;
+  private readonly cache: ChunkCache;
 
   constructor(
     private readonly world: WorldState,
     generator: ChunkGenerator = defaultChunkGenerator,
   ) {
-    this.cache = new ChunkCacheLike(generator);
+    this.cache = new ChunkCache(generator);
   }
 
   getGenerated(coord: ChunkCoord): GeneratedChunk {
@@ -230,29 +232,6 @@ export class ChunkManager {
   }
 }
 
-class ChunkCacheLike {
-  private readonly chunks = new Map<`${number},${number}`, GeneratedChunk>();
-
-  constructor(private readonly generator: ChunkGenerator) {}
-
-  get(seed: number, coord: ChunkCoord): GeneratedChunk {
-    const key = chunkKey(coord);
-    const cached = this.chunks.get(key);
-    if (cached?.seed === seed) return cached;
-    const generated = this.generator.generate(seed, coord);
-    this.chunks.set(key, generated);
-    return generated;
-  }
-
-  unload(coord: ChunkCoord): void {
-    this.chunks.delete(chunkKey(coord));
-  }
-
-  clear(): void {
-    this.chunks.clear();
-  }
-}
-
 export class WorldRuntime {
   readonly entities = new EntityStore();
   readonly components = new ComponentStore();
@@ -263,6 +242,9 @@ export class WorldRuntime {
 
   constructor(readonly world: WorldState, generator?: ChunkGenerator) {
     this.chunks = new ChunkManager(world, generator);
+    for (const entity of Object.values(world.entities.entities)) {
+      this.entities.add(entity);
+    }
   }
 
   createEntity(kind: string, components: Record<ComponentName, ComponentValue> = {}): EntityId {
@@ -284,6 +266,13 @@ export class WorldRuntime {
     if (!this.entities.has(id)) throw new Error(`Unknown entity: ${id}`);
     this.components.set(name, id, value);
     if (name === 'position' && isPositionComponent(value)) this.spatial.set(id, value);
+  }
+
+  removeComponent(id: EntityId, name: ComponentName): boolean {
+    if (!this.entities.has(id)) throw new Error(`Unknown entity: ${id}`);
+    const removed = this.components.remove(name, id);
+    if (name === 'position') this.spatial.remove(id);
+    return removed;
   }
 
   applyMutations(): number {
