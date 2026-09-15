@@ -15,6 +15,17 @@ describe('WorldRuntime', () => {
     expect(runtime.query.one(player, 'health')?.components['health']).toEqual({ health: 100, maxHealth: 100 });
   });
 
+  it('hydrates persisted entity metadata into the runtime store', () => {
+    const world = createInitialWorldSave(42);
+    const id = createEntityId('saved');
+    world.entities.entities[id] = { id, kind: 'npc' };
+
+    const runtime = new WorldRuntime(world);
+
+    expect(runtime.entities.get(id)).toEqual({ id, kind: 'npc' });
+    expect(runtime.query.with().map((entity) => entity.id)).toEqual([id]);
+  });
+
   it('keeps the spatial index synchronized with position components', () => {
     const runtime = new WorldRuntime(createInitialWorldSave(42));
     const tree = runtime.createEntity('tree', { position: position(4, 3) });
@@ -23,6 +34,15 @@ describe('WorldRuntime', () => {
     runtime.setComponent(tree, 'position', position(5, 3));
     expect(runtime.spatial.at({ x: 4, y: 3 })).not.toContain(tree);
     expect(runtime.spatial.at({ x: 5, y: 3 })).toContain(tree);
+  });
+
+  it('removes the spatial index when a position component is removed', () => {
+    const runtime = new WorldRuntime(createInitialWorldSave(42));
+    const tree = runtime.createEntity('tree', { position: position(4, 3) });
+
+    expect(runtime.removeComponent(tree, 'position')).toBe(true);
+    expect(runtime.components.has('position', tree)).toBe(false);
+    expect(runtime.spatial.at({ x: 4, y: 3 })).not.toContain(tree);
   });
 
   it('persists tile mutations without storing generated terrain', () => {
