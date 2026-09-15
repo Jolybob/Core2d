@@ -1,0 +1,74 @@
+/* Core2D — Core Keeper-inspired interface overhaul.
+   Original styling direction: dark underground panels, chunky bevels, warm copper highlights. */
+#core-ui{
+  color:#e8e4d7;
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  text-shadow:0 1px 1px #0008;
+}
+#core-ui *{box-sizing:border-box}
+.ui-top{top:12px;left:12px;right:12px;align-items:flex-start;gap:10px}
+.ui-brand,.stat,.ui-journal,.ui-action-dock,.hotbar-wrap,.controls,.ui-button{
+  background:linear-gradient(#30383b,#202628);
+  border:2px solid #111719;
+  box-shadow:inset 0 1px #657074,inset 0 -2px #121617,0 3px 0 #0c0f10,0 8px 20px #0008;
+  border-radius:3px;
+}
+.ui-brand{padding:8px 12px;min-width:142px}
+.brand-title{color:#f0d49a;font-size:15px;letter-spacing:.16em}
+.brand-version{color:#9ba6a5;font-size:10px}
+.ui-stats{gap:5px}
+.stat{width:118px;padding:6px 8px;border-color:#151b1d}
+.stat span{color:#aeb7b3;font-size:8px;letter-spacing:.14em}
+.stat strong{color:#f1eee5;font-size:11px}
+.bar{height:8px;background:#111617;border:1px solid #070a0b;box-shadow:inset 0 1px #000}
+.bar i{transition:width .25s ease}
+.health i{background:linear-gradient(90deg,#a92e2e,#dc6250)}
+.hunger i{background:linear-gradient(90deg,#a86b24,#d7a04b)}
+.stamina i{background:linear-gradient(90deg,#397a4e,#78b55d)}
+.ui-message{top:74px;padding:8px 16px;border:2px solid #151a1c;background:linear-gradient(#3b4548,#252c2e);color:#eee9da;box-shadow:0 3px #0b0e0f,0 8px 22px #0007;font-size:11px;border-radius:3px}
+.ui-journal{right:12px;top:92px;width:218px;padding:12px;background:linear-gradient(145deg,#343c3e,#242a2c);border-color:#121719}
+.journal-tab,.menu-ribbon{background:linear-gradient(#c4873e,#855326);color:#fff1d0;border:2px solid #3a2412;border-radius:2px;box-shadow:inset 0 1px #e4b36a,0 2px #0b0d0e}
+.journal-tab{margin:-20px 0 8px -5px}
+.ui-journal h3,.menu-head h2{color:#f0d7a2;text-transform:uppercase;letter-spacing:.08em}
+.journal-note{background:#1b2224;border:1px solid #4b5658;color:#bfc5bf}
+.ui-journal h4,.dock-label,.hotbar-label{color:#c48a42}
+.todo{color:#d1d4cb;border-bottom:1px solid #ffffff0b}
+.journal-divider{background:#ffffff18}
+.small-stat{color:#aeb6b0}.small-stat b{color:#e5e2d5}.danger b{color:#e86d5d}
+.ui-action-dock{left:12px;bottom:108px;width:174px;padding:8px;background:linear-gradient(#30383a,#202627)}
+.tool-btn{background:linear-gradient(#394244,#272e30);border:2px solid #111719;color:#dcded7;border-radius:2px;box-shadow:inset 0 1px #697477,0 2px #101314}
+.tool-btn:hover{background:linear-gradient(#4a5557,#30383a);border-color:#8a6a3d;transform:translateY(-1px)}
+.tool-btn:active{transform:translateY(1px);box-shadow:inset 0 2px #111,0 1px #101314}
+.tool-btn.primary{background:linear-gradient(#9b682f,#654019);border-color:#d0964b;color:#fff0d0}
+.tool-btn em{color:#909a96}
+.ui-bottom{bottom:12px;gap:8px}
+.hotbar-wrap{padding:6px;background:linear-gradient(#333b3d,#202628);border-color:#111719}
+.hotbar-label{text-shadow:none}
+.hotbar{gap:3px}
+.slot{width:58px;height:58px;background:linear-gradient(145deg,#3b4547,#252b2d);border:2px solid #111719;color:#cfd4cd;box-shadow:inset 0 1px #657074,inset 0 -2px #131718,0 2px #0b0d0e}
+.slot:hover{background:linear-gradient(145deg,#4a5557,#2b3335);border-color:#92713e}
+.slot.selected{background:linear-gradient(145deg,#775126,#4a3019);border-color:#e1a052;box-shadow:inset 0 1px #f0c274,inset 0 -2px #211308,0 0 0 1px #f0ad55,0 3px #090b0c}
+.slot-key{color:#9ea7a4}.slot-icon{filter:drop-shadow(0 2px 1px #000)}.slot-name{color:#aeb6b1}.slot-count{color:#fff0c7}
+.controls{padding:7px 9px;color:#9da6a2;font-size:9px}.controls span{color:#d5a05a}
+.ui-nav{right:12px;bottom:12px}
+.ui-button{padding:8px 12px;color:#e6e4db;border-color:#111719;background:linear-gradient(#394345,#252b2d)}
+.ui-button:hover{border-color:#b17b3c;color:#ffe1ad}
+.ui-button kbd{background:#171d1f;border:1px solid #586164;color:#c6cbc6;border-radius:2px}
+.ui-crafting,.ui-help,.ui-inventory{background:radial-gradient(circle at center,#17202299,#080b0dcc);backdrop-filter:blur(3px)}
+.menu-card{width:min(680px,calc(100vw - 30px));padding:20px;background:linear-gradient(145deg,#394345,#252c2e 55%,#1d2325);border:3px solid #0d1112;border-radius:4px;box-shadow:inset 0 1px #737d7f,inset 0 -2px #101415,0 5px #080a0b,0 28px 80px #000b}
+.menu-card.small{width:min(540px,calc(100vw - 30px))}.inventory-card{width:min(820px,calc(100vw - 30px));background:linear-gradient(145deg,#363f41,#252c2e)}
+.menu-ribbon{top:-13px;left:18px;padding:4px 12px;font-size:9px}
+.menu-head{border-bottom:1px solid #68717333;padding-bottom:12px}.menu-head p{color:#aeb7b3}.menu-close{width:34px;height:34px;background:linear-gradient(#454f51,#293032);border:2px solid #111718;color:#eee0c3;border-radius:2px;box-shadow:inset 0 1px #778083,0 2px #0c0f10}
+.menu-close:hover{background:#7a3c2f;border-color:#bd6b54}
+.paper-panel{background:#1b2224;border:2px solid #101516;padding:9px;box-shadow:inset 0 0 20px #0008}
+.paper-title{color:#c38a43}.inventory-grid{gap:5px}
+.inv-slot{min-height:78px;background:linear-gradient(#2c3537,#202628);border:2px solid #101516;color:#77817d;box-shadow:inset 0 1px #4e595b}
+.inv-slot.filled{background:linear-gradient(#3d484a,#293133);color:#e0dfd6;cursor:pointer}.inv-slot.filled:hover{background:linear-gradient(#4b5759,#313a3c);border-color:#b17b3e;transform:translateY(-1px)}
+.inv-slot em{color:#f0d29a}.inventory-side{background:linear-gradient(#30393b,#242a2c);border:2px solid #111718}.portrait{background:#1b2224;border:2px solid #0d1112;box-shadow:inset 0 0 15px #0009}.inventory-side span,.inventory-side small{color:#9ea8a3}.inventory-side button,.menu-actions button{background:linear-gradient(#a87335,#68431f);border:2px solid #d39a4e;color:#fff0d0;border-radius:2px;box-shadow:inset 0 1px #edc078,0 2px #0c0e0f}
+.menu-footer{color:#89938f;border-top:1px solid #ffffff12;padding-top:9px}
+.recipe{background:linear-gradient(#30393b,#252c2e);border:2px solid #111718;box-shadow:inset 0 1px #596366}.recipe:hover{border-color:#8f6a38}.recipe-icon{background:#1b2224;border:1px solid #0d1112}.recipe-info b{color:#e7e4d9}.recipe-info small{color:#9da7a3}.recipe-button{background:linear-gradient(#9d6b31,#633e1d);border:2px solid #c78c47;color:#ffedc7;border-radius:2px}.recipe-button:disabled{background:#202628;border-color:#3d4547;color:#707976;opacity:1}
+.help-list div{background:#202729;border:1px solid #404a4c;color:#d5d7d0}.help-list span{color:#a3ada8}
+.menu-actions{border-bottom:1px solid #ffffff12;padding-bottom:12px}
+@media(max-width:900px){.ui-journal{width:190px}.ui-action-dock{width:155px}.slot{width:54px}.inventory-grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:700px){.ui-journal{display:none}.ui-action-dock{left:7px;bottom:82px;width:140px}.ui-top{top:7px;left:7px;right:7px}.stat{width:80px}.ui-message{top:64px}.ui-bottom{bottom:6px}.slot{width:44px;height:48px}.ui-nav{right:7px;bottom:6px}.ui-button{padding:7px 8px}.menu-card{padding:16px}.inventory-grid{grid-template-columns:repeat(3,1fr)}}
+@media(prefers-reduced-motion:reduce){#core-ui *{transition:none!important;animation:none!important}}
