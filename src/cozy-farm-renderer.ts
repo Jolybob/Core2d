@@ -40,10 +40,11 @@ export class FarmRenderer {
     const season = ['Spring', 'Summer', 'Autumn', 'Winter'][state.calendar.season] ?? 'Spring';
     const hudPlayer = isPlayer(playerComponent) ? playerComponent : state.player;
     this.hud.setText(`${season} • DAY ${state.calendar.day}  $${hudPlayer.money}\nHP ${Math.ceil(hudPlayer.health)}  HUN ${Math.ceil(hudPlayer.hunger)}  STA ${Math.ceil(hudPlayer.stamina)}\n${hudPlayer.tool.toUpperCase()} • ${state.calendar.weather}`);
-    const removedSignature = JSON.stringify(runtime.world.removedResources);
+    const removedResources = runtime.readPersistence((world) => world.removedResources);
+    const removedSignature = JSON.stringify(removedResources);
     if (removedSignature !== this.lastRemovedSignature) {
       this.lastRemovedSignature = removedSignature;
-      for (const node of this.resources) node.object.visible = !Boolean(runtime.world.removedResources[node.key]);
+      for (const node of this.resources) node.object.visible = !Boolean(removedResources[node.key]);
     }
   }
 
