@@ -1,4 +1,5 @@
 // Core2D application composition root.
+import './background-fix.css';
 import './polish.css';
 import './corekeeper-ui.css';
 import './game-ui.css';
