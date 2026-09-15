@@ -4,7 +4,7 @@ import type { ReadonlyDeep } from './game/store';
 import { appRuntime } from './game/app-runtime';
 import type { ResourceView } from './cozy-farm-world';
 import { TILE } from './cozy-farm-world';
-import { CHUNK_SIZE, chunkKey, worldToChunk, type ChunkKey } from './game/world/chunks';
+import { chunkKey, worldToChunk, type ChunkKey } from './game/world/chunks';
 import type { ComponentValue } from './game/world/runtime';
 
 interface CropComponent extends ComponentValue {
