@@ -1,0 +1,3 @@
+/* Gameplay layout without the quick bar. */
+.ui-bottom{display:none!important}
+.ui-action-dock{display:none!important}
