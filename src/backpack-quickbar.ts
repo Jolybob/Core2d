@@ -1,42 +1,56 @@
 import './backpack-quickbar.css';
 
-type InventoryCell={id:string;icon:string;name:string;count:string};
-
-const readFirstRow=():InventoryCell[]=>{
-  const grid=document.querySelector<HTMLElement>('#inventory-grid');
-  if(!grid)return [];
-  return Array.from(grid.children).slice(0,7).map((cell)=>{
-    const button=cell.querySelector<HTMLButtonElement>('[data-item]');
-    if(!button)return {id:'',icon:'',name:'',count:''};
-    return {
-      id:button.dataset.item??'',
-      icon:button.querySelector('span')?.textContent??'',
-      name:button.querySelector('b')?.textContent??'',
-      count:button.querySelector('em')?.textContent??'0',
-    };
-  });
-};
+const getGrid=()=>document.querySelector<HTMLElement>('#inventory-grid');
 
 const mount=()=>{
+  const grid=getGrid();
+  if(!grid)return;
   let bar=document.querySelector<HTMLElement>('#backpack-quickbar');
   if(!bar){bar=document.createElement('div');bar.id='backpack-quickbar';bar.className='backpack-quickbar';document.body.appendChild(bar);}
-  const row=readFirstRow();
-  const html=Array.from({length:7},(_,i)=>{
-    const cell=row[i]??{id:'',icon:'',name:'',count:''};
-    return cell.id
-      ? `<button type="button" class="backpack-quick-slot filled" data-item="${cell.id}" title="${cell.name}"><span class="slot-key">${i+1}</span><span class="slot-icon">${cell.icon}</span><span class="slot-name">${cell.name}</span><span class="slot-count">${cell.count}</span></button>`
-      : `<div class="backpack-quick-slot empty" aria-hidden="true"><span class="slot-key">${i+1}</span></div>`;
-  }).join('');
-  if(bar.dataset.rendered!==html){bar.innerHTML=html;bar.dataset.rendered=html;}
+
+  // The quickbar is literally a visual copy of inventory cells 1–7.
+  // Clone the real inventory DOM so icons, names, quantities and empty slots
+  // can never drift into a separate item list.
+  const cells=Array.from(grid.children).slice(0,7);
+  if(cells.length<7)return;
+  const fragment=document.createDocumentFragment();
+  cells.forEach((cell,index)=>{
+    const clone=cell.cloneNode(true) as HTMLElement;
+    clone.classList.add('backpack-quick-slot');
+    clone.dataset.quickIndex=String(index);
+    const button=clone.matches('button')?clone:clone.querySelector<HTMLButtonElement>('button');
+    if(button){
+      button.removeAttribute('data-item');
+      button.dataset.quickItem=button.closest<HTMLElement>('[data-item]')?.dataset.item??'';
+      button.removeAttribute('data-slot');
+      button.classList.add('backpack-quick-cell');
+    }
+    fragment.appendChild(clone);
+  });
+  const signature=cells.map(cell=>cell.outerHTML).join('');
+  if(bar.dataset.source!==signature){bar.replaceChildren(fragment);bar.dataset.source=signature;}
 };
 
 const refresh=()=>requestAnimationFrame(mount);
 
 document.addEventListener('click',e=>{
-  const button=(e.target as HTMLElement).closest<HTMLButtonElement>('#backpack-quickbar [data-item]');
-  if(!button)return;
-  window.dispatchEvent(new CustomEvent('core2d:inventory'));
-  requestAnimationFrame(()=>document.querySelector<HTMLElement>(`#inventory-grid [data-item="${button.dataset.item}"]`)?.classList.add('quick-access-target'));
+  const target=e.target as HTMLElement;
+  const cell=target.closest<HTMLElement>('#backpack-quickbar .backpack-quick-slot');
+  if(!cell)return;
+  const sourceIndex=Number(cell.dataset.quickIndex);
+  const grid=getGrid();
+  const source=grid?.children[sourceIndex] as HTMLElement|undefined;
+  const item=source?.querySelector<HTMLElement>('[data-item]')?.dataset.item;
+  if(item)window.dispatchEvent(new CustomEvent('core2d:inventory'));
 });
+
 window.addEventListener('core2d:state',refresh);
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+
+const start=()=>{
+  mount();
+  const grid=getGrid();
+  if(grid)new MutationObserver(refresh).observe(grid,{childList:true,subtree:true});
+  setTimeout(mount,100);
+  setTimeout(mount,500);
+};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
