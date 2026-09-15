@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { DAY_SECONDS } from './game/systems/DaySystem';
-import type { GameState } from './game/types';
+import type { ReadonlyDeep } from './game/store';
 import type { ResourceView } from './cozy-farm-world';
 import { TILE } from './cozy-farm-world';
 
@@ -17,7 +17,7 @@ export class FarmRenderer {
     private readonly resources: ResourceView[],
   ) {}
 
-  renderState(state: GameState): void {
+  renderState(state: ReadonlyDeep<import('./game/types').GameState>): void {
     this.player.setPosition(state.player.x, state.player.y);
     const season = ['Spring', 'Summer', 'Autumn', 'Winter'][state.calendar.season] ?? 'Spring';
     this.hud.setText(`${season} • DAY ${state.calendar.day}  $${state.player.money}\nHP ${Math.ceil(state.player.health)}  HUN ${Math.ceil(state.player.hunger)}  STA ${Math.ceil(state.player.stamina)}\n${state.player.tool.toUpperCase()} • ${state.calendar.weather}`);
@@ -45,7 +45,7 @@ export class FarmRenderer {
     this.cropGraphics.clear();
   }
 
-  private renderCrops(state: GameState): void {
+  private renderCrops(state: ReadonlyDeep<import('./game/types').GameState>): void {
     for (const graphics of this.cropGraphics.values()) graphics.destroy();
     this.cropGraphics.clear();
 
