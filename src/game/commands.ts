@@ -1,4 +1,4 @@
-import type { ItemId, RecipeId, ToolId } from './types';
+import type { ConsumableId, RecipeId, ToolId } from './types';
 
 export type GameCommand =
   | { type: 'TICK'; deltaSeconds: number }
@@ -13,7 +13,7 @@ export type GameCommand =
   | { type: 'FISH' }
   | { type: 'ATTACK' }
   | { type: 'CRAFT'; recipe: RecipeId }
-  | { type: 'EAT'; item: ItemId }
+  | { type: 'EAT'; item: ConsumableId }
   | { type: 'USE_SALVE' }
   | { type: 'BUY_SEEDS' }
   | { type: 'SHIP' }
