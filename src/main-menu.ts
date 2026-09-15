@@ -5,6 +5,7 @@ export class MainMenu extends Phaser.Scene {
   private title!: Phaser.GameObjects.Text;
   private subtitle!: Phaser.GameObjects.Text;
   private play!: Phaser.GameObjects.Text;
+  private editor!: Phaser.GameObjects.Text;
   private hint!: Phaser.GameObjects.Text;
 
   constructor() { super('MainMenu'); }
@@ -21,6 +22,10 @@ export class MainMenu extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '30px', color: '#fff0c2', backgroundColor: '#395a35',
       padding: { left: 28, right: 28, top: 14, bottom: 14 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    this.editor = this.add.text(0, 0, '[ TILESET EDITOR ]', {
+      fontFamily: 'monospace', fontSize: '17px', color: '#d8f0ff', backgroundColor: '#25324a',
+      padding: { left: 18, right: 18, top: 10, bottom: 10 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     this.hint = this.add.text(0, 0, 'Click PLAY to generate your world', {
       fontFamily: 'monospace', fontSize: '14px', color: '#829172',
     }).setOrigin(0.5);
@@ -36,6 +41,10 @@ export class MainMenu extends Phaser.Scene {
       this.time.delayedCall(250, () => this.scene.start('CozyFarm'));
     });
 
+    this.editor.on('pointerover', () => this.editor.setScale(1.04));
+    this.editor.on('pointerout', () => this.editor.setScale(1));
+    this.editor.on('pointerdown', () => this.scene.start('TilesetEditor'));
+
     this.layout(this.scale.gameSize);
     this.scale.on('resize', this.layout, this);
     this.events.once('shutdown', () => this.scale.off('resize', this.layout, this));
@@ -43,9 +52,10 @@ export class MainMenu extends Phaser.Scene {
 
   private layout(gameSize: Phaser.Structs.Size): void {
     const centerX = gameSize.width / 2;
-    this.title.setPosition(centerX, gameSize.height * 0.25);
-    this.subtitle.setPosition(centerX, gameSize.height * 0.36);
-    this.play.setPosition(centerX, gameSize.height * 0.56);
-    this.hint.setPosition(centerX, gameSize.height * 0.78);
+    this.title.setPosition(centerX, gameSize.height * 0.22);
+    this.subtitle.setPosition(centerX, gameSize.height * 0.33);
+    this.play.setPosition(centerX, gameSize.height * 0.51);
+    this.editor.setPosition(centerX, gameSize.height * 0.65);
+    this.hint.setPosition(centerX, gameSize.height * 0.80);
   }
 }
