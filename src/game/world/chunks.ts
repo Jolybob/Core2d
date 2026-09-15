@@ -1,4 +1,5 @@
 export const CHUNK_SIZE = 64 as const;
+export const TILE_SIZE = 24 as const;
 
 export interface ChunkCoord {
   x: number;
