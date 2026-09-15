@@ -31,7 +31,7 @@ export class FarmRenderer {
   private lastLoadedSignature = '';
   private lastRemovedSignature = '';
 
-  constructor(private readonly scene: Phaser.Scene, private readonly player: Phaser.GameObjects.Rectangle, private readonly hud: Phaser.GameObjects.Text, private readonly night: Phaser.GameObjects.Rectangle, private readonly resources: ResourceView[]) {}
+  constructor(private readonly scene: Phaser.Scene, private readonly player: Phaser.GameObjects.Sprite, private readonly hud: Phaser.GameObjects.Text, private readonly night: Phaser.GameObjects.Rectangle, private readonly resources: ResourceView[]) {}
 
   renderState(state: ReadonlyDeep<import('./game/types').GameState>): void {
     const runtime = appRuntime.worldRuntime;
