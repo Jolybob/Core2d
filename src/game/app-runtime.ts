@@ -32,3 +32,5 @@ export class GameRuntime {
   load(): boolean { return this.commandHandler.load(); }
   destroy(): void { this.quests.destroy(); }
 }
+
+export const appRuntime = new GameRuntime();
