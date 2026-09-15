@@ -11,17 +11,23 @@ interface CropComponent extends ComponentValue { key: string; stage: number; wat
 interface PositionComponent extends ComponentValue { x: number; y: number; }
 interface PlayerComponent extends ComponentValue { x: number; y: number; health: number; stamina: number; hunger: number; money: number; tool: string; }
 interface WorldObjectComponent extends ComponentValue { shape: 'ellipse' | 'rectangle' | 'label' | 'animal'; width?: number; height?: number; color?: number; stroke?: number; text?: string; }
+interface EnemyComponent extends ComponentValue { key: string; kind: 'slime'; }
+interface HealthComponent extends ComponentValue { health: number; maxHealth: number; }
 
 const isCrop = (value: ComponentValue | undefined): value is CropComponent => typeof value?.key === 'string' && typeof value.stage === 'number' && typeof value.watered === 'boolean' && typeof value.tilled === 'boolean';
 const isPosition = (value: ComponentValue | undefined): value is PositionComponent => typeof value?.x === 'number' && typeof value?.y === 'number';
 const isPlayer = (value: ComponentValue | undefined): value is PlayerComponent => typeof value?.x === 'number' && typeof value?.y === 'number' && typeof value?.health === 'number' && typeof value?.stamina === 'number' && typeof value?.hunger === 'number' && typeof value?.money === 'number' && typeof value?.tool === 'string';
 const isWorldObject = (value: ComponentValue | undefined): value is WorldObjectComponent => value?.shape === 'ellipse' || value?.shape === 'rectangle' || value?.shape === 'label' || value?.shape === 'animal';
+const isEnemy = (value: ComponentValue | undefined): value is EnemyComponent => value?.kind === 'slime' && typeof value?.key === 'string';
+const isHealth = (value: ComponentValue | undefined): value is HealthComponent => typeof value?.health === 'number' && typeof value?.maxHealth === 'number' && value.maxHealth > 0;
 
 export class FarmRenderer {
   private cropGraphics = new Map<string, Phaser.GameObjects.Graphics>();
   private worldObjectGraphics = new Map<string, Phaser.GameObjects.GameObject[]>();
+  private enemyGraphics = new Map<string, Phaser.GameObjects.GameObject[]>();
   private lastCropSignature = '';
   private lastWorldObjectSignature = '';
+  private lastEnemySignature = '';
   private lastLoadedSignature = '';
   private lastRemovedSignature = '';
 
@@ -53,14 +59,18 @@ export class FarmRenderer {
     const runtime = appRuntime.worldRuntime;
     const cropEntities = runtime.query.withInChunks(loadedChunkKeys, 'crop', 'position');
     const worldObjectEntities = runtime.query.withInChunks(loadedChunkKeys, 'worldObject', 'position');
+    const enemyEntities = runtime.query.withInChunks(loadedChunkKeys, 'enemy', 'position', 'health');
     const cropSignature = cropEntities.map((entity) => `${entity.id}:${JSON.stringify(runtime.components.get('crop', entity.id))}:${JSON.stringify(runtime.components.get('position', entity.id))}`).sort().join('|');
     const worldObjectSignature = worldObjectEntities.map((entity) => `${entity.id}:${JSON.stringify(runtime.components.get('worldObject', entity.id))}:${JSON.stringify(runtime.components.get('position', entity.id))}`).sort().join('|');
-    if (`${loadedSignature}::${cropSignature}::${worldObjectSignature}` === `${this.lastLoadedSignature}::${this.lastCropSignature}::${this.lastWorldObjectSignature}`) return;
+    const enemySignature = enemyEntities.map((entity) => `${entity.id}:${JSON.stringify(runtime.components.get('enemy', entity.id))}:${JSON.stringify(runtime.components.get('position', entity.id))}:${JSON.stringify(runtime.components.get('health', entity.id))}`).sort().join('|');
+    if (`${loadedSignature}::${cropSignature}::${worldObjectSignature}::${enemySignature}` === `${this.lastLoadedSignature}::${this.lastCropSignature}::${this.lastWorldObjectSignature}::${this.lastEnemySignature}`) return;
     this.lastLoadedSignature = loadedSignature;
     this.lastCropSignature = cropSignature;
     this.lastWorldObjectSignature = worldObjectSignature;
+    this.lastEnemySignature = enemySignature;
     this.renderVisibleCrops(cropEntities);
     this.renderVisibleWorldObjects(worldObjectEntities);
+    this.renderVisibleEnemies(enemyEntities);
   }
 
   updateNight(clock: number): void {
@@ -73,6 +83,8 @@ export class FarmRenderer {
     this.cropGraphics.clear();
     for (const objects of this.worldObjectGraphics.values()) for (const object of objects) object.destroy();
     this.worldObjectGraphics.clear();
+    for (const objects of this.enemyGraphics.values()) for (const object of objects) object.destroy();
+    this.enemyGraphics.clear();
   }
 
   private renderVisibleCrops(entities: readonly import('./game/entity').EntityState[]): void {
@@ -116,6 +128,25 @@ export class FarmRenderer {
         objects.push(this.scene.add.circle(px + 20, py + 8, 5, view.color ?? 0xffffff).setDepth(7));
       }
       this.worldObjectGraphics.set(entity.id, objects);
+    }
+  }
+
+  private renderVisibleEnemies(entities: readonly import('./game/entity').EntityState[]): void {
+    for (const objects of this.enemyGraphics.values()) for (const object of objects) object.destroy();
+    this.enemyGraphics.clear();
+    const runtime = appRuntime.worldRuntime;
+    for (const entity of entities) {
+      const enemy = runtime.components.get('enemy', entity.id);
+      const position = runtime.components.get('position', entity.id);
+      const health = runtime.components.get('health', entity.id);
+      if (!isEnemy(enemy) || !isPosition(position) || !isHealth(health)) continue;
+      const px = position.x;
+      const py = position.y;
+      const body = this.scene.add.circle(px, py, 13, 0x5c3b78).setDepth(20);
+      body.setStrokeStyle(2, 0xb995d6);
+      const bar = this.scene.add.rectangle(px, py - 20, 26, 3, 0x7f1d1d).setDepth(21);
+      const fill = this.scene.add.rectangle(px - 13, py - 20, 26 * Math.max(0, Math.min(1, health.health / health.maxHealth)), 3, 0x67c36b).setOrigin(0, 0.5).setDepth(22);
+      this.enemyGraphics.set(entity.id, [body, bar, fill]);
     }
   }
 }
