@@ -4,7 +4,7 @@ export class CombatSystem {
   constructor(private readonly store: GameStore) {}
 
   attack(): boolean {
-    return this.store.getState().inventory.sword > 0;
+    return this.store.select((state) => state.inventory.sword > 0);
   }
 
   damagePlayer(amount: number): boolean {
