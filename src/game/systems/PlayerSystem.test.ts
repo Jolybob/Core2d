@@ -2,13 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { DomainEventBus } from '../events';
 import { GameStore, createInitialState } from '../store';
 import { WorldRuntime } from '../world/runtime';
-import { WorldSystem } from '../world/WorldSystem';
 import { PlayerSystem } from './PlayerSystem';
 
 const createPlayer = () => {
   const store = new GameStore(createInitialState());
   const runtime = new WorldRuntime(store.getState().world);
-  const player = new PlayerSystem(store, new WorldSystem(), runtime);
+  const player = new PlayerSystem(store, runtime);
   return { store, runtime, player };
 };
 
