@@ -5,11 +5,12 @@ import { GameStore, createInitialState } from '../store';
 import { DomainEventBus } from '../events';
 import { FarmingSystem } from './FarmingSystem';
 import { WorldRuntime } from '../world/runtime';
+import { rehydrateWorld } from '../world/runtime-persistence';
 
 const cropId = (key: string): EntityId => `crop-${encodeURIComponent(key)}` as EntityId;
 
 describe('FarmingSystem ECS runtime', () => {
-  it('stores crops as persisted ECS entities while keeping the explicit legacy mirror', () => {
+  it('stores crops as persisted ECS entities', () => {
     const runtime = new GameRuntime();
 
     expect(runtime.dispatch({ type: 'TILL', key: '4,7' })).toBe(true);
@@ -57,6 +58,7 @@ describe('FarmingSystem ECS runtime', () => {
     });
 
     expect(farming.getCrop('9,10')).toBeUndefined();
+    rehydrateWorld(worldRuntime, store.getState());
     farming.hydrateFromPersistence();
 
     expect(farming.getCrop('9,10')).toEqual({ stage: 2, watered: true, tilled: true });
