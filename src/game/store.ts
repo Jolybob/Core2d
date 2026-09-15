@@ -1,7 +1,16 @@
 import type { GameState, InventoryState } from './types';
 
+type ReadonlyDeep<T> = T extends (...args: never[]) => unknown
+  ? T
+  : T extends readonly (infer U)[]
+    ? readonly ReadonlyDeep<U>[]
+    : T extends object
+      ? { readonly [K in keyof T]: ReadonlyDeep<T[K]> }
+      : T;
+
 type Listener = (state: GameState) => void;
 type Selector<T> = (state: GameState) => T;
+type ReadSelector<T> = (state: ReadonlyDeep<GameState>) => T;
 type SelectedListener<T> = (selected: T, state: GameState) => void;
 type Equality<T> = (previous: T, next: T) => boolean;
 
@@ -24,6 +33,10 @@ export class GameStore {
 
   getState(): GameState {
     return structuredClone(this.state);
+  }
+
+  select<T>(selector: ReadSelector<T>): T {
+    return selector(this.state);
   }
 
   update(mutator: (state: GameState) => void): void {
