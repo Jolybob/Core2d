@@ -3,6 +3,7 @@ export type ToolId = typeof TOOL_IDS[number];
 
 export const ITEM_IDS = ['wood', 'stone', 'ore', 'crystal', 'berry', 'parsnip', 'seeds', 'torch', 'sword', 'fish', 'coal', 'rod', 'salve'] as const;
 export type ItemId = typeof ITEM_IDS[number];
+export type ConsumableId = Extract<ItemId, 'berry' | 'fish' | 'parsnip'>;
 
 export const RECIPE_IDS = ['copperPickaxe', 'sword', 'torch', 'healingSalve', 'fishingRod'] as const;
 export type RecipeId = typeof RECIPE_IDS[number];
