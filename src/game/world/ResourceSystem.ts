@@ -2,8 +2,7 @@ import type { DomainEventBus } from '../events';
 import type { GameState } from '../types';
 import type { GameStatePort } from '../store-ports';
 import { WorldRuntime, type ComponentValue } from './runtime';
-import { CHUNK_SIZE, chunkKey, seededUnit, worldToChunk, type ChunkCoord } from './chunks';
-import { TILE_SIZE } from './WorldSystem';
+import { CHUNK_SIZE, chunkKey, seededUnit, worldToChunk, TILE_SIZE, type ChunkCoord } from './chunks';
 
 export type ResourceType = 'tree' | 'rock';
 export interface ResourceNode { key: string; type: ResourceType; x: number; y: number; ore: boolean; }
@@ -26,7 +25,7 @@ export class ResourceSystem {
     const state = this.store.getState();
     this.runtime.rehydrate(state.world);
     const chunks = loaded.length > 0 ? loaded : [worldToChunk({ x: Math.floor(state.player.x / TILE_SIZE), y: Math.floor(state.player.y / TILE_SIZE) })];
-    for (const chunk of chunks) this.runtime.chunks.load(chunk);
+    for (const chunk of chunks) this.runtime.loadChunk(chunk);
     this.ensureGenerated(this.runtime, chunks);
     this.commitRuntime(this.runtime);
   }
