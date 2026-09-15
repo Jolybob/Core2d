@@ -24,11 +24,12 @@ export class ResourceSystem {
   }
 
   refresh(): void {
-    const state = this.store.getState();
+    const seed = this.store.select((state) => state.world.seed);
+    const removedResources = this.store.select((state) => state.world.removedResources);
     this.resources.clear();
     this.removedKeys.clear();
-    this.generate(state.world.seed);
-    for (const key of Object.keys(state.world.removedResources)) this.removedKeys.add(key);
+    this.generate(seed);
+    for (const key of Object.keys(removedResources)) this.removedKeys.add(key);
   }
 
   getAll(): ResourceNode[] {
@@ -70,9 +71,9 @@ export class ResourceSystem {
 
   private findAt(x: number, y: number, type: ResourceType): ResourceNode | undefined {
     if (!Number.isInteger(x) || !Number.isInteger(y)) return undefined;
-    const state = this.store.getState();
-    const playerX = Math.floor(state.player.x / TILE_SIZE);
-    const playerY = Math.floor(state.player.y / TILE_SIZE);
+    const player = this.store.select((state) => state.player);
+    const playerX = Math.floor(player.x / TILE_SIZE);
+    const playerY = Math.floor(player.y / TILE_SIZE);
     if (Math.hypot(x - playerX, y - playerY) > INTERACTION_RANGE) return undefined;
     const key = `${type}:${x},${y}`;
     const resource = this.resources.get(key);
@@ -91,7 +92,7 @@ export class ResourceSystem {
   }
 
   private isRemoved(key: string): boolean {
-    return this.removedKeys.has(key) || Boolean(this.store.getState().world.removedResources[key]);
+    return this.removedKeys.has(key) || this.store.select((state) => Boolean(state.world.removedResources[key]));
   }
 
   private generate(seed: number): void {
