@@ -26,27 +26,25 @@ export class FarmWorldRenderer {
     const tileY = Math.floor(playerY / TILE);
     const center = worldToChunk({ x: tileX, y: tileY });
     const desired: ChunkCoord[] = [];
-
     for (let y = center.y - RENDER_RADIUS; y <= center.y + RENDER_RADIUS; y += 1) {
       for (let x = center.x - RENDER_RADIUS; x <= center.x + RENDER_RADIUS; x += 1) desired.push({ x, y });
     }
-
     const desiredKeys = new Set<ChunkKey>(desired.map((coord) => chunkKey(coord)));
     for (const key of this.loadedKeys) {
       if (desiredKeys.has(key)) continue;
       for (const object of this.chunkObjects.get(key) ?? []) object.destroy();
       this.chunkObjects.delete(key);
     }
-
     for (const coord of desired) {
       const key = chunkKey(coord);
       if (this.chunkObjects.has(key)) continue;
       this.chunkObjects.set(key, this.renderChunk(coord));
     }
     this.loadedKeys = desiredKeys;
-
     this.syncResources();
   }
+
+  getLoadedChunkKeys(): ReadonlySet<ChunkKey> { return this.loadedKeys; }
 
   destroy(): void {
     for (const objects of this.chunkObjects.values()) for (const object of objects) object.destroy();
@@ -60,34 +58,30 @@ export class FarmWorldRenderer {
   private renderChunk(coord: ChunkCoord): Phaser.GameObjects.GameObject[] {
     const objects: Phaser.GameObjects.GameObject[] = [];
     const runtime = appRuntime.worldRuntime;
-
     for (let localY = 0; localY < CHUNK_SIZE; localY += 1) {
       for (let localX = 0; localX < CHUNK_SIZE; localX += 1) {
         const worldX = coord.x * CHUNK_SIZE + localX;
         const worldY = coord.y * CHUNK_SIZE + localY;
         const tile = runtime.chunks.getTile(worldX, worldY);
-        const base = tile === 'water'
-          ? 0x4f8fa3
-          : tile === 'stone'
-            ? 0x77736c
-            : (worldX + worldY) % 2 ? 0x6f9b4f : 0x739f52;
-        const object = this.scene.add.rectangle(worldX * TILE + 12, worldY * TILE + 12, 23, 23, base);
-        objects.push(object);
+        const base = tile === 'water' ? 0x4f8fa3 : tile === 'stone' ? 0x77736c : (worldX + worldY) % 2 ? 0x6f9b4f : 0x739f52;
+        objects.push(this.scene.add.rectangle(worldX * TILE + 12, worldY * TILE + 12, 23, 23, base));
       }
     }
-
     return objects;
   }
 
   private syncResources(): void {
     const active = new Map(appRuntime.resources.getAll().map((resource) => [resource.key, resource]));
     for (const [key, view] of this.resourceObjects) {
-      if (active.has(key)) continue;
+      const resource = active.get(key);
+      const chunk = resource && chunkKey(worldToChunk({ x: Math.floor(resource.x), y: Math.floor(resource.y) }));
+      if (resource && chunk && this.loadedKeys.has(chunk)) continue;
       view.object.destroy();
       this.resourceObjects.delete(key);
     }
-
     for (const resource of active.values()) {
+      const chunk = chunkKey(worldToChunk({ x: Math.floor(resource.x), y: Math.floor(resource.y) }));
+      if (!this.loadedKeys.has(chunk)) continue;
       let view = this.resourceObjects.get(resource.key);
       if (!view) {
         const object = resource.type === 'tree'
@@ -103,7 +97,6 @@ export class FarmWorldRenderer {
       }
       view.object.visible = !Boolean(appRuntime.store.getState().world.removedResources[resource.key]);
     }
-
     this.resources.splice(0, this.resources.length, ...this.resourceObjects.values());
   }
 }
@@ -112,19 +105,13 @@ export function buildFarmWorld(scene: Phaser.Scene): ResourceView[] {
   const resources: ResourceView[] = [];
   const renderer = new FarmWorldRenderer(scene, resources);
   renderer.sync(appRuntime.store.getState().player.x, appRuntime.store.getState().player.y);
-
-  // Legacy visual landmarks still retained:
   scene.add.ellipse(13 * TILE, 11 * TILE, 230, 150, 0x4f8fa3).setDepth(2).setStrokeStyle(4, 0x315f70);
   scene.add.text(10 * TILE, 8 * TILE, 'FISHING POND', { fontFamily: 'monospace', fontSize: '14px', color: '#d8f0ff' }).setDepth(6);
   scene.add.rectangle(35 * TILE + 12, 17 * TILE + 12, 12 * TILE, 6 * TILE, 0xc18a55).setDepth(5).setStrokeStyle(4, 0x8d623e);
-  scene.add.polygon(35 * TILE + 12, 17 * TILE + 12, [
-    -6 * TILE, -3 * TILE, 6 * TILE, -3 * TILE, 6 * TILE, 3 * TILE, -6 * TILE, 3 * TILE,
-  ], 0xc18a55).setDepth(6);
+  scene.add.polygon(35 * TILE + 12, 17 * TILE + 12, [-6 * TILE, -3 * TILE, 6 * TILE, -3 * TILE, 6 * TILE, 3 * TILE, -6 * TILE, 3 * TILE], 0xc18a55).setDepth(6);
   scene.add.text(34 * TILE, 17 * TILE, 'HOME', { fontFamily: 'monospace', fontSize: '16px', color: '#fff4dc' }).setDepth(7);
   scene.add.text(58 * TILE, 25 * TILE, 'QUARRY', { fontFamily: 'monospace', fontSize: '16px', color: '#ddd7cc' }).setDepth(6);
   scene.add.text(9 * TILE, 31 * TILE, 'FOREST', { fontFamily: 'monospace', fontSize: '16px', color: '#d7f0d0' }).setDepth(6);
-
-  // Legacy animals at fixed positions remain visual-only for now.
   const animals = [
     { x: 18, y: 14, color: 0xe7e1d2 },
     { x: 22, y: 12, color: 0xb9c2c8 },
@@ -135,7 +122,6 @@ export function buildFarmWorld(scene: Phaser.Scene): ResourceView[] {
     scene.add.rectangle(animal.x * TILE + 12, animal.y * TILE + 12, 18, 12, animal.color).setDepth(7);
     scene.add.circle(animal.x * TILE + 20, animal.y * TILE + 8, 5, animal.color).setDepth(7);
   }
-
   (scene as Phaser.Scene & { farmWorldRenderer?: FarmWorldRenderer }).farmWorldRenderer = renderer;
   return resources;
 }
