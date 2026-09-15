@@ -1,5 +1,6 @@
 export * from './catalog';
 export * from './commands';
+export * from './events';
 export * from './persistence';
 export * from './store';
 export * from './types';
