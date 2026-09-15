@@ -1,7 +1,8 @@
 export type DomainEvent =
   | { type: 'CROP_HARVESTED'; key: string }
   | { type: 'ORE_MINED'; key: string }
-  | { type: 'FISH_CAUGHT' };
+  | { type: 'FISH_CAUGHT' }
+  | { type: 'SLIME_DEFEATED'; key: string };
 
 export type DomainEventListener = (event: DomainEvent) => void;
 
