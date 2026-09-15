@@ -31,6 +31,10 @@ export class TilesetEditorScene extends Phaser.Scene {
     const options = DEFAULT_TILESET_EDITOR_OPTIONS;
     this.cameras.main.setBackgroundColor(options.backgroundColor ?? 0x080d16);
     this.picker = new TilesetPicker(this, options);
+    this.input.keyboard?.on('keydown-ESC', () => this.scene.start('MainMenu'));
+    this.add.text(16, this.scale.height - 28, 'ESC  Back to menu', {
+      fontFamily: 'monospace', fontSize: '12px', color: '#829172',
+    }).setScrollFactor(0).setDepth(1001);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.picker?.destroy());
   }
 
