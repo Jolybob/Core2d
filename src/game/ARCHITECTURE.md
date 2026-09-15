@@ -19,3 +19,6 @@
 17. `GameRuntime` is an orchestration boundary: command dispatch delegates gameplay rules to domain systems rather than implementing those rules itself.
 18. Player movement, tool selection and player consumables belong to `PlayerSystem`; shipping and buying belong to `EconomySystem`; combat rules belong to `CombatSystem`.
 19. Loading a save must rebuild derived resource views from the loaded world seed and removed-resource state.
+20. Domain systems publish meaningful domain events for cross-system reactions instead of holding direct references to unrelated systems.
+21. Domain events are past-tense facts such as `CROP_HARVESTED`, `ORE_MINED` and `FISH_CAUGHT`; they must carry only the context subscribers need.
+22. `DomainEventBus` is an in-process domain boundary; event subscribers must unsubscribe when their lifecycle ends, and events must not replace explicit command sequencing where ordering is required.
