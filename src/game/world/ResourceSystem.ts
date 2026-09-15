@@ -1,0 +1,87 @@
+import type { GameStore } from '../store';
+
+export type ResourceType = 'tree' | 'rock';
+
+export interface ResourceNode {
+  key: string;
+  type: ResourceType;
+  x: number;
+  y: number;
+  ore: boolean;
+}
+
+export class ResourceSystem {
+  private readonly resources = new Map<string, ResourceNode>();
+
+  constructor(private readonly store: GameStore) {
+    this.generate(store.getState().world.seed);
+  }
+
+  getAll(): ResourceNode[] {
+    return [...this.resources.values()];
+  }
+
+  get(key: string): ResourceNode | undefined {
+    return this.resources.get(key);
+  }
+
+  chop(key: string): boolean {
+    return this.remove(key, 'tree', (state) => {
+      state.inventory.wood += 3;
+    });
+  }
+
+  mine(key: string): boolean {
+    const resource = this.resources.get(key);
+    if (!resource || resource.type !== 'rock' || this.isRemoved(key)) return false;
+    this.store.update((state) => {
+      state.world.removedResources[key] = 'rock';
+      state.inventory.stone += 2;
+      if (resource.ore) {
+        state.inventory.ore += 1;
+        const quest = state.quests.find((entry) => entry.id === 'copper');
+        if (quest && !quest.done) quest.progress = Math.min(quest.need, quest.progress + 1);
+      }
+    });
+    return true;
+  }
+
+  private remove(key: string, type: ResourceType, apply: (state: ReturnType<GameStore['getState']>) => void): boolean {
+    const resource = this.resources.get(key);
+    if (!resource || resource.type !== type || this.isRemoved(key)) return false;
+    this.store.update((state) => {
+      state.world.removedResources[key] = type;
+      apply(state);
+    });
+    return true;
+  }
+
+  private isRemoved(key: string): boolean {
+    return Boolean(this.store.getState().world.removedResources[key]);
+  }
+
+  private generate(seed: number): void {
+    const random = this.seeded(seed);
+    for (let i = 0; i < 30; i += 1) {
+      const x = 3 + Math.floor(random() * 63);
+      const y = 3 + Math.floor(random() * 44);
+      if (x > 25 && x < 46 && y > 15 && y < 37) continue;
+      const key = `tree:${x},${y}`;
+      this.resources.set(key, { key, type: 'tree', x, y, ore: false });
+    }
+    for (let i = 0; i < 20; i += 1) {
+      const x = 54 + Math.floor(random() * 10);
+      const y = 20 + Math.floor(random() * 15);
+      const key = `rock:${x},${y}`;
+      this.resources.set(key, { key, type: 'rock', x, y, ore: i % 3 === 0 });
+    }
+  }
+
+  private seeded(seed: number): () => number {
+    let value = seed >>> 0;
+    return () => {
+      value = (value * 1664525 + 1013904223) >>> 0;
+      return value / 4294967296;
+    };
+  }
+}
