@@ -1,4 +1,5 @@
 import { loadGame, saveGame } from './persistence';
+import { DomainEventBus } from './events';
 import { GameStore, createInitialState } from './store';
 import type { GameCommand } from './commands';
 import { CombatSystem } from './systems/CombatSystem';
@@ -16,16 +17,17 @@ const isFiniteNonNegative = (value: number): boolean => Number.isFinite(value) &
 
 export class GameRuntime {
   readonly store = new GameStore(createInitialState());
-  readonly quests = new QuestSystem();
-  readonly farming = new FarmingSystem(this.store, this.quests);
+  readonly events = new DomainEventBus();
+  readonly quests = new QuestSystem(this.store, this.events);
+  readonly farming = new FarmingSystem(this.store, this.events);
   readonly crafting = new CraftingSystem(this.store);
   readonly economy = new EconomySystem(this.store);
-  readonly fishing = new FishingSystem(this.store, this.quests);
+  readonly fishing = new FishingSystem(this.store, this.events);
   readonly combat = new CombatSystem(this.store);
   readonly day = new DaySystem(this.store, this.farming);
   readonly world = new WorldSystem();
   readonly player = new PlayerSystem(this.store, this.world);
-  readonly resources = new ResourceSystem(this.store, this.quests);
+  readonly resources = new ResourceSystem(this.store, this.events);
 
   dispatch(command: GameCommand): boolean {
     switch (command.type) {
