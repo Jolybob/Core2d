@@ -25,7 +25,6 @@ export class CozyFarm extends Phaser.Scene {
   private lastCropSignature = '';
   private lastRemovedSignature = '';
   private lastAction = 0;
-  private lastMessage = '';
 
   constructor() { super('CozyFarm'); }
 
@@ -100,7 +99,7 @@ export class CozyFarm extends Phaser.Scene {
       object.add(this.add.rectangle(0, 10, 11, 22, 0x60452e)); object.add(this.add.circle(0, -5, 17, 0x355d3b)); this.trees.push({ key, x, y, object });
     }
     for (let i = 0; i < 20; i += 1) {
-      const x = 54 + Math.floor(random() * 10); const y = 20 + Math.floor(random() * 15); const ore = i % 3 === 0; const key = ore ? `rock:ore:${x},${y}` : `rock:${x},${y}`;
+      const x = 54 + Math.floor(random() * 10); const y = 20 + Math.floor(random() * 15); const ore = i % 3 === 0; const key = `rock:${x},${y}`;
       const object = this.add.rectangle(x * TILE + 12, y * TILE + 12, 17, 17, ore ? 0xb7864f : 0x77736c).setDepth(3); this.rocks.push({ key, x, y, ore, object });
     }
     for (let i = 0; i < 5; i += 1) { const animal = this.add.ellipse((22 + i * 2) * TILE + 12, 34 * TILE + 12, 19, 14, 0xf1dfbd).setDepth(12); this.tweens.add({ targets: animal, y: animal.y + 3, duration: 700 + i * 80, yoyo: true, repeat: -1 }); }
@@ -153,7 +152,6 @@ export class CozyFarm extends Phaser.Scene {
   private swing(): void { if (!appRuntime.dispatch({ type: 'ATTACK' })) return; this.tweens.add({ targets: this.player, scaleX: 1.35, duration: 90, yoyo: true }); }
   private blocked(x: number, y: number): boolean { const tx = Math.floor(x / TILE); const ty = Math.floor(y / TILE); return tx >= 33 && tx <= 37 && ty >= 14 && ty <= 20; }
   private updateNight(clock: number): void { const phase = clock / DAY_SECONDS; this.night.setAlpha(phase > 0.68 ? Math.min(0.62, (phase - 0.68) * 2.2) : 0); }
-  private say(text: string): void { if (text === this.lastMessage) return; this.lastMessage = text; this.message?.setText(text); }
   private isKeyDown(key: string): boolean { return this.keys[key]?.isDown ?? false; }
   private seeded(seed: number): () => number { let value = seed >>> 0; return () => { value = (value * 1664525 + 1013904223) >>> 0; return value / 4294967296; }; }
 }
