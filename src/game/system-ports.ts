@@ -2,6 +2,7 @@ import type { RecipeId, ToolId, ConsumableId } from './types';
 
 export interface CombatPort {
   attack(): boolean;
+  update(deltaSeconds: number): boolean;
   damagePlayer(amount: number): boolean;
 }
 
