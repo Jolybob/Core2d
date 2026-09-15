@@ -11,22 +11,53 @@ import { FishingSystem } from './systems/FishingSystem';
 import { PlayerSystem } from './systems/PlayerSystem';
 import { QuestSystem } from './systems/QuestSystem';
 import { ResourceSystem } from './world/ResourceSystem';
+import { worldToChunk } from './world/chunks';
 import { WorldRuntime } from './world/runtime';
 
+const INITIAL_CHUNK_RADIUS = 1;
+const TILE_SIZE = 24;
+
 export class GameRuntime {
-  readonly store = new GameStore(createInitialState());
-  readonly events = new DomainEventBus();
-  readonly quests = new QuestSystem(this.store, this.events);
-  readonly worldRuntime = new WorldRuntime(this.store.getState().world);
-  readonly farming = new FarmingSystem(this.store, this.events, this.worldRuntime);
-  readonly crafting = new CraftingSystem(this.store);
-  readonly economy = new EconomySystem(this.store);
-  readonly fishing = new FishingSystem(this.store, this.events);
-  readonly player = new PlayerSystem(this.store, this.worldRuntime);
-  readonly combat = new CombatSystem(this.store, this.player);
-  readonly day = new DaySystem(this.store, this.farming, this.player);
-  readonly resources = new ResourceSystem(this.store, this.events, this.worldRuntime);
-  private readonly commandHandler = new GameCommandHandler({ store: this.store, combat: this.combat, crafting: this.crafting, day: this.day, economy: this.economy, farming: this.farming, fishing: this.fishing, player: this.player, resources: this.resources });
+  readonly store: GameStore;
+  readonly events: DomainEventBus;
+  readonly quests: QuestSystem;
+  readonly worldRuntime: WorldRuntime;
+  readonly farming: FarmingSystem;
+  readonly crafting: CraftingSystem;
+  readonly economy: EconomySystem;
+  readonly fishing: FishingSystem;
+  readonly player: PlayerSystem;
+  readonly combat: CombatSystem;
+  readonly day: DaySystem;
+  readonly resources: ResourceSystem;
+  private readonly commandHandler: GameCommandHandler;
+
+  constructor() {
+    this.store = new GameStore(createInitialState());
+    this.events = new DomainEventBus();
+    this.quests = new QuestSystem(this.store, this.events);
+    const initialState = this.store.getState();
+    this.worldRuntime = new WorldRuntime(initialState.world);
+    const center = worldToChunk({
+      x: Math.floor(initialState.player.x / TILE_SIZE),
+      y: Math.floor(initialState.player.y / TILE_SIZE),
+    });
+    for (let y = center.y - INITIAL_CHUNK_RADIUS; y <= center.y + INITIAL_CHUNK_RADIUS; y += 1) {
+      for (let x = center.x - INITIAL_CHUNK_RADIUS; x <= center.x + INITIAL_CHUNK_RADIUS; x += 1) {
+        this.worldRuntime.chunks.load({ x, y });
+      }
+    }
+    this.farming = new FarmingSystem(this.store, this.events, this.worldRuntime);
+    this.crafting = new CraftingSystem(this.store);
+    this.economy = new EconomySystem(this.store);
+    this.fishing = new FishingSystem(this.store, this.events);
+    this.player = new PlayerSystem(this.store, this.worldRuntime);
+    this.combat = new CombatSystem(this.store, this.player);
+    this.day = new DaySystem(this.store, this.farming, this.player);
+    this.resources = new ResourceSystem(this.store, this.events, this.worldRuntime);
+    this.commandHandler = new GameCommandHandler({ store: this.store, combat: this.combat, crafting: this.crafting, day: this.day, economy: this.economy, farming: this.farming, fishing: this.fishing, player: this.player, resources: this.resources });
+  }
+
   dispatch(command: GameCommand): boolean { return this.commandHandler.dispatch(command); }
   save(): boolean { return this.commandHandler.save(); }
   load(): boolean { return this.commandHandler.load(); }
