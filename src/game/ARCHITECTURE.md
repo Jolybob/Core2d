@@ -37,3 +37,4 @@
 35. The world generator has an explicit version so generator changes can be migrated deliberately instead of silently changing existing worlds.
 36. Entity IDs are domain identities, not Phaser object references. Future networking must be able to serialize commands/events using entity IDs without importing client/rendering types.
 37. The next multiplayer boundary is the command layer: clients request actions, while authoritative simulation validates and commits them. Client rendering must never become the authority for world mutation.
+38. `GameRuntime` owns one `WorldRuntime` instance for the live simulation. World-domain systems share that instance; loading a save rehydrates it instead of constructing parallel ECS runtimes.

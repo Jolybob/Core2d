@@ -27,32 +27,10 @@ export class GameRuntime {
   readonly player = new PlayerSystem(this.store, this.world, this.worldRuntime);
   readonly combat = new CombatSystem(this.store, this.player);
   readonly day = new DaySystem(this.store, this.farming, this.player);
-  readonly resources = new ResourceSystem(this.store, this.events, (state) => new WorldRuntime(state.world));
-  private readonly commandHandler = new GameCommandHandler({
-    store: this.store,
-    combat: this.combat,
-    crafting: this.crafting,
-    day: this.day,
-    economy: this.economy,
-    farming: this.farming,
-    fishing: this.fishing,
-    player: this.player,
-    resources: this.resources,
-  });
-
-  dispatch(command: GameCommand): boolean {
-    return this.commandHandler.dispatch(command);
-  }
-
-  save(): boolean {
-    return this.commandHandler.save();
-  }
-
-  load(): boolean {
-    return this.commandHandler.load();
-  }
-
-  destroy(): void {
-    this.quests.destroy();
-  }
+  readonly resources = new ResourceSystem(this.store, this.events, this.worldRuntime);
+  private readonly commandHandler = new GameCommandHandler({ store: this.store, combat: this.combat, crafting: this.crafting, day: this.day, economy: this.economy, farming: this.farming, fishing: this.fishing, player: this.player, resources: this.resources });
+  dispatch(command: GameCommand): boolean { return this.commandHandler.dispatch(command); }
+  save(): boolean { return this.commandHandler.save(); }
+  load(): boolean { return this.commandHandler.load(); }
+  destroy(): void { this.quests.destroy(); }
 }
