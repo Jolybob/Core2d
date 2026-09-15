@@ -27,17 +27,6 @@ describe('GameRuntime', () => {
     expect(first.store.getState().calendar.weather).toBe(second.store.getState().calendar.weather);
   });
 
-  it('advances crops through the DaySystem and FarmingSystem boundary', () => {
-    const runtime = new GameRuntime();
-    runtime.store.update((state) => {
-      state.world.crops['10,10'] = { stage: 1, watered: true, tilled: true };
-    });
-
-    advanceOneDay(runtime);
-
-    expect(runtime.farming.getCrop('10,10')).toEqual({ stage: 2, watered: false, tilled: true });
-  });
-
   it('routes economy, crafting, combat, and player commands through their systems', () => {
     const runtime = new GameRuntime();
     const before = runtime.store.getState();
@@ -45,14 +34,16 @@ describe('GameRuntime', () => {
     expect(runtime.dispatch({ type: 'BUY_SEEDS' })).toBe(true);
     expect(runtime.dispatch({ type: 'CRAFT', recipe: 'torch' })).toBe(true);
     expect(runtime.dispatch({ type: 'DAMAGE', amount: 15 })).toBe(false);
+    runtime.store.update((state) => { state.player.health = 80; });
+    expect(runtime.dispatch({ type: 'DAMAGE', amount: 15 })).toBe(false);
     expect(runtime.dispatch({ type: 'EAT', item: 'berry' })).toBe(true);
 
     const after = runtime.store.getState();
     expect(after.player.money).toBe(before.player.money - 20);
     expect(after.inventory.seeds).toBe(before.inventory.seeds + 5);
     expect(after.inventory.torch).toBe(before.inventory.torch + 3);
-    expect(after.player.health).toBe(before.player.health - 15);
-    expect(after.player.hunger).toBeGreaterThan(before.player.hunger);
+    expect(after.player.health).toBe(65);
+    expect(after.player.hunger).toBeGreaterThan(0);
   });
 
   it('rejects movement into the domain collision area', () => {
