@@ -11,6 +11,7 @@ import { FishingSystem } from './systems/FishingSystem';
 import { PlayerSystem } from './systems/PlayerSystem';
 import { QuestSystem } from './systems/QuestSystem';
 import { ResourceSystem } from './world/ResourceSystem';
+import { createInitialWorldSave } from './world/world-save';
 import { TILE_SIZE, worldToChunk } from './world/chunks';
 import { WorldRuntime } from './world/runtime';
 
@@ -36,7 +37,7 @@ export class GameRuntime {
     this.events = new DomainEventBus();
     this.quests = new QuestSystem(this.store, this.events);
     const initialState = this.store.getState();
-    this.worldRuntime = new WorldRuntime(initialState.world);
+    this.worldRuntime = new WorldRuntime(createInitialWorldSave(2042));
     const center = worldToChunk({
       x: Math.floor(initialState.player.x / TILE_SIZE),
       y: Math.floor(initialState.player.y / TILE_SIZE),
