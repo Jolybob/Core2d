@@ -9,6 +9,8 @@ import { FarmingSystem } from './systems/FarmingSystem';
 import { FishingSystem } from './systems/FishingSystem';
 import type { ToolId } from './types';
 
+const isFiniteNonNegative = (value: number): boolean => Number.isFinite(value) && value >= 0;
+
 export class GameRuntime {
   readonly store = new GameStore(createInitialState());
   readonly farming = new FarmingSystem(this.store);
@@ -20,15 +22,21 @@ export class GameRuntime {
 
   dispatch(command: GameCommand): boolean {
     switch (command.type) {
-      case 'TICK': this.day.update(command.deltaSeconds); return true;
-      case 'MOVE': this.move(command.dx, command.dy, command.sprint, command.deltaSeconds); return true;
+      case 'TICK':
+        if (!isFiniteNonNegative(command.deltaSeconds)) return false;
+        this.day.update(command.deltaSeconds);
+        return true;
+      case 'MOVE':
+        if (!Number.isFinite(command.dx) || !Number.isFinite(command.dy) || !isFiniteNonNegative(command.deltaSeconds)) return false;
+        this.move(command.dx, command.dy, command.sprint, command.deltaSeconds);
+        return true;
       case 'SELECT_TOOL': return this.selectTool(command.tool);
       case 'TILL': return this.farming.till(command.key);
       case 'PLANT': return this.farming.plant(command.key);
       case 'WATER': return this.farming.water(command.key);
       case 'HARVEST': return this.farming.harvest(command.key);
-      case 'MINE': this.mine(command.resourceKey, command.ore); return true;
-      case 'CHOP': this.chop(command.resourceKey); return true;
+      case 'MINE': return this.mine(command.resourceKey, command.ore);
+      case 'CHOP': return this.chop(command.resourceKey);
       case 'FISH': return this.fishing.catchFish();
       case 'ATTACK': return this.store.getState().inventory.sword > 0;
       case 'CRAFT': return this.crafting.craft(command.recipe);
@@ -38,9 +46,9 @@ export class GameRuntime {
         return this.eat(item);
       }
       case 'USE_SALVE': return this.useSalve();
-      case 'BUY_SEEDS': return this.economy.buySeeds(command.cost, command.amount);
+      case 'BUY_SEEDS': return this.economy.buySeeds();
       case 'SHIP': return this.ship();
-      case 'DAMAGE': return this.combat.damagePlayer(command.amount);
+      case 'DAMAGE': return isFiniteNonNegative(command.amount) && command.amount > 0 && this.combat.damagePlayer(command.amount);
       case 'SAVE': return this.save();
       case 'LOAD': return this.load();
     }
@@ -48,7 +56,7 @@ export class GameRuntime {
 
   private move(dx: number, dy: number, sprint: boolean, deltaSeconds: number): void {
     const length = Math.hypot(dx, dy);
-    if (!length) return;
+    if (!length || deltaSeconds <= 0) return;
     this.store.update((state) => {
       const canSprint = sprint && state.player.stamina > 2;
       const speed = canSprint ? 230 : 145;
@@ -63,8 +71,8 @@ export class GameRuntime {
     return true;
   }
 
-  private mine(resourceKey: string, ore: boolean): void {
-    if (this.store.getState().world.removedResources[resourceKey]) return;
+  private mine(resourceKey: string, ore: boolean): boolean {
+    if (this.store.getState().world.removedResources[resourceKey]) return false;
     this.store.update((state) => {
       state.world.removedResources[resourceKey] = 'rock';
       state.inventory.stone += 2;
@@ -74,14 +82,16 @@ export class GameRuntime {
         if (quest && !quest.done) quest.progress = Math.min(quest.need, quest.progress + 1);
       }
     });
+    return true;
   }
 
-  private chop(resourceKey: string): void {
-    if (this.store.getState().world.removedResources[resourceKey]) return;
+  private chop(resourceKey: string): boolean {
+    if (this.store.getState().world.removedResources[resourceKey]) return false;
     this.store.update((state) => {
       state.world.removedResources[resourceKey] = 'tree';
       state.inventory.wood += 3;
     });
+    return true;
   }
 
   private eat(item: 'berry' | 'fish' | 'parsnip'): boolean {
