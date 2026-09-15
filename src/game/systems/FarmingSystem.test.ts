@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import type { EntityId } from '../entity';
 import { GameRuntime } from '../runtime';
 
-const cropId = (key: string): string => `crop-${encodeURIComponent(key)}`;
+const cropId = (key: string): EntityId => `crop-${encodeURIComponent(key)}` as EntityId;
 
 describe('FarmingSystem ECS runtime', () => {
   it('stores crops as persisted ECS entities while keeping the legacy mirror', () => {
@@ -12,8 +13,8 @@ describe('FarmingSystem ECS runtime', () => {
     expect(runtime.dispatch({ type: 'WATER', key: '4,7' })).toBe(true);
 
     const id = cropId('4,7');
-    const entity = runtime.worldRuntime.entities.get(id as never);
-    const component = runtime.worldRuntime.components.get('crop', id as never);
+    const entity = runtime.worldRuntime.entities.get(id);
+    const component = runtime.worldRuntime.components.get('crop', id);
 
     expect(entity?.kind).toBe('crop');
     expect(component).toMatchObject({ key: '4,7', stage: 1, watered: true, tilled: true });
@@ -49,6 +50,6 @@ describe('FarmingSystem ECS runtime', () => {
 
     expect(runtime.farming.getCrop('9,10')).toEqual({ stage: 2, watered: true, tilled: true });
     expect(runtime.worldRuntime.query.with('crop')).toHaveLength(1);
-    expect(runtime.worldRuntime.components.get('position', cropId('9,10') as never)).toEqual({ x: 9, y: 10 });
+    expect(runtime.worldRuntime.components.get('position', cropId('9,10'))).toEqual({ x: 9, y: 10 });
   });
 });
