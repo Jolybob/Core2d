@@ -1,0 +1,1 @@
+Systems are pure domain services. Phaser-specific rendering and input remain in the legacy FarmScene until each responsibility is migrated.
