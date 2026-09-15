@@ -15,10 +15,10 @@ export type ResourceView = {
 };
 
 const chunkCoordFromKey = (key: ChunkKey): ChunkCoord | undefined => {
-  const separator = key.indexOf(',');
-  if (separator < 1) return undefined;
-  const x = Number(key.slice(0, separator));
-  const y = Number(key.slice(separator + 1));
+  const parts = key.split(',');
+  if (parts.length !== 2) return undefined;
+  const x = Number(parts[0]!);
+  const y = Number(parts[1]!);
   return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
 };
 
@@ -126,4 +126,29 @@ export class FarmWorldRenderer {
     }
     this.resources.splice(0, this.resources.length, ...this.resourceObjects.values());
   }
+}
+
+export function buildFarmWorld(scene: Phaser.Scene): ResourceView[] {
+  const resources: ResourceView[] = [];
+  const renderer = new FarmWorldRenderer(scene, resources);
+  renderer.sync(appRuntime.store.getState().player.x, appRuntime.store.getState().player.y);
+  scene.add.ellipse(13 * TILE, 11 * TILE, 230, 150, 0x4f8fa3).setDepth(2).setStrokeStyle(4, 0x315f70);
+  scene.add.text(10 * TILE, 8 * TILE, 'FISHING POND', { fontFamily: 'monospace', fontSize: '14px', color: '#d8f0ff' }).setDepth(6);
+  scene.add.rectangle(35 * TILE + 12, 17 * TILE + 12, 12 * TILE, 6 * TILE, 0xc18a55).setDepth(5).setStrokeStyle(4, 0x8d623e);
+  scene.add.polygon(35 * TILE + 12, 17 * TILE + 12, [-6 * TILE, -3 * TILE, 6 * TILE, -3 * TILE, 6 * TILE, 3 * TILE, -6 * TILE, 3 * TILE], 0xc18a55).setDepth(6);
+  scene.add.text(34 * TILE, 17 * TILE, 'HOME', { fontFamily: 'monospace', fontSize: '16px', color: '#fff4dc' }).setDepth(7);
+  scene.add.text(58 * TILE, 25 * TILE, 'QUARRY', { fontFamily: 'monospace', fontSize: '16px', color: '#ddd7cc' }).setDepth(6);
+  scene.add.text(9 * TILE, 31 * TILE, 'FOREST', { fontFamily: 'monospace', fontSize: '16px', color: '#d7f0d0' }).setDepth(6);
+  const animals = [
+    { x: 18, y: 14, color: 0xe7e1d2 },
+    { x: 22, y: 12, color: 0xb9c2c8 },
+    { x: 28, y: 30, color: 0xd6a66d },
+    { x: 50, y: 20, color: 0x9b6f4f },
+  ];
+  for (const animal of animals) {
+    scene.add.rectangle(animal.x * TILE + 12, animal.y * TILE + 12, 18, 12, animal.color).setDepth(7);
+    scene.add.circle(animal.x * TILE + 20, animal.y * TILE + 8, 5, animal.color).setDepth(7);
+  }
+  (scene as Phaser.Scene & { farmWorldRenderer?: FarmWorldRenderer }).farmWorldRenderer = renderer;
+  return resources;
 }
