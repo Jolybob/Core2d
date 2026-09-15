@@ -134,10 +134,23 @@ export class PlayerSystem {
 
   private readComponent(): PlayerComponent {
     const value = this.runtime.components.get<PlayerComponent>('player', this.playerId);
-    if (value) return { ...value };
-    const fallback = this.store.select((state) => state.player);
-    this.setComponent(fallback);
-    return { ...fallback };
+    const state = this.store.select((current) => current.player);
+    if (!value) {
+      this.setComponent(state);
+      return { ...state };
+    }
+
+    // GameState.player is still a compatibility mirror during migration. If a
+    // legacy system or caller mutates it directly, ingest that change before
+    // the next ECS-authoritative operation instead of silently overwriting it.
+    const fields: Array<keyof PlayerState> = [
+      'x', 'y', 'health', 'stamina', 'hunger', 'money', 'pickaxeLevel', 'tool',
+    ];
+    if (fields.some((field) => value[field] !== state[field])) {
+      this.setComponent(state);
+      return { ...state };
+    }
+    return { ...value };
   }
 
   private setComponent(player: PlayerState): void {
