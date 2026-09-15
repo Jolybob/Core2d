@@ -16,3 +16,5 @@
 14. Resource definitions, generation, target lookup, yields and depletion are domain responsibilities owned by `ResourceSystem`.
 15. Phaser resource GameObjects are views of domain resources and must not carry authoritative gameplay state.
 16. Spatial resource commands use world coordinates (`MINE_AT` / `CHOP_AT`); the renderer must not resolve resource identities.
+17. `GameRuntime` is an orchestration boundary: command dispatch delegates gameplay rules to domain systems rather than implementing those rules itself.
+18. Player movement, tool selection and player consumables belong to `PlayerSystem`; shipping and buying belong to `EconomySystem`; combat rules belong to `CombatSystem`.
