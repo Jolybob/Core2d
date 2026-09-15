@@ -5,9 +5,10 @@ import type { WorldState } from '../types';
 export type ComponentName = string;
 export type ComponentValue = Record<string, unknown>;
 
-const isPositionComponent = (value: ComponentValue): value is PositionComponent =>
-  typeof value.x === 'number' && Number.isFinite(value.x)
-  && typeof value.y === 'number' && Number.isFinite(value.y);
+const isPositionComponent = (value: unknown): value is PositionComponent =>
+  typeof value === 'object' && value !== null
+  && 'x' in value && typeof value.x === 'number' && Number.isFinite(value.x)
+  && 'y' in value && typeof value.y === 'number' && Number.isFinite(value.y);
 
 /** Owns entity identity and the minimal entity metadata. Components live separately. */
 export class EntityStore {
