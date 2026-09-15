@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { appRuntime } from './game/app-runtime';
 import { WORLD_HEIGHT, WORLD_WIDTH } from './game/world/WorldSystem';
-import type { GameState } from './game/types';
 import { FarmInputController } from './cozy-farm-input';
 import { FarmRenderer } from './cozy-farm-renderer';
 import { buildFarmWorld, TILE, type ResourceView } from './cozy-farm-world';
@@ -13,8 +12,8 @@ export class CozyFarm extends Phaser.Scene {
   private night!: Phaser.GameObjects.Rectangle;
   private resources: ResourceView[] = [];
   private inputController!: FarmInputController;
-  private renderer!: FarmRenderer;
-  private unsubscribe?: () => void;
+  private farmRenderer!: FarmRenderer;
+  private unsubscribe: (() => void) | undefined;
 
   constructor() {
     super('CozyFarm');
@@ -40,13 +39,13 @@ export class CozyFarm extends Phaser.Scene {
 
     this.inputController = new FarmInputController(this);
     this.inputController.initialize();
-    this.renderer = new FarmRenderer(this, this.player, this.hud, this.night, this.resources);
+    this.farmRenderer = new FarmRenderer(this, this.player, this.hud, this.night, this.resources);
 
-    this.unsubscribe = appRuntime.store.subscribe((next) => this.renderer.renderState(next));
+    this.unsubscribe = appRuntime.store.subscribe((next) => this.farmRenderer.renderState(next));
     this.events.once('shutdown', this.cleanup, this);
     this.events.once('destroy', this.cleanup, this);
 
-    this.renderer.renderState(state);
+    this.farmRenderer.renderState(state);
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH * TILE, WORLD_HEIGHT * TILE);
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
   }
@@ -64,7 +63,7 @@ export class CozyFarm extends Phaser.Scene {
       Math.floor(state.player.x / TILE) * TILE + 12,
       Math.floor(state.player.y / TILE) * TILE + 12,
     );
-    this.renderer.updateNight(state.calendar.clock);
+    this.farmRenderer.updateNight(state.calendar.clock);
   }
 
   private playAttackAnimation(): void {
@@ -74,6 +73,6 @@ export class CozyFarm extends Phaser.Scene {
   private cleanup(): void {
     this.unsubscribe?.();
     this.unsubscribe = undefined;
-    this.renderer?.destroy();
+    this.farmRenderer?.destroy();
   }
 }
