@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { appRuntime } from './game/app-runtime';
 import { CHUNK_SIZE, chunkKey, worldToChunk, type ChunkCoord, type ChunkKey } from './game/world/chunks';
 import { TILE_SIZE } from './game/world/WorldSystem';
+import type { EntityId } from './game/entity';
 
 export const TILE = TILE_SIZE;
 const RENDER_RADIUS = 1;
@@ -14,12 +15,47 @@ export type ResourceView = {
   object: Phaser.GameObjects.GameObject & { visible: boolean };
 };
 
+export type WorldObjectView = {
+  shape: 'ellipse' | 'rectangle' | 'label' | 'animal';
+  width?: number;
+  height?: number;
+  color?: number;
+  stroke?: number;
+  text?: string;
+};
+
 const chunkCoordFromKey = (key: ChunkKey): ChunkCoord | undefined => {
   const parts = key.split(',');
   if (parts.length !== 2) return undefined;
   const x = Number(parts[0]!);
   const y = Number(parts[1]!);
   return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
+};
+
+const ensureWorldObject = (id: string, kind: string, x: number, y: number, view: WorldObjectView): void => {
+  const runtime = appRuntime.worldRuntime;
+  const entityId = id as EntityId;
+  if (!runtime.entities.has(entityId)) {
+    runtime.entities.add({ id: entityId, kind });
+    runtime.setComponent(entityId, 'position', { x, y });
+    runtime.setComponent(entityId, 'worldObject', view);
+  }
+};
+
+const ensureStaticWorldObjects = (): void => {
+  ensureWorldObject('world-pond', 'structure', 13, 11, { shape: 'ellipse', width: 230, height: 150, color: 0x4f8fa3, stroke: 0x315f70 });
+  ensureWorldObject('world-home', 'structure', 35.5, 17, { shape: 'rectangle', width: 12 * TILE, height: 6 * TILE, color: 0xc18a55, stroke: 0x8d623e });
+  ensureWorldObject('world-pond-label', 'landmark', 10, 8, { shape: 'label', text: 'FISHING POND', color: 0xd8f0ff });
+  ensureWorldObject('world-home-label', 'landmark', 34, 17, { shape: 'label', text: 'HOME', color: 0xfff4dc });
+  ensureWorldObject('world-quarry-label', 'landmark', 58, 25, { shape: 'label', text: 'QUARRY', color: 0xddd7cc });
+  ensureWorldObject('world-forest-label', 'landmark', 9, 31, { shape: 'label', text: 'FOREST', color: 0xd7f0d0 });
+  const animals = [
+    ['world-animal-1', 18, 14, 0xe7e1d2],
+    ['world-animal-2', 22, 12, 0xb9c2c8],
+    ['world-animal-3', 28, 30, 0xd6a66d],
+    ['world-animal-4', 50, 20, 0x9b6f4f],
+  ] as const;
+  for (const [id, x, y, color] of animals) ensureWorldObject(id, 'animal', x, y, { shape: 'animal', color });
 };
 
 export class FarmWorldRenderer {
@@ -74,23 +110,13 @@ export class FarmWorldRenderer {
     const graphics = this.scene.add.graphics().setDepth(0);
     const runtime = appRuntime.worldRuntime;
     let currentBase: number | undefined;
-
     for (let localY = 0; localY < CHUNK_SIZE; localY += 1) {
       for (let localX = 0; localX < CHUNK_SIZE; localX += 1) {
         const worldX = coord.x * CHUNK_SIZE + localX;
         const worldY = coord.y * CHUNK_SIZE + localY;
         const tile = runtime.chunks.getTile(worldX, worldY);
-        const base = tile === 'water'
-          ? 0x4f8fa3
-          : tile === 'stone'
-            ? 0x77736c
-            : (worldX + worldY) % 2
-              ? 0x6f9b4f
-              : 0x739f52;
-        if (base !== currentBase) {
-          graphics.fillStyle(base, 1);
-          currentBase = base;
-        }
+        const base = tile === 'water' ? 0x4f8fa3 : tile === 'stone' ? 0x77736c : (worldX + worldY) % 2 ? 0x6f9b4f : 0x739f52;
+        if (base !== currentBase) { graphics.fillStyle(base, 1); currentBase = base; }
         graphics.fillRect(worldX * TILE + 1, worldY * TILE + 1, TILE - 2, TILE - 2);
       }
     }
@@ -129,26 +155,10 @@ export class FarmWorldRenderer {
 }
 
 export function buildFarmWorld(scene: Phaser.Scene): ResourceView[] {
+  ensureStaticWorldObjects();
   const resources: ResourceView[] = [];
   const renderer = new FarmWorldRenderer(scene, resources);
   renderer.sync(appRuntime.store.getState().player.x, appRuntime.store.getState().player.y);
-  scene.add.ellipse(13 * TILE, 11 * TILE, 230, 150, 0x4f8fa3).setDepth(2).setStrokeStyle(4, 0x315f70);
-  scene.add.text(10 * TILE, 8 * TILE, 'FISHING POND', { fontFamily: 'monospace', fontSize: '14px', color: '#d8f0ff' }).setDepth(6);
-  scene.add.rectangle(35 * TILE + 12, 17 * TILE + 12, 12 * TILE, 6 * TILE, 0xc18a55).setDepth(5).setStrokeStyle(4, 0x8d623e);
-  scene.add.polygon(35 * TILE + 12, 17 * TILE + 12, [-6 * TILE, -3 * TILE, 6 * TILE, -3 * TILE, 6 * TILE, 3 * TILE, -6 * TILE, 3 * TILE], 0xc18a55).setDepth(6);
-  scene.add.text(34 * TILE, 17 * TILE, 'HOME', { fontFamily: 'monospace', fontSize: '16px', color: '#fff4dc' }).setDepth(7);
-  scene.add.text(58 * TILE, 25 * TILE, 'QUARRY', { fontFamily: 'monospace', fontSize: '16px', color: '#ddd7cc' }).setDepth(6);
-  scene.add.text(9 * TILE, 31 * TILE, 'FOREST', { fontFamily: 'monospace', fontSize: '16px', color: '#d7f0d0' }).setDepth(6);
-  const animals = [
-    { x: 18, y: 14, color: 0xe7e1d2 },
-    { x: 22, y: 12, color: 0xb9c2c8 },
-    { x: 28, y: 30, color: 0xd6a66d },
-    { x: 50, y: 20, color: 0x9b6f4f },
-  ];
-  for (const animal of animals) {
-    scene.add.rectangle(animal.x * TILE + 12, animal.y * TILE + 12, 18, 12, animal.color).setDepth(7);
-    scene.add.circle(animal.x * TILE + 20, animal.y * TILE + 8, 5, animal.color).setDepth(7);
-  }
   (scene as Phaser.Scene & { farmWorldRenderer?: FarmWorldRenderer }).farmWorldRenderer = renderer;
   return resources;
 }
