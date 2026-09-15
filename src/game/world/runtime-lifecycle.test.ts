@@ -14,7 +14,7 @@ describe('WorldRuntime lifecycle', () => {
     const runtime = new WorldRuntime(first.world);
     const entity = runtime.createEntity('npc', { position: { x: 4, y: 5 } });
 
-    rehydrateWorld(runtime, second);
+    rehydrateWorld(runtime, second.world);
 
     expect(runtime.exportWorld()).toEqual(second.world);
     expect(runtime.entities.has(entity)).toBe(false);
@@ -39,14 +39,13 @@ describe('WorldRuntime lifecycle', () => {
     const runtime = new WorldRuntime(store.getState().world);
     const resources = new ResourceSystem(store, events, runtime);
     const firstSeed = runtime.readPersistence((world) => world.seed);
+    const nextWorld = structuredClone(runtime.exportWorld());
+    nextWorld.seed = firstSeed + 1;
+    nextWorld.entities.entities = {};
+    nextWorld.entities.components = {};
 
     runtime.loadChunk({ x: 0, y: 0 });
-    store.update((state) => {
-      state.world.seed = firstSeed + 1;
-      state.world.entities.entities = {};
-      state.world.entities.components = {};
-    });
-    rehydrateWorld(runtime, store.getState());
+    rehydrateWorld(runtime, nextWorld);
     runtime.loadChunk({ x: 0, y: 0 });
     resources.hydrateFromPersistence();
 
