@@ -15,12 +15,12 @@ export class PlayerSystem {
     const length = Math.hypot(dx, dy);
     if (!length || deltaSeconds <= 0) return false;
 
-    const state = this.store.getState();
-    const canSprint = sprint && state.player.stamina > 2;
+    const player = this.store.select((state) => state.player);
+    const canSprint = sprint && player.stamina > 2;
     const speed = canSprint ? 230 : 145;
     const next = this.world.clampPosition(
-      state.player.x + (dx / length) * speed * deltaSeconds,
-      state.player.y + (dy / length) * speed * deltaSeconds,
+      player.x + (dx / length) * speed * deltaSeconds,
+      player.y + (dy / length) * speed * deltaSeconds,
     );
     if (!this.world.canMove(next.x, next.y)) return false;
 
@@ -38,7 +38,7 @@ export class PlayerSystem {
   }
 
   eat(item: ConsumableId): boolean {
-    if (this.store.getState().inventory[item] < 1) return false;
+    if (this.store.select((state) => state.inventory[item]) < 1) return false;
     this.store.update((state) => {
       state.inventory[item] -= 1;
       const gain = item === 'parsnip' ? 35 : item === 'fish' ? 20 : 25;
@@ -48,8 +48,8 @@ export class PlayerSystem {
   }
 
   useSalve(): boolean {
-    const state = this.store.getState();
-    if (state.inventory.salve < 1 || state.player.health >= 100) return false;
+    const canUse = this.store.select((state) => state.inventory.salve < 1 || state.player.health >= 100);
+    if (canUse) return false;
     this.store.update((next) => {
       next.inventory.salve -= 1;
       next.player.health = Math.min(100, next.player.health + 35);
