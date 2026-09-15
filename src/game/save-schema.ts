@@ -121,6 +121,10 @@ function normalizeWorldEntities(value: unknown): EntityRegistryState {
   return isEntityRegistry(value) ? value : createEntityRegistryState();
 }
 
+function normalizeLegacyNumber(value: unknown, fallback: number, min = 0): number {
+  return isFiniteNonNegative(value) && value >= min ? value : fallback;
+}
+
 function migrateLegacyState(old: Record<string, unknown>): GameState {
   const player = isObject(old['player']) ? old['player'] : {};
   const calendar = isObject(old['calendar']) ? old['calendar'] : {};
@@ -128,17 +132,23 @@ function migrateLegacyState(old: Record<string, unknown>): GameState {
   const quests = Array.isArray(old['quests']) ? old['quests'] : [];
   const world = isObject(old['world']) ? old['world'] : {};
   const legacyPlayer = !isObject(old['player']) ? old : {};
+  const readPlayerNumber = (key: string, fallback: number, min = 0): number =>
+    normalizeLegacyNumber(player[key], normalizeLegacyNumber(legacyPlayer[key], fallback, min), min);
+
+  const chunks = isObject(world['chunks'])
+    ? Object.fromEntries(Object.entries(world['chunks']).filter(([, chunk]) => isChunkPersistence(chunk)))
+    : {};
 
   return {
     player: {
-      x: isFiniteNonNegative(player['x']) ? player['x'] : (isFiniteNonNegative(legacyPlayer['x']) ? legacyPlayer['x'] : 35 * 24 + 12),
-      y: isFiniteNonNegative(player['y']) ? player['y'] : (isFiniteNonNegative(legacyPlayer['y']) ? legacyPlayer['y'] : 27 * 24 + 12),
-      health: isBoundedNumber(player['health'], 0, 100) ? player['health'] : 100,
-      stamina: isBoundedNumber(player['stamina'], 0, 100) ? player['stamina'] : 100,
-      hunger: isBoundedNumber(player['hunger'], 0, 100) ? player['hunger'] : 100,
-      money: isFiniteNonNegative(player['money']) ? player['money'] : 120,
-      pickaxeLevel: isFiniteInteger(player['pickaxeLevel']) && player['pickaxeLevel'] >= 1 ? player['pickaxeLevel'] : 1,
-      tool: typeof player['tool'] === 'string' && TOOL_IDS.includes(player['tool'] as ToolId) ? player['tool'] as ToolId : 'hoe',
+      x: readPlayerNumber('x', 35 * 24 + 12),
+      y: readPlayerNumber('y', 27 * 24 + 12),
+      health: isBoundedNumber(player['health'], 0, 100) ? player['health'] : (isBoundedNumber(legacyPlayer['health'], 0, 100) ? legacyPlayer['health'] : 100),
+      stamina: isBoundedNumber(player['stamina'], 0, 100) ? player['stamina'] : (isBoundedNumber(legacyPlayer['stamina'], 0, 100) ? legacyPlayer['stamina'] : 100),
+      hunger: isBoundedNumber(player['hunger'], 0, 100) ? player['hunger'] : (isBoundedNumber(legacyPlayer['hunger'], 0, 100) ? legacyPlayer['hunger'] : 100),
+      money: readPlayerNumber('money', 120),
+      pickaxeLevel: isFiniteInteger(player['pickaxeLevel']) && player['pickaxeLevel'] >= 1 ? player['pickaxeLevel'] : (isFiniteInteger(legacyPlayer['pickaxeLevel']) && legacyPlayer['pickaxeLevel'] >= 1 ? legacyPlayer['pickaxeLevel'] : 1),
+      tool: typeof player['tool'] === 'string' && TOOL_IDS.includes(player['tool'] as ToolId) ? player['tool'] as ToolId : (typeof legacyPlayer['tool'] === 'string' && TOOL_IDS.includes(legacyPlayer['tool'] as ToolId) ? legacyPlayer['tool'] as ToolId : 'hoe'),
     },
     inventory: normalizeInventory(old['inventory']),
     quests: quests.filter(isObject).map((quest) => ({
@@ -147,7 +157,7 @@ function migrateLegacyState(old: Record<string, unknown>): GameState {
       reward: Math.max(0, Number(quest['reward']) || 0), done: Boolean(quest['done']),
     })),
     calendar: {
-      day: isFiniteInteger(calendar['day']) && calendar['day'] >= 1 ? calendar['day'] : 1,
+      day: isFiniteInteger(calendar['day']) && calendar['day'] >= 1 ? calendar['day'] : (isFiniteInteger(legacyPlayer['day']) && legacyPlayer['day'] >= 1 ? legacyPlayer['day'] : 1),
       clock: isFiniteNonNegative(calendar['clock']) ? calendar['clock'] : 0,
       season: isFiniteInteger(calendar['season']) && calendar['season'] >= 0 ? calendar['season'] : 0,
       weather: calendar['weather'] === 'Rainy' || calendar['weather'] === 'Cloudy' ? calendar['weather'] : 'Sunny',
@@ -159,8 +169,8 @@ function migrateLegacyState(old: Record<string, unknown>): GameState {
     },
     world: {
       seed: isFiniteInteger(world['seed']) ? world['seed'] : 2042,
-      generatorVersion: CURRENT_GENERATOR_VERSION,
-      chunks: {},
+      generatorVersion: isFiniteInteger(world['generatorVersion']) && world['generatorVersion'] >= 1 ? world['generatorVersion'] : CURRENT_GENERATOR_VERSION,
+      chunks,
       crops: isObject(world['crops']) ? world['crops'] as GameState['world']['crops'] : {},
       removedResources: isObject(world['removedResources']) ? world['removedResources'] as GameState['world']['removedResources'] : {},
       entities: normalizeWorldEntities(world['entities']),
@@ -183,7 +193,13 @@ export function migrateSave(raw: unknown): GameState | null {
   }
 
   const schema = raw['schemaVersion'];
-  if ((schema === 4 || schema === 3 || schema === 2 || schema === 1) && isObject(raw['state'])) {
+  if (schema === 4 && isObject(raw['state'])) {
+    // v4 already used the complete GameState shape. Validate it strictly so
+    // malformed saves cannot be silently repaired into a playable state.
+    return isGameState(raw['state']) ? raw['state'] : null;
+  }
+
+  if ((schema === 3 || schema === 2 || schema === 1) && isObject(raw['state'])) {
     const candidate = migrateLegacyState(raw['state']);
     return isGameState(candidate) ? candidate : null;
   }
