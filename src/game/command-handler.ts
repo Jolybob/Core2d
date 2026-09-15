@@ -21,7 +21,15 @@ export interface GameCommandDependencies {
 
 export class GameCommandHandler {
   constructor(private readonly dependencies: GameCommandDependencies) {}
-  dispatch(command: GameCommand): boolean { return this.dependencies.store.transaction(() => this.dispatchCommand(command)); }
+  dispatch(command: GameCommand): boolean {
+    return this.dependencies.store.transaction(() => {
+      // GameState remains a compatibility/persistence adapter during migration. If an
+      // external adapter edits the legacy player projection, reconcile it once at the
+      // command boundary; gameplay itself then reads and mutates WorldRuntime.
+      this.dependencies.player.refresh();
+      return this.dispatchCommand(command);
+    });
+  }
   private dispatchCommand(command: GameCommand): boolean { const { combat, crafting, day, economy, farming, fishing, player, resources } = this.dependencies; switch (command.type) {
     case 'TICK': if (!isFiniteNonNegative(command.deltaSeconds)) return false; return day.update(command.deltaSeconds);
     case 'MOVE': return player.move(command.dx, command.dy, command.sprint, command.deltaSeconds);
