@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { appRuntime } from './game/app-runtime';
-import { CHUNK_SIZE, chunkKey, worldToChunk, type ChunkCoord } from './game/world/chunks';
+import { CHUNK_SIZE, chunkKey, worldToChunk, type ChunkCoord, type ChunkKey } from './game/world/chunks';
 import { TILE_SIZE } from './game/world/WorldSystem';
 
 export const TILE = TILE_SIZE;
@@ -15,9 +15,9 @@ export type ResourceView = {
 };
 
 export class FarmWorldRenderer {
-  private readonly chunkObjects = new Map<string, Phaser.GameObjects.GameObject[]>();
+  private readonly chunkObjects = new Map<ChunkKey, Phaser.GameObjects.GameObject[]>();
   private readonly resourceObjects = new Map<string, ResourceView>();
-  private loadedKeys = new Set<string>();
+  private loadedKeys = new Set<ChunkKey>();
 
   constructor(private readonly scene: Phaser.Scene, private readonly resources: ResourceView[]) {}
 
@@ -31,7 +31,7 @@ export class FarmWorldRenderer {
       for (let x = center.x - RENDER_RADIUS; x <= center.x + RENDER_RADIUS; x += 1) desired.push({ x, y });
     }
 
-    const desiredKeys = new Set(desired.map((coord) => chunkKey(coord)));
+    const desiredKeys = new Set<ChunkKey>(desired.map((coord) => chunkKey(coord)));
     for (const key of this.loadedKeys) {
       if (desiredKeys.has(key)) continue;
       for (const object of this.chunkObjects.get(key) ?? []) object.destroy();
@@ -60,7 +60,6 @@ export class FarmWorldRenderer {
   private renderChunk(coord: ChunkCoord): Phaser.GameObjects.GameObject[] {
     const objects: Phaser.GameObjects.GameObject[] = [];
     const runtime = appRuntime.worldRuntime;
-    const chunk = runtime.chunks.getGenerated(coord);
 
     for (let localY = 0; localY < CHUNK_SIZE; localY += 1) {
       for (let localX = 0; localX < CHUNK_SIZE; localX += 1) {
@@ -77,8 +76,6 @@ export class FarmWorldRenderer {
       }
     }
 
-    // Keep the generated chunk materialized in the runtime cache without persisting generated tiles.
-    void chunk;
     return objects;
   }
 
