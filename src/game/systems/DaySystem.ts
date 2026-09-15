@@ -1,6 +1,7 @@
 import type { GameStatePort } from '../store-ports';
 import type { FarmingSystem } from './FarmingSystem';
 import type { PlayerSystem } from './PlayerSystem';
+import { WorldRuntime } from '../world/runtime';
 
 export const DAY_SECONDS = 150;
 
@@ -16,6 +17,7 @@ export class DaySystem {
   constructor(
     private readonly store: GameStatePort,
     private readonly farming: FarmingSystem,
+    private readonly worldRuntime: WorldRuntime,
     private readonly player?: PlayerSystem,
   ) {}
 
@@ -27,7 +29,7 @@ export class DaySystem {
       if (state.calendar.clock < DAY_SECONDS) return;
       state.calendar.clock -= DAY_SECONDS;
       state.calendar.day += 1;
-      const roll = weatherRoll(state.world.seed, state.calendar.day);
+      const roll = weatherRoll(this.worldRuntime.exportWorld().seed, state.calendar.day);
       state.calendar.weather = roll < 0.22 ? 'Rainy' : roll < 0.40 ? 'Cloudy' : 'Sunny';
       if (state.calendar.day % 8 === 1) state.calendar.season = (state.calendar.season + 1) % 4;
       advanced = true;
