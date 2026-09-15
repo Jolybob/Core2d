@@ -6,11 +6,15 @@ export class CraftingSystem {
   constructor(private readonly store: GameStore) {}
 
   canCraft(recipeId: RecipeId): boolean {
+    const state = this.store.getState();
+    if (recipeId === 'copperPickaxe' && state.player.pickaxeLevel >= 2) return false;
+    if (recipeId === 'sword' && state.inventory.sword > 0) return false;
+    if (recipeId === 'fishingRod' && state.inventory.rod > 0) return false;
+    if (recipeId === 'healingSalve' && state.player.pickaxeLevel < 2) return false;
     const recipe = RECIPES[recipeId];
-    const inventory = this.store.getState().inventory;
     return ITEM_IDS.every((item: ItemId) => {
       const amount = recipe.costs[item];
-      return amount === undefined || inventory[item] >= amount;
+      return amount === undefined || state.inventory[item] >= amount;
     });
   }
 
@@ -24,10 +28,10 @@ export class CraftingSystem {
       }
       switch (recipeId) {
         case 'copperPickaxe': state.player.pickaxeLevel += 1; break;
-        case 'sword': state.inventory.sword += 1; break;
-        case 'torch': state.inventory.torch += 1; break;
-        case 'healingSalve': break;
-        case 'fishingRod': state.inventory.rod += 1; break;
+        case 'sword': state.inventory.sword = 1; break;
+        case 'torch': state.inventory.torch += 3; break;
+        case 'healingSalve': state.inventory.berry += 0; break;
+        case 'fishingRod': state.inventory.rod = 1; break;
       }
     });
     return true;
