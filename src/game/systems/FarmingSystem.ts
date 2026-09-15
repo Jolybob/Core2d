@@ -4,8 +4,14 @@ import type { CropState } from '../types';
 import type { EntityId } from '../entity';
 import { WorldRuntime } from '../world/runtime';
 
-interface CropComponent extends CropState { key: string; }
-const isCropComponent = (value: Record<string, unknown>): value is CropComponent => typeof value.key === 'string' && typeof value.stage === 'number' && Number.isFinite(value.stage) && typeof value.watered === 'boolean' && typeof value.tilled === 'boolean';
+type CropComponent = CropState & Record<string, unknown>;
+const isCropComponent = (value: unknown): value is CropComponent =>
+  typeof value === 'object' && value !== null
+  && typeof (value as Record<string, unknown>).key === 'string'
+  && typeof (value as Record<string, unknown>).stage === 'number'
+  && Number.isFinite((value as Record<string, unknown>).stage)
+  && typeof (value as Record<string, unknown>).watered === 'boolean'
+  && typeof (value as Record<string, unknown>).tilled === 'boolean';
 const cropEntityId = (key: string): EntityId => `crop-${encodeURIComponent(key)}` as EntityId;
 const positionFromKey = (key: string): { x: number; y: number } | undefined => {
   const match = /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(key);
@@ -87,7 +93,7 @@ export class FarmingSystem {
       if (!component || !stateKeys.has(component.key)) this.runtime.removeEntity(entity.id);
     }
     for (const [key, crop] of Object.entries(crops)) {
-      const id = cropEntityId(key); const current = this.runtime.components.get<CropComponent>('crop', id); const next = { key, ...crop };
+      const id = cropEntityId(key); const current = this.runtime.components.get<CropComponent>('crop', id); const next: CropComponent = { key, ...crop };
       if (!current || JSON.stringify(current) !== JSON.stringify(next)) this.setCrop(key, crop);
     }
   }
@@ -107,7 +113,7 @@ export class FarmingSystem {
       for (const id of cropIds) { const entity = this.runtime!.entities.get(id); if (entity) entities[id] = { ...entity }; }
       for (const id of Object.keys(entities) as EntityId[]) if (id.startsWith('crop-') && !cropIds.has(id)) delete entities[id];
       const components = state.world.entities.components ??= {};
-      for (const id of Object.keys(components) as EntityId[]) if (id.startsWith('crop-')) delete components[id];
+      for (const id of Object.keys(components) as EntityId[]) if (id.startsWith('crop-') && !cropIds.has(id)) delete components[id];
       for (const entity of cropEntities) {
         const crop = this.runtime!.components.get<CropComponent>('crop', entity.id);
         if (!crop || !isCropComponent(crop)) continue;
