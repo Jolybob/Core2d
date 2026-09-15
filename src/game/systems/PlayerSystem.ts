@@ -93,6 +93,7 @@ export class PlayerSystem {
   }
 
   damage(amount: number): boolean {
+    if (!Number.isFinite(amount) || amount <= 0) return false;
     const player = this.readComponent();
     player.health = Math.max(0, player.health - amount);
     const defeated = player.health === 0;
@@ -106,6 +107,7 @@ export class PlayerSystem {
   }
 
   advanceTime(deltaSeconds: number): void {
+    if (!isFiniteNonNegative(deltaSeconds)) return;
     const player = this.readComponent();
     player.hunger = Math.max(0, player.hunger - deltaSeconds * 0.1);
     player.stamina = Math.min(100, player.stamina + deltaSeconds * (player.hunger < 20 ? 5 : 12));
@@ -172,8 +174,6 @@ export class PlayerSystem {
       state.player.health = player.health;
       state.player.stamina = player.stamina;
       state.player.hunger = player.hunger;
-      state.player.money = player.money;
-      state.player.pickaxeLevel = player.pickaxeLevel;
       state.player.tool = player.tool;
     });
   }
