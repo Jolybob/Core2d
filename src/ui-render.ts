@@ -25,6 +25,8 @@ function renderHud(state: HudState, elements: UiRenderElements): void {
   elements.setText('[data-value="hunger"]', `${Math.ceil(state.hunger)} / 100`); elements.setBar('hunger', state.hunger);
   elements.setText('[data-value="stamina"]', `${Math.ceil(state.stamina)} / 100`); elements.setBar('stamina', state.stamina);
   elements.setText('#ui-day', `DAY ${state.day}`); elements.setText('#ui-pickaxe', `Lv.${state.pickaxeLevel}`); elements.setText('#ui-tool', state.tool.toUpperCase()); elements.setText('#ui-money', `$${state.money}`); elements.setText('#ui-weather', state.weather);
+  const message = state.hunger <= 0 ? 'STARVING — eat something!' : state.hunger <= 20 ? 'Getting hungry — find some food.' : state.health <= 25 ? 'Low health — stay safe.' : 'A quiet morning beneath the surface.';
+  elements.setText('#ui-message', message);
 }
 
 function renderInventory(counts: number[], elements: UiRenderElements): void {
