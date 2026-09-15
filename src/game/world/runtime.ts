@@ -64,9 +64,9 @@ class RuntimeChunkManager {
   load(coord: ChunkCoord): GeneratedChunk { const chunk = this.getGenerated(coord); this.loaded.add(chunkKey(coord)); return chunk; }
   unload(coord: ChunkCoord): void { this.loaded.delete(chunkKey(coord)); this.cache.unload(coord); }
   isLoaded(coord: ChunkCoord): boolean { return this.loaded.has(chunkKey(coord)); }
-  loadedKeys(): ReadonlySet<ChunkKey> { return this.loaded; }
+  loadedKeys(): ReadonlySet<ChunkKey> { return new Set(this.loaded); }
   loadedCoords(): ChunkCoord[] { const result: ChunkCoord[] = []; for (const key of this.loaded) { const parts = key.split(','); const x = Number(parts[0]); const y = Number(parts[1]); if (Number.isFinite(x) && Number.isFinite(y)) result.push({ x, y }); } return result; }
-  getGenerated(coord: ChunkCoord): GeneratedChunk { return this.cache.get(this.world.seed, coord); }
+  getGenerated(coord: ChunkCoord): GeneratedChunk { return this.cache.get(this.world.seed, this.world.generatorVersion, coord); }
   getTile(x: number, y: number): string { const coord = worldToChunk({ x, y }); const local = worldToLocalTile({ x, y }); const chunk = this.getGenerated(coord); const modification = this.world.chunks[chunkKey(coord)]?.modifiedTiles[tileKey(local)]; return modification?.tile ?? chunk.tiles[local.y * CHUNK_SIZE + local.x] ?? 'ground'; }
   setTile(x: number, y: number, tile: string): void { const coord = worldToChunk({ x, y }); const local = worldToLocalTile({ x, y }); const key = chunkKey(coord); const persistence = this.world.chunks[key] ?? { key, modifiedTiles: {}, removedEntities: {} } as ChunkPersistence; this.world.chunks[key] = persistence; persistence.modifiedTiles[tileKey(local)] = { tile }; }
 }
@@ -82,7 +82,7 @@ export class WorldRuntime {
   getGeneratedChunk(coord: ChunkCoord): GeneratedChunk { return this.chunks.getGenerated(coord); }
   getTile(x: number, y: number): string { return this.chunks.getTile(x, y); }
   setTile(x: number, y: number, tile: string): void { this.chunks.setTile(x, y, tile); }
-  exportWorld(): WorldState { return this._world; }
+  exportWorld(): WorldState { return structuredClone(this._world); }
   readPersistence<T>(selector: (world: Readonly<WorldState>) => T): T { return selector(this._world); }
   updatePersistence(mutator: (world: WorldState) => void): void { mutator(this._world); }
   ensureChunkPersistence(coord: ChunkCoord): void { const key = chunkKey(coord); if (!this._world.chunks[key]) this._world.chunks[key] = { key, modifiedTiles: {}, removedEntities: {} }; }
