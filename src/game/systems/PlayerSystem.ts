@@ -1,8 +1,6 @@
-import type { ToolId } from '../types';
+import type { ConsumableId, ToolId } from '../types';
 import type { GameStore } from '../store';
 import { WorldSystem } from '../world/WorldSystem';
-
-export type ConsumableId = 'berry' | 'fish' | 'parsnip';
 
 const isFiniteNonNegative = (value: number): boolean => Number.isFinite(value) && value >= 0;
 
