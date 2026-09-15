@@ -1,12 +1,12 @@
 import type { ConsumableId, ToolId } from '../types';
-import type { GameStore } from '../store';
+import type { GameStatePort } from '../store-ports';
 import { WorldSystem } from '../world/WorldSystem';
 
 const isFiniteNonNegative = (value: number): boolean => Number.isFinite(value) && value >= 0;
 
 export class PlayerSystem {
   constructor(
-    private readonly store: GameStore,
+    private readonly store: GameStatePort,
     private readonly world: WorldSystem,
   ) {}
 
