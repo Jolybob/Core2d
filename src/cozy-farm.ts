@@ -3,53 +3,48 @@ import { appRuntime } from './game/app-runtime';
 import { DAY_SECONDS } from './game/systems/DaySystem';
 import type { GameState, ToolId } from './game/types';
 
-export const TILE = 24;
-export const WORLD_WIDTH = 70;
-export const WORLD_HEIGHT = 52;
-const SEASON_NAMES = ['Spring', 'Summer', 'Autumn', 'Winter'];
+const TILE = 24;
+const WORLD_WIDTH = 70;
+const WORLD_HEIGHT = 48;
 
-type ResourceObject = Phaser.GameObjects.Container | Phaser.GameObjects.Rectangle;
-type ResourceNode = { key: string; x: number; y: number; ore?: boolean; object: ResourceObject };
+type TreeNode = { key: string; x: number; y: number; object: Phaser.GameObjects.Container };
+type RockNode = { key: string; x: number; y: number; ore: boolean; object: Phaser.GameObjects.Rectangle };
 
 export class CozyFarm extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
   private target!: Phaser.GameObjects.Rectangle;
-  private night!: Phaser.GameObjects.Rectangle;
   private hud!: Phaser.GameObjects.Text;
-  private message!: Phaser.GameObjects.Text;
+  private message?: Phaser.GameObjects.Text;
+  private night!: Phaser.GameObjects.Rectangle;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
-  private trees: ResourceNode[] = [];
-  private rocks: ResourceNode[] = [];
+  private trees: TreeNode[] = [];
+  private rocks: RockNode[] = [];
   private cropGraphics = new Map<string, Phaser.GameObjects.Graphics>();
   private unsubscribe?: () => void;
   private lastCropSignature = '';
   private lastRemovedSignature = '';
-  private lastMessage = '';
   private lastAction = 0;
+  private lastMessage = '';
 
-  constructor() { super('farm'); }
+  constructor() { super('CozyFarm'); }
 
   create(): void {
-    const keyboard = this.input.keyboard;
-    if (!keyboard) throw new Error('Keyboard input is unavailable.');
-    this.cursors = keyboard.createCursorKeys();
-    this.keys = {};
-    for (const key of ['W', 'A', 'S', 'D', 'SHIFT', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'E', 'SPACE', 'F', 'B', 'L', 'P']) this.keys[key] = keyboard.addKey(key);
-
-    this.buildWorld(appRuntime.store.getState().world.seed);
     const state = appRuntime.store.getState();
-    this.player = this.add.rectangle(state.player.x, state.player.y, 14, 19, 0xf1cf91).setDepth(30);
-    this.target = this.add.rectangle(0, 0, TILE - 2, TILE - 2, 0xffdf72, 0.18).setStrokeStyle(2, 0xffdf72).setDepth(20);
-    this.cameras.main.setBounds(0, 0, WORLD_WIDTH * TILE, WORLD_HEIGHT * TILE).startFollow(this.player, true, 0.12, 0.12).setZoom(1.3);
-    this.night = this.add.rectangle(480, 320, 960, 640, 0x17243b, 0).setScrollFactor(0).setDepth(90);
-    this.hud = this.add.text(14, 12, '', { fontFamily: 'monospace', fontSize: '14px', color: '#fff', backgroundColor: '#26351ddd', padding: { x: 10, y: 8 } }).setScrollFactor(0).setDepth(100);
-    this.message = this.add.text(480, 14, '', { fontFamily: 'monospace', fontSize: '14px', color: '#ffe9ad', backgroundColor: '#26351ddd', padding: { x: 10, y: 7 } }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(100);
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => { if (pointer.leftButtonDown()) this.actionAt(pointer.worldX, pointer.worldY); });
+    this.buildWorld(state.world.seed);
+    this.player = this.add.rectangle(state.player.x, state.player.y, 16, 20, 0xe7c48f).setDepth(20);
+    this.target = this.add.rectangle(state.player.x, state.player.y, 24, 24, 0xffffff, 0).setStrokeStyle(1, 0xfff0b5).setDepth(19);
+    this.hud = this.add.text(12, 10, '', { fontFamily: 'monospace', fontSize: '13px', color: '#fff0c2' }).setScrollFactor(0).setDepth(50);
+    this.message = this.add.text(12, 90, '', { fontFamily: 'monospace', fontSize: '13px', color: '#ffe6ad', backgroundColor: '#2a241d', padding: { x: 6, y: 4 } }).setScrollFactor(0).setDepth(50);
+    this.night = this.add.rectangle(0, 0, 960, 640, 0x17203b, 0).setOrigin(0).setScrollFactor(0).setDepth(40);
+    this.cursors = this.input.keyboard!.createCursorKeys();
+    this.keys = this.input.keyboard!.addKeys('W,A,S,D,E,SPACE,F,B,L,P,SHIFT,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN') as unknown as Record<string, Phaser.Input.Keyboard.Key>;
     this.unsubscribe = appRuntime.store.subscribe((next) => this.renderState(next));
     this.events.once('shutdown', () => this.unsubscribe?.());
     this.events.once('destroy', () => this.unsubscribe?.());
-    this.say('Spring • Day 1 • Welcome home.');
+    this.renderState(state);
+    this.cameras.main.setBounds(0, 0, WORLD_WIDTH * TILE, WORLD_HEIGHT * TILE);
+    this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
   }
 
   override update(_time: number, delta: number): void {
@@ -105,7 +100,7 @@ export class CozyFarm extends Phaser.Scene {
       object.add(this.add.rectangle(0, 10, 11, 22, 0x60452e)); object.add(this.add.circle(0, -5, 17, 0x355d3b)); this.trees.push({ key, x, y, object });
     }
     for (let i = 0; i < 20; i += 1) {
-      const x = 54 + Math.floor(random() * 10); const y = 20 + Math.floor(random() * 15); const ore = i % 3 === 0; const key = `rock:${x},${y}`;
+      const x = 54 + Math.floor(random() * 10); const y = 20 + Math.floor(random() * 15); const ore = i % 3 === 0; const key = ore ? `rock:ore:${x},${y}` : `rock:${x},${y}`;
       const object = this.add.rectangle(x * TILE + 12, y * TILE + 12, 17, 17, ore ? 0xb7864f : 0x77736c).setDepth(3); this.rocks.push({ key, x, y, ore, object });
     }
     for (let i = 0; i < 5; i += 1) { const animal = this.add.ellipse((22 + i * 2) * TILE + 12, 34 * TILE + 12, 19, 14, 0xf1dfbd).setDepth(12); this.tweens.add({ targets: animal, y: animal.y + 3, duration: 700 + i * 80, yoyo: true, repeat: -1 }); }
@@ -113,7 +108,7 @@ export class CozyFarm extends Phaser.Scene {
 
   private renderState(state: GameState): void {
     this.player?.setPosition(state.player.x, state.player.y);
-    const season = SEASON_NAMES[state.calendar.season] ?? 'Spring';
+    const season = ['Spring', 'Summer', 'Autumn', 'Winter'][state.calendar.season] ?? 'Spring';
     this.hud?.setText(`${season} • DAY ${state.calendar.day}  $${state.player.money}\nHP ${Math.ceil(state.player.health)}  HUN ${Math.ceil(state.player.hunger)}  STA ${Math.ceil(state.player.stamina)}\n${state.player.tool.toUpperCase()} • ${state.calendar.weather}`);
     const cropSignature = JSON.stringify(state.world.crops);
     if (cropSignature !== this.lastCropSignature) { this.lastCropSignature = cropSignature; this.renderCrops(state); }
@@ -154,7 +149,7 @@ export class CozyFarm extends Phaser.Scene {
   }
 
   private tryChop(x: number, y: number): void { const node = this.trees.find((entry) => Math.abs(entry.x - x) <= 1 && Math.abs(entry.y - y) <= 1); if (node) appRuntime.dispatch({ type: 'CHOP', resourceKey: node.key }); }
-  private tryMine(x: number, y: number): void { const node = this.rocks.find((entry) => Math.abs(entry.x - x) <= 1 && Math.abs(entry.y - y) <= 1); if (node) appRuntime.dispatch({ type: 'MINE', resourceKey: node.key, ore: Boolean(node.ore) }); }
+  private tryMine(x: number, y: number): void { const node = this.rocks.find((entry) => Math.abs(entry.x - x) <= 1 && Math.abs(entry.y - y) <= 1); if (node) appRuntime.dispatch({ type: 'MINE', resourceKey: node.key }); }
   private swing(): void { if (!appRuntime.dispatch({ type: 'ATTACK' })) return; this.tweens.add({ targets: this.player, scaleX: 1.35, duration: 90, yoyo: true }); }
   private blocked(x: number, y: number): boolean { const tx = Math.floor(x / TILE); const ty = Math.floor(y / TILE); return tx >= 33 && tx <= 37 && ty >= 14 && ty <= 20; }
   private updateNight(clock: number): void { const phase = clock / DAY_SECONDS; this.night.setAlpha(phase > 0.68 ? Math.min(0.62, (phase - 0.68) * 2.2) : 0); }
