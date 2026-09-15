@@ -19,8 +19,9 @@ export class ResourceSystem {
   private readonly removedKeys = new Set<string>();
 
   constructor(private readonly store: GameStore) {
-    this.generate(store.getState().world.seed);
-    for (const key of Object.keys(store.getState().world.removedResources)) this.removedKeys.add(key);
+    const state = store.getState();
+    this.generate(state.world.seed);
+    for (const key of Object.keys(state.world.removedResources)) this.removedKeys.add(key);
   }
 
   getAll(): ResourceNode[] {
@@ -69,7 +70,9 @@ export class ResourceSystem {
     const playerX = Math.floor(state.player.x / TILE_SIZE);
     const playerY = Math.floor(state.player.y / TILE_SIZE);
     if (Math.hypot(x - playerX, y - playerY) > INTERACTION_RANGE) return undefined;
-    return this.getAll().find((resource) => resource.type === type && !this.isRemoved(resource.key) && Math.abs(resource.x - x) <= 1 && Math.abs(resource.y - y) <= 1);
+    const key = `${type}:${x},${y}`;
+    const resource = this.resources.get(key);
+    return resource && !this.isRemoved(key) ? resource : undefined;
   }
 
   private remove(key: string, type: ResourceType, apply: (state: GameState) => void): boolean {
