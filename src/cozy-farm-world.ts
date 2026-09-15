@@ -9,18 +9,26 @@ const TILESET_KEY = 'world-tiles';
 const TILESET_FRAME_SIZE = 16;
 
 /**
- * The imported art is a 16x16 atlas. Keep the semantic mapping here so the
- * simulation never knows about art-frame indices.
+ * Tileset.png is an object/terrain sheet rather than a one-tile-per-terrain
+ * atlas. These frames are the solid/fill variants from the terrain sections:
+ * - 94-96: grass fill
+ * - 158-159: water fill
+ * - 180-183: dirt/path fill
  *
- * The world generator currently emits `ground`, `water`, and `stone`. Unknown
- * terrain falls back to grass so a future generator change cannot produce an
- * invalid Phaser frame lookup.
+ * Keep the art-frame mapping here so the simulation never knows about pixels
+ * or Phaser frame indices.
  */
-const TILE_FRAMES: Record<string, number> = {
-  ground: 0,
-  grass: 0,
-  water: 1,
-  stone: 2,
+const TILE_FRAMES: Record<string, readonly number[]> = {
+  ground: [94, 95, 96],
+  grass: [94, 95, 96],
+  water: [158, 159],
+  stone: [180, 181, 182, 183],
+};
+
+const pickTileFrame = (tile: string, worldX: number, worldY: number): number => {
+  const frames = TILE_FRAMES[tile] ?? TILE_FRAMES.ground;
+  const hash = Math.abs((worldX * 374761393 + worldY * 668265263) | 0);
+  return frames[hash % frames.length];
 };
 
 export type ResourceView = {
@@ -113,7 +121,7 @@ export class FarmWorldRenderer {
         const worldX = coord.x * CHUNK_SIZE + localX;
         const worldY = coord.y * CHUNK_SIZE + localY;
         const tile = runtime.getTile(worldX, worldY);
-        const frame = TILE_FRAMES[tile] ?? TILE_FRAMES.ground;
+        const frame = pickTileFrame(tile, worldX, worldY);
         const image = this.scene.add.image(worldX * TILE + TILE / 2, worldY * TILE + TILE / 2, TILESET_KEY, frame);
         image.setDisplaySize(TILE, TILE);
         image.setOrigin(0.5);
