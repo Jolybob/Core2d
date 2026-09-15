@@ -27,7 +27,7 @@ describe('persistence', () => {
 
     saveGame(state, storage);
     const loaded = loadGame(storage);
-    expect(storage.getItem(SAVE_KEY)).toContain('"schemaVersion":4');
+    expect(storage.getItem(SAVE_KEY)).toContain('"schemaVersion":5');
     expect(loaded).toEqual(state);
   });
 
@@ -69,6 +69,6 @@ describe('persistence', () => {
     expect(state?.player.x).toBe(100);
     expect(state?.inventory.wood).toBe(5);
     expect(state?.world.seed).toBe(2042);
-    expect(storage.getItem(SAVE_KEY)).toContain('"schemaVersion":4');
+    expect(storage.getItem(SAVE_KEY)).toContain('"schemaVersion":5');
   });
 });
