@@ -28,12 +28,13 @@ export class GameStore {
     const next = structuredClone(this.state);
     mutator(next);
     this.state = next;
-    this.notify();
+    this.notify(next);
   }
 
   replace(state: GameState): void {
-    this.state = structuredClone(state);
-    this.notify();
+    const next = structuredClone(state);
+    this.state = next;
+    this.notify(next);
   }
 
   subscribe(listener: Listener): () => void;
@@ -62,12 +63,11 @@ export class GameStore {
     return () => this.subscriptions.delete(subscription);
   }
 
-  private notify(): void {
-    const snapshot = this.getState();
+  private notify(snapshot: GameState): void {
     for (const listener of this.listeners) listener(snapshot);
 
     for (const subscription of this.subscriptions) {
-      const nextSelected = subscription.selector(this.state);
+      const nextSelected = subscription.selector(snapshot);
       if (subscription.equals(subscription.selected, nextSelected)) continue;
       subscription.selected = nextSelected;
       subscription.listener(nextSelected, snapshot);
