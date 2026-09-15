@@ -15,7 +15,7 @@ export type ResourceView = {
 };
 
 export class FarmWorldRenderer {
-  private readonly chunkObjects = new Map<ChunkKey, Phaser.GameObjects.GameObject[]>();
+  private readonly chunkObjects = new Map<ChunkKey, Phaser.GameObjects.Graphics>();
   private readonly resourceObjects = new Map<string, ResourceView>();
   private loadedKeys = new Set<ChunkKey>();
 
@@ -32,7 +32,7 @@ export class FarmWorldRenderer {
     const desiredKeys = new Set<ChunkKey>(desired.map((coord) => chunkKey(coord)));
     for (const key of this.loadedKeys) {
       if (desiredKeys.has(key)) continue;
-      for (const object of this.chunkObjects.get(key) ?? []) object.destroy();
+      this.chunkObjects.get(key)?.destroy();
       this.chunkObjects.delete(key);
     }
     for (const coord of desired) {
@@ -47,7 +47,7 @@ export class FarmWorldRenderer {
   getLoadedChunkKeys(): ReadonlySet<ChunkKey> { return this.loadedKeys; }
 
   destroy(): void {
-    for (const objects of this.chunkObjects.values()) for (const object of objects) object.destroy();
+    for (const graphics of this.chunkObjects.values()) graphics.destroy();
     this.chunkObjects.clear();
     for (const resource of this.resourceObjects.values()) resource.object.destroy();
     this.resourceObjects.clear();
@@ -55,19 +55,32 @@ export class FarmWorldRenderer {
     this.loadedKeys.clear();
   }
 
-  private renderChunk(coord: ChunkCoord): Phaser.GameObjects.GameObject[] {
-    const objects: Phaser.GameObjects.GameObject[] = [];
+  private renderChunk(coord: ChunkCoord): Phaser.GameObjects.Graphics {
+    const graphics = this.scene.add.graphics().setDepth(0);
     const runtime = appRuntime.worldRuntime;
+    let currentBase: number | undefined;
+
     for (let localY = 0; localY < CHUNK_SIZE; localY += 1) {
       for (let localX = 0; localX < CHUNK_SIZE; localX += 1) {
         const worldX = coord.x * CHUNK_SIZE + localX;
         const worldY = coord.y * CHUNK_SIZE + localY;
         const tile = runtime.chunks.getTile(worldX, worldY);
-        const base = tile === 'water' ? 0x4f8fa3 : tile === 'stone' ? 0x77736c : (worldX + worldY) % 2 ? 0x6f9b4f : 0x739f52;
-        objects.push(this.scene.add.rectangle(worldX * TILE + 12, worldY * TILE + 12, 23, 23, base));
+        const base = tile === 'water'
+          ? 0x4f8fa3
+          : tile === 'stone'
+            ? 0x77736c
+            : (worldX + worldY) % 2
+              ? 0x6f9b4f
+              : 0x739f52;
+        if (base !== currentBase) {
+          graphics.fillStyle(base, 1);
+          currentBase = base;
+        }
+        graphics.fillRect(worldX * TILE + 1, worldY * TILE + 1, TILE - 2, TILE - 2);
       }
     }
-    return objects;
+
+    return graphics;
   }
 
   private syncResources(): void {
