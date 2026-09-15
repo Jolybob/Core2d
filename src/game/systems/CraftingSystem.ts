@@ -1,9 +1,9 @@
 import { RECIPES } from '../catalog';
-import type { GameStore } from '../store';
+import type { GameStatePort } from '../store-ports';
 import { ITEM_IDS, type ItemId, type RecipeId } from '../types';
 
 export class CraftingSystem {
-  constructor(private readonly store: GameStore) {}
+  constructor(private readonly store: GameStatePort) {}
 
   canCraft(recipeId: RecipeId): boolean {
     const player = this.store.select((state) => state.player);
