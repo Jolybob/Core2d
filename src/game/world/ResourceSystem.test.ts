@@ -23,7 +23,7 @@ describe('ResourceSystem', () => {
     expect(resources.get(nodes[0]?.key ?? '')).toEqual(nodes[0]);
   });
 
-  it('preserves resource entities while recording removal in world persistence', () => {
+  it('removes the resource entity and records its removal in chunk persistence', () => {
     const { store, resources } = createResources();
     const tree = resources.getAll().find((resource) => resource.type === 'tree');
     expect(tree).toBeDefined();
@@ -36,10 +36,28 @@ describe('ResourceSystem', () => {
       return resource?.key === tree.key;
     })?.[0];
 
-    expect(removedId).toBeDefined();
+    expect(removedId).toBeUndefined();
     expect(state.world.removedResources[tree.key]).toBe('tree');
+    const chunk = Object.values(state.world.chunks).find((candidate) => candidate.removedEntities[tree.key]);
+    expect(chunk?.removedEntities[tree.key]).toBe(true);
     expect(resources.chop(tree.key)).toBe(false);
     expect(resources.get(tree.key)).toBeUndefined();
+  });
+
+  it('does not regenerate a removed resource after a runtime refresh', () => {
+    const { store, resources } = createResources();
+    const tree = resources.getAll().find((resource) => resource.type === 'tree');
+    expect(tree).toBeDefined();
+    if (!tree) return;
+
+    expect(resources.chop(tree.key)).toBe(true);
+    const before = resources.getAll();
+    resources.refresh();
+    const after = resources.getAll();
+
+    expect(before.some((resource) => resource.key === tree.key)).toBe(false);
+    expect(after.some((resource) => resource.key === tree.key)).toBe(false);
+    expect(store.getState().world.removedResources[tree.key]).toBe('tree');
   });
 
   it('does not duplicate ECS resources when refreshed', () => {
