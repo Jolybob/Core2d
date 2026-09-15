@@ -15,127 +15,24 @@ const ROCKS_PER_CHUNK = 2;
 
 /** Resource simulation is runtime-authoritative; GameState.world is only a persistence boundary. */
 export class ResourceSystem {
-  constructor(private readonly store: GameStatePort, private readonly events: DomainEventBus, private readonly runtime: WorldRuntime = new WorldRuntime(store.getState().world)) {
-    this.refresh();
-  }
-
-  /** Explicit persistence boundary used after loading a GameState into the runtime. */
-  hydrateFromPersistence(): void {
-    const loaded = this.runtime.loadedChunkCoords();
-    const state = this.store.getState();
-    this.runtime.rehydrate(state.world);
-    const chunks = loaded.length > 0 ? loaded : [worldToChunk({ x: Math.floor(state.player.x / TILE_SIZE), y: Math.floor(state.player.y / TILE_SIZE) })];
-    for (const chunk of chunks) this.runtime.loadChunk(chunk);
-    this.ensureGenerated(this.runtime, chunks);
-    this.commitRuntime(this.runtime);
-  }
-
-  refresh(): void {
-    const chunks = this.runtime.loadedChunkCoords();
-    if (chunks.length === 0) return;
-    this.ensureGenerated(this.runtime, chunks);
-    this.commitRuntime(this.runtime);
-  }
-
-  getAll(): ResourceNode[] {
-    return this.readResources(this.runtime, this.runtime.loadedChunkCoords());
-  }
-
-  get(key: string): ResourceNode | undefined {
-    const parsed = this.parseResourceKey(key);
-    if (!parsed) return undefined;
-    const chunk = worldToChunk({ x: parsed.x, y: parsed.y });
-    const loaded = new Set([chunkKey(chunk)]);
-    return this.readResources(this.runtime, [chunk]).find((resource) => resource.key === key && loaded.has(chunkKey(worldToChunk({ x: resource.x, y: resource.y }))));
-  }
-
+  constructor(private readonly store: GameStatePort, private readonly events: DomainEventBus, private readonly runtime: WorldRuntime = new WorldRuntime(store.getState().world)) { this.refresh(); }
+  hydrateFromPersistence(): void { const state = this.store.getState(); this.runtime.rehydrate(state.world); const chunks = this.runtime.loadedChunkCoords().length > 0 ? this.runtime.loadedChunkCoords() : [worldToChunk({ x: Math.floor(state.player.x / TILE_SIZE), y: Math.floor(state.player.y / TILE_SIZE) })]; for (const chunk of chunks) this.runtime.loadChunk(chunk); this.ensureGenerated(this.runtime, chunks); this.commitRuntime(this.runtime); }
+  refresh(): void { const chunks = this.runtime.loadedChunkCoords(); if (chunks.length === 0) return; this.ensureGenerated(this.runtime, chunks); this.commitRuntime(this.runtime); }
+  getAll(): ResourceNode[] { return this.readResources(this.runtime, this.runtime.loadedChunkCoords()); }
+  get(key: string): ResourceNode | undefined { const parsed = this.parseResourceKey(key); if (!parsed) return undefined; const chunk = worldToChunk({ x: parsed.x, y: parsed.y }); return this.readResources(this.runtime, [chunk]).find((resource) => resource.key === key); }
   chopAt(x: number, y: number, type: ResourceType = 'tree'): boolean { const resource = this.findAt(x, y, type); return resource ? this.remove(resource.key, type, (state) => { state.inventory.wood += 3; }) : false; }
   mineAt(x: number, y: number): boolean { const resource = this.findAt(x, y, 'rock'); return resource ? this.mine(resource.key) : false; }
   chop(key: string): boolean { return this.remove(key, 'tree', (state) => { state.inventory.wood += 3; }); }
   mine(key: string): boolean { const resource = this.get(key); if (!resource || resource.type !== 'rock' || this.isRemoved(key)) return false; this.removeRuntimeResource(key, resource); this.runtime.world.removedResources[key] = 'rock'; this.store.update((state) => { state.world.removedResources[key] = 'rock'; state.inventory.stone += 2; if (resource.ore) state.inventory.ore += 1; }); if (resource.ore) this.events.publish({ type: 'ORE_MINED', key }); return true; }
-
-  private findAt(x: number, y: number, type: ResourceType): ResourceNode | undefined {
-    if (!Number.isInteger(x) || !Number.isInteger(y)) return undefined;
-    const player = this.runtime.query.with('player').find((entity) => entity.kind === 'player');
-    const position = player ? this.runtime.components.get<{ x: number; y: number }>('position', player.id) : undefined;
-    const playerX = position ? Math.floor(position.x / TILE_SIZE) : Math.floor(this.store.select((state) => state.player.x) / TILE_SIZE);
-    const playerY = position ? Math.floor(position.y / TILE_SIZE) : Math.floor(this.store.select((state) => state.player.y) / TILE_SIZE);
-    if (Math.hypot(x - playerX, y - playerY) > INTERACTION_RANGE) return undefined;
-    return this.get(`${type}:${x},${y}`);
-  }
-
-  private remove(key: string, type: ResourceType, apply: (state: GameState) => void): boolean {
-    const resource = this.get(key);
-    if (!resource || resource.type !== type || this.isRemoved(key)) return false;
-    this.removeRuntimeResource(key, resource);
-    this.runtime.world.removedResources[key] = type;
-    this.store.update((state) => { state.world.removedResources[key] = type; apply(state); });
-    return true;
-  }
-
-  private removeRuntimeResource(key: string, resource: ResourceNode): void {
-    const entity = this.findRuntimeResource(key, resource);
-    if (entity) this.runtime.removeEntity(entity.id);
-    const chunk = chunkKey(worldToChunk({ x: resource.x, y: resource.y }));
-    const persistence = this.runtime.world.chunks[chunk] ??= { key: chunk, modifiedTiles: {}, removedEntities: {} };
-    persistence.removedEntities[key] = true;
-  }
-
-  private findRuntimeResource(key: string, resource: ResourceNode): { id: import('../entity').EntityId } | undefined {
-    const chunk = worldToChunk({ x: resource.x, y: resource.y });
-    const loaded = new Set([chunkKey(chunk)]);
-    for (const entity of this.runtime.query.withInChunks(loaded, 'resource', 'position')) {
-      const component = this.runtime.components.get<ResourceComponent>('resource', entity.id);
-      if (component?.key === key) return entity;
-    }
-    return undefined;
-  }
-
+  private findAt(x: number, y: number, type: ResourceType): ResourceNode | undefined { if (!Number.isInteger(x) || !Number.isInteger(y)) return undefined; const player = this.runtime.query.with('player').find((entity) => entity.kind === 'player'); const position = player ? this.runtime.components.get<{ x: number; y: number }>('position', player.id) : undefined; const playerX = position ? Math.floor(position.x / TILE_SIZE) : Math.floor(this.store.select((state) => state.player.x) / TILE_SIZE); const playerY = position ? Math.floor(position.y / TILE_SIZE) : Math.floor(this.store.select((state) => state.player.y) / TILE_SIZE); if (Math.hypot(x - playerX, y - playerY) > INTERACTION_RANGE) return undefined; return this.get(`${type}:${x},${y}`); }
+  private remove(key: string, type: ResourceType, apply: (state: GameState) => void): boolean { const resource = this.get(key); if (!resource || resource.type !== type || this.isRemoved(key)) return false; this.removeRuntimeResource(key, resource); this.runtime.world.removedResources[key] = type; this.store.update((state) => { state.world.removedResources[key] = type; apply(state); }); return true; }
+  private removeRuntimeResource(key: string, resource: ResourceNode): void { const entity = this.findRuntimeResource(key, resource); if (entity) this.runtime.removeEntity(entity.id); const chunk = chunkKey(worldToChunk({ x: resource.x, y: resource.y })); const persistence = this.runtime.world.chunks[chunk] ??= { key: chunk, modifiedTiles: {}, removedEntities: {} }; persistence.removedEntities[key] = true; }
+  private findRuntimeResource(key: string, resource: ResourceNode): { id: import('../entity').EntityId } | undefined { const chunk = worldToChunk({ x: resource.x, y: resource.y }); const loaded = new Set([chunkKey(chunk)]); for (const entity of this.runtime.query.withInChunks(loaded, 'resource', 'position')) { const component = this.runtime.components.get<ResourceComponent>('resource', entity.id); if (component?.key === key) return entity; } return undefined; }
   private isRemoved(key: string): boolean { return Boolean(this.runtime.world.removedResources[key]); }
-
   private commitRuntime(runtime: WorldRuntime): void { this.store.update((state) => { state.world = runtime.world; }); }
-
-  private ensureGenerated(runtime: WorldRuntime, chunks: readonly ChunkCoord[]): void {
-    for (const chunk of chunks) {
-      const key = chunkKey(chunk);
-      const persistence = runtime.world.chunks[key] ??= { key, modifiedTiles: {}, removedEntities: {} };
-      const existing = new Set<string>();
-      const loaded = new Set([key]);
-      for (const entity of runtime.query.withInChunks(loaded, 'resource', 'position')) {
-        const result = runtime.query.one(entity.id, 'resource', 'position');
-        const resource = result?.components.resource as ResourceComponent | undefined;
-        if (resource) existing.add(resource.key);
-      }
-      for (const resource of this.generateChunk(runtime.world.seed, chunk)) {
-        if (existing.has(resource.key) || persistence.removedEntities[resource.key] || runtime.world.removedResources[resource.key]) continue;
-        runtime.createEntity(`${RESOURCE_KIND_PREFIX}${resource.type}`, { position: { x: resource.x, y: resource.y }, resource: { key: resource.key, type: resource.type, ore: resource.ore } });
-        existing.add(resource.key);
-      }
-    }
-  }
-
-  private readResources(runtime: WorldRuntime, chunks: readonly ChunkCoord[]): ResourceNode[] {
-    const allowed = new Set(chunks.map(chunkKey));
-    const resources: ResourceNode[] = [];
-    for (const entity of runtime.query.withInChunks(allowed, 'resource', 'position')) {
-      const result = runtime.query.one(entity.id, 'resource', 'position');
-      if (!result) continue;
-      const resource = result.components.resource as ResourceComponent | undefined;
-      const position = result.components.position as { x: number; y: number } | undefined;
-      if (!resource || !position || this.isRemoved(resource.key)) continue;
-      resources.push({ key: resource.key, type: resource.type, x: position.x, y: position.y, ore: resource.ore });
-    }
-    return resources.sort((a, b) => a.key.localeCompare(b.key));
-  }
-
-  private parseResourceKey(key: string): { x: number; y: number } | undefined {
-    const match = /^(?:tree|rock):(-?\d+),(-?\d+)$/.exec(key);
-    if (!match) return undefined;
-    const x = Number(match[1]);
-    const y = Number(match[2]);
-    return Number.isInteger(x) && Number.isInteger(y) ? { x, y } : undefined;
-  }
-
+  private ensureGenerated(runtime: WorldRuntime, chunks: readonly ChunkCoord[]): void { for (const chunk of chunks) { const key = chunkKey(chunk); const persistence = runtime.world.chunks[key] ??= { key, modifiedTiles: {}, removedEntities: {} }; const existing = new Set<string>(); const loaded = new Set([key]); for (const entity of runtime.query.withInChunks(loaded, 'resource', 'position')) { const result = runtime.query.one(entity.id, 'resource', 'position'); const resource = result?.components.resource as ResourceComponent | undefined; if (resource) existing.add(resource.key); } for (const resource of this.generateChunk(runtime.world.seed, chunk)) { if (existing.has(resource.key) || persistence.removedEntities[resource.key] || runtime.world.removedResources[resource.key]) continue; runtime.createEntity(`${RESOURCE_KIND_PREFIX}${resource.type}`, { position: { x: resource.x, y: resource.y }, resource: { key: resource.key, type: resource.type, ore: resource.ore } }); existing.add(resource.key); } } }
+  private readResources(runtime: WorldRuntime, chunks: readonly ChunkCoord[]): ResourceNode[] { const allowed = new Set(chunks.map(chunkKey)); const resources: ResourceNode[] = []; for (const entity of runtime.query.withInChunks(allowed, 'resource', 'position')) { const result = runtime.query.one(entity.id, 'resource', 'position'); if (!result) continue; const resource = result.components.resource as ResourceComponent | undefined; const position = result.components.position as { x: number; y: number } | undefined; if (!resource || !position || this.isRemoved(resource.key)) continue; resources.push({ key: resource.key, type: resource.type, x: position.x, y: position.y, ore: resource.ore }); } return resources.sort((a, b) => a.key.localeCompare(b.key)); }
+  private parseResourceKey(key: string): { x: number; y: number } | undefined { const match = /^(?:tree|rock):(-?\d+),(-?\d+)$/.exec(key); if (!match) return undefined; const x = Number(match[1]); const y = Number(match[2]); return Number.isInteger(x) && Number.isInteger(y) ? { x, y } : undefined; }
   private generateChunk(seed: number, coord: ChunkCoord): ResourceNode[] { const resources: ResourceNode[] = []; for (let slot = 0; slot < TREES_PER_CHUNK; slot += 1) { const x = coord.x * CHUNK_SIZE + Math.floor(seededUnit(seed + 101, coord.x * 17 + slot, coord.y * 31 + 7) * CHUNK_SIZE); const y = coord.y * CHUNK_SIZE + Math.floor(seededUnit(seed + 211, coord.x * 29 + slot, coord.y * 13 + 11) * CHUNK_SIZE); if (this.isHomeTile(x, y)) continue; resources.push({ key: `tree:${x},${y}`, type: 'tree', x, y, ore: false }); } for (let slot = 0; slot < ROCKS_PER_CHUNK; slot += 1) { const x = coord.x * CHUNK_SIZE + Math.floor(seededUnit(seed + 307, coord.x * 19 + slot, coord.y * 23 + 17) * CHUNK_SIZE); const y = coord.y * CHUNK_SIZE + Math.floor(seededUnit(seed + 401, coord.x * 37 + slot, coord.y * 7 + 19) * CHUNK_SIZE); if (this.isHomeTile(x, y)) continue; resources.push({ key: `rock:${x},${y}`, type: 'rock', x, y, ore: seededUnit(seed + 503, x, y) < 0.34 }); } return resources; }
   private isHomeTile(x: number, y: number): boolean { return x >= 33 && x <= 37 && y >= 14 && y <= 20; }
 }
