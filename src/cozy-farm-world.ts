@@ -62,7 +62,7 @@ export class FarmWorldRenderer {
       const result = runtime.query.one(entity.id, 'resource', 'position');
       const resource = result?.components.resource as { key: string; type: 'tree' | 'rock'; ore: boolean } | undefined;
       const position = result?.components.position as { x: number; y: number } | undefined;
-      if (!resource || !position || runtime.world.removedResources[resource.key]) continue;
+      if (!resource || !position || runtime.isResourceRemoved(resource.key)) continue;
       active.set(resource.key, { key: resource.key, x: position.x, y: position.y, type: resource.type, ore: resource.ore, object: this.resourceObjects.get(resource.key)?.object ?? this.scene.add.rectangle(0, 0, 1, 1) });
     }
     for (const [key, view] of this.resourceObjects) { if (active.has(key)) continue; view.object.destroy(); this.resourceObjects.delete(key); }
