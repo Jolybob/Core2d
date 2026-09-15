@@ -1,5 +1,4 @@
 import { loadGame, saveGame } from './persistence';
-import type { DomainEventBus } from './events';
 import type { GameCommand } from './commands';
 import type { GameStore } from './store';
 import type { CombatSystem } from './systems/CombatSystem';
@@ -15,7 +14,6 @@ const isFiniteNonNegative = (value: number): boolean => Number.isFinite(value) &
 
 export interface GameCommandDependencies {
   store: GameStore;
-  events: DomainEventBus;
   combat: CombatSystem;
   crafting: CraftingSystem;
   day: DaySystem;
