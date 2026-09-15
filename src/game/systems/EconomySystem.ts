@@ -1,7 +1,7 @@
-import type { GameStore } from '../store';
+import type { GameStatePort } from '../store-ports';
 
 export class EconomySystem {
-  constructor(private readonly store: GameStore) {}
+  constructor(private readonly store: GameStatePort) {}
 
   addMoney(amount: number): void {
     this.store.update((state) => { state.player.money += amount; });
