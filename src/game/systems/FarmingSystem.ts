@@ -4,41 +4,59 @@ import type { CropState } from '../types';
 export class FarmingSystem {
   constructor(private readonly store: GameStore) {}
 
-  water(crop: CropState): boolean {
-    if (!crop.tilled || crop.stage < 1) return false;
-    crop.watered = true;
-    return true;
-  }
-
-  plant(crop: CropState): boolean {
-    if (!crop.tilled || crop.stage > 0) return false;
-    if ((this.store.getState().inventory.seeds ?? 0) < 1) return false;
-    this.store.update((state) => { state.inventory.seeds -= 1; });
-    crop.stage = 1;
-    crop.watered = false;
-    return true;
-  }
-
-  grow(crops: Iterable<CropState>): void {
-    for (const crop of crops) {
-      if (crop.watered && crop.stage > 0 && crop.stage < 3) {
-        crop.stage += 1;
-        crop.watered = false;
-      }
-    }
-  }
-
-  harvest(crop: CropState): boolean {
-    if (crop.stage < 3) return false;
+  till(key: string): boolean {
+    const crop = this.store.getState().world.crops[key];
+    if (crop) return false;
     this.store.update((state) => {
-      state.inventory.parsnip = (state.inventory.parsnip ?? 0) + 1;
-      state.economy.totalHarvests += 1;
-      state.player.money += 35;
-      const quest = state.quests.find((q) => q.id === 'harvest');
-      if (quest && !quest.done) quest.progress = Math.min(quest.need, quest.progress + 1);
+      state.world.crops[key] = { stage: 0, watered: false, tilled: true };
     });
-    crop.stage = 0;
-    crop.watered = false;
     return true;
+  }
+
+  plant(key: string): boolean {
+    const current = this.store.getState().world.crops[key];
+    if (!current || !current.tilled || current.stage > 0) return false;
+    if (this.store.getState().inventory.seeds < 1) return false;
+    this.store.update((state) => {
+      state.inventory.seeds -= 1;
+      state.world.crops[key] = { ...state.world.crops[key], stage: 1, watered: false, tilled: true };
+    });
+    return true;
+  }
+
+  water(key: string): boolean {
+    const current = this.store.getState().world.crops[key];
+    if (!current || !current.tilled || current.stage < 1) return false;
+    this.store.update((state) => {
+      state.world.crops[key] = { ...state.world.crops[key], watered: true };
+    });
+    return true;
+  }
+
+  grow(): void {
+    this.store.update((state) => {
+      for (const [key, crop] of Object.entries(state.world.crops)) {
+        if (crop.watered && crop.stage > 0 && crop.stage < 3) {
+          state.world.crops[key] = { ...crop, stage: crop.stage + 1, watered: false };
+        }
+      }
+    });
+  }
+
+  harvest(key: string): boolean {
+    const crop = this.store.getState().world.crops[key];
+    if (!crop || crop.stage < 3) return false;
+    this.store.update((state) => {
+      state.inventory.parsnip += 1;
+      state.economy.totalHarvests += 1;
+      const quest = state.quests.find((entry) => entry.id === 'harvest');
+      if (quest && !quest.done) quest.progress = Math.min(quest.need, quest.progress + 1);
+      delete state.world.crops[key];
+    });
+    return true;
+  }
+
+  getCrop(key: string): CropState | undefined {
+    return this.store.getState().world.crops[key];
   }
 }
