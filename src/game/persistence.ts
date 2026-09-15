@@ -1,10 +1,33 @@
 import { ITEM_IDS, TOOL_IDS, type GameState, type InventoryState, type SaveData, type ToolId } from './types';
 
 export const SAVE_KEY = 'core2d-save-v3';
-const LEGACY_KEYS = ['core2d-save-v2', 'core2d-save-v1', 'core2d-save-v41'];
+const LEGACY_KEYS = ['core2d-save-v2', 'core2d-save-v1'];
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 const isFiniteNonNegative = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0;
+const isFiniteInteger = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && Number.isFinite(value);
+const isBoundedNumber = (value: unknown, min: number, max: number): value is number => isFiniteNonNegative(value) && value >= min && value <= max;
+
+function isInventory(value: unknown): value is InventoryState {
+  if (!isObject(value)) return false;
+  return ITEM_IDS.every((id) => isFiniteNonNegative(value[id]));
+}
+
+function isQuest(value: unknown): boolean {
+  if (!isObject(value)) return false;
+  return typeof value['id'] === 'string'
+    && value['id'].length > 0
+    && typeof value['title'] === 'string'
+    && value['title'].length > 0
+    && isFiniteInteger(value['need'])
+    && value['need'] > 0
+    && isFiniteInteger(value['progress'])
+    && value['progress'] >= 0
+    && value['progress'] <= value['need']
+    && isFiniteNonNegative(value['reward'])
+    && typeof value['done'] === 'boolean'
+    && (value['done'] ? value['progress'] >= value['need'] : value['progress'] < value['need']);
+}
 
 function isGameState(value: unknown): value is GameState {
   if (!isObject(value)) return false;
@@ -14,16 +37,29 @@ function isGameState(value: unknown): value is GameState {
   const calendar = value['calendar'];
   const economy = value['economy'];
   const world = value['world'];
-  if (!isObject(player) || !isObject(inventory) || !Array.isArray(quests)) return false;
-  if (!isObject(calendar) || !isObject(economy) || !isObject(world)) return false;
+  if (!isObject(player) || !isInventory(inventory) || !Array.isArray(quests)) return false;
+  if (!quests.every(isQuest) || !isObject(calendar) || !isObject(economy) || !isObject(world)) return false;
+
   if (!isFiniteNonNegative(player['x']) || !isFiniteNonNegative(player['y'])) return false;
-  if (!isFiniteNonNegative(player['health']) || !isFiniteNonNegative(player['stamina']) || !isFiniteNonNegative(player['hunger'])) return false;
-  if (!isFiniteNonNegative(player['money']) || !isFiniteNonNegative(player['pickaxeLevel'])) return false;
+  if (!isBoundedNumber(player['health'], 0, 100) || !isBoundedNumber(player['stamina'], 0, 100) || !isBoundedNumber(player['hunger'], 0, 100)) return false;
+  if (!isFiniteNonNegative(player['money']) || !isFiniteInteger(player['pickaxeLevel']) || player['pickaxeLevel'] < 1) return false;
   if (typeof player['tool'] !== 'string' || !TOOL_IDS.includes(player['tool'] as ToolId)) return false;
-  if (!isFiniteNonNegative(calendar['day']) || !isFiniteNonNegative(calendar['clock']) || !isFiniteNonNegative(calendar['season'])) return false;
+
+  if (!isFiniteInteger(calendar['day']) || calendar['day'] < 1) return false;
+  if (!isFiniteNonNegative(calendar['clock']) || !isFiniteInteger(calendar['season']) || calendar['season'] < 0) return false;
   if (calendar['weather'] !== 'Sunny' && calendar['weather'] !== 'Rainy' && calendar['weather'] !== 'Cloudy') return false;
-  if (!isFiniteNonNegative(world['seed']) || !isObject(world['crops']) || !isObject(world['removedResources'])) return false;
-  return ITEM_IDS.every((id) => isFiniteNonNegative(inventory[id]));
+
+  if (!isFiniteNonNegative(economy['fishCaught']) || !isFiniteNonNegative(economy['shipped']) || !isFiniteNonNegative(economy['totalHarvests'])) return false;
+  if (!isFiniteInteger(world['seed']) || !isObject(world['crops']) || !isObject(world['removedResources'])) return false;
+  if (!Object.entries(world['crops']).every(([key, crop]) => {
+    if (!key || !isObject(crop)) return false;
+    return isFiniteInteger(crop['stage']) && crop['stage'] >= 0
+      && typeof crop['watered'] === 'boolean'
+      && typeof crop['tilled'] === 'boolean';
+  })) return false;
+  if (!Object.values(world['removedResources']).every((type) => type === 'tree' || type === 'rock')) return false;
+
+  return true;
 }
 
 const defaultInventory = (): InventoryState => ({ wood: 12, stone: 10, ore: 8, crystal: 2, berry: 4, parsnip: 0, seeds: 6, torch: 6, sword: 1, fish: 0, coal: 3, rod: 0, salve: 0 });
@@ -50,19 +86,19 @@ function migrate(raw: unknown): GameState | null {
       player: {
         x: isFiniteNonNegative(player['x']) ? player['x'] : 35 * 24 + 12,
         y: isFiniteNonNegative(player['y']) ? player['y'] : 27 * 24 + 12,
-        health: isFiniteNonNegative(player['health']) ? player['health'] : 100,
-        stamina: isFiniteNonNegative(player['stamina']) ? player['stamina'] : 100,
-        hunger: isFiniteNonNegative(player['hunger']) ? player['hunger'] : 100,
+        health: isBoundedNumber(player['health'], 0, 100) ? player['health'] : 100,
+        stamina: isBoundedNumber(player['stamina'], 0, 100) ? player['stamina'] : 100,
+        hunger: isBoundedNumber(player['hunger'], 0, 100) ? player['hunger'] : 100,
         money: isFiniteNonNegative(player['money']) ? player['money'] : 120,
-        pickaxeLevel: isFiniteNonNegative(player['pickaxeLevel']) ? player['pickaxeLevel'] : 1,
+        pickaxeLevel: isFiniteInteger(player['pickaxeLevel']) && player['pickaxeLevel'] >= 1 ? player['pickaxeLevel'] : 1,
         tool: typeof player['tool'] === 'string' && TOOL_IDS.includes(player['tool'] as ToolId) ? player['tool'] as ToolId : 'hoe',
       },
       inventory: normalizeInventory(old['inventory']),
-      quests: quests.filter(isObject).map((quest) => ({ id: String(quest['id'] ?? 'quest'), title: String(quest['title'] ?? 'Quest'), need: Number(quest['need']) || 1, progress: Number(quest['progress']) || 0, reward: Number(quest['reward']) || 0, done: Boolean(quest['done']) })),
+      quests: quests.filter(isObject).map((quest) => ({ id: String(quest['id'] ?? 'quest'), title: String(quest['title'] ?? 'Quest'), need: Math.max(1, Number(quest['need']) || 1), progress: Math.max(0, Number(quest['progress']) || 0), reward: Math.max(0, Number(quest['reward']) || 0), done: Boolean(quest['done']) })),
       calendar: {
-        day: isFiniteNonNegative(calendar['day']) ? calendar['day'] : 1,
+        day: isFiniteInteger(calendar['day']) && calendar['day'] >= 1 ? calendar['day'] : 1,
         clock: isFiniteNonNegative(calendar['clock']) ? calendar['clock'] : 0,
-        season: isFiniteNonNegative(calendar['season']) ? calendar['season'] : 0,
+        season: isFiniteInteger(calendar['season']) && calendar['season'] >= 0 ? calendar['season'] : 0,
         weather: calendar['weather'] === 'Rainy' || calendar['weather'] === 'Cloudy' ? calendar['weather'] : 'Sunny',
       },
       economy: {
@@ -72,23 +108,25 @@ function migrate(raw: unknown): GameState | null {
       },
       world: { seed: 2042, crops: {}, removedResources: {} },
     };
-    return candidate;
+    return isGameState(candidate) ? candidate : null;
   }
 
   if (schema === undefined && isObject(raw['inventory'])) {
-    return {
-      player: { x: 35 * 24 + 12, y: 27 * 24 + 12, health: isFiniteNonNegative(raw['health']) ? raw['health'] : 100, stamina: isFiniteNonNegative(raw['stamina']) ? raw['stamina'] : 100, hunger: isFiniteNonNegative(raw['hunger']) ? raw['hunger'] : 100, money: isFiniteNonNegative(raw['money']) ? raw['money'] : 120, pickaxeLevel: isFiniteNonNegative(raw['pickaxeLevel']) ? raw['pickaxeLevel'] : 1, tool: 'hoe' },
+    const candidate: GameState = {
+      player: { x: 35 * 24 + 12, y: 27 * 24 + 12, health: isBoundedNumber(raw['health'], 0, 100) ? raw['health'] : 100, stamina: isBoundedNumber(raw['stamina'], 0, 100) ? raw['stamina'] : 100, hunger: isBoundedNumber(raw['hunger'], 0, 100) ? raw['hunger'] : 100, money: isFiniteNonNegative(raw['money']) ? raw['money'] : 120, pickaxeLevel: 1, tool: 'hoe' },
       inventory: normalizeInventory(raw['inventory']),
       quests: [],
-      calendar: { day: isFiniteNonNegative(raw['day']) ? raw['day'] : 1, clock: 0, season: 0, weather: 'Sunny' },
+      calendar: { day: isFiniteInteger(raw['day']) && raw['day'] >= 1 ? raw['day'] : 1, clock: 0, season: 0, weather: 'Sunny' },
       economy: { fishCaught: 0, shipped: 0, totalHarvests: 0 },
       world: { seed: 2042, crops: {}, removedResources: {} },
     };
+    return isGameState(candidate) ? candidate : null;
   }
   return null;
 }
 
 export function saveGame(state: GameState, storage: Storage = localStorage): void {
+  if (!isGameState(state)) throw new Error('Cannot save invalid game state');
   const data: SaveData = { schemaVersion: 3, state };
   storage.setItem(SAVE_KEY, JSON.stringify(data));
 }
