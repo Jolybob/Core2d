@@ -1,5 +1,5 @@
 import { createSaveData, migrateSaveData, SAVE_SCHEMA_VERSION } from './save-schema';
-import type { GameState, LoadedGame, SaveData } from './types';
+import type { GameState, LoadedGame } from './types';
 import type { WorldRuntime } from './world/runtime';
 import { serializeWorld, rehydrateWorld } from './world/runtime-persistence';
 
