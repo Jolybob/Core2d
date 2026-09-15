@@ -43,6 +43,7 @@ describe('save schema', () => {
     expect(state?.inventory.wood).toBe(7);
     expect(state?.inventory.berry).toBe(3);
     expect(state?.player.health).toBe(60);
+    expect(state?.player.money).toBe(25);
     expect(state?.calendar.day).toBe(9);
     expect(state && isGameState(state)).toBe(true);
   });
