@@ -93,3 +93,9 @@ export function serializeMapping(
     mapping,
   }, null, 2);
 }
+
+export function serializeMappingAsTypescript(mapping: TilesetMapping, exportName = 'TILE_FRAMES'): string {
+  const safeName = exportName.replace(/[^A-Za-z0-9_$]/g, '_').replace(/^[0-9]/, '_$&');
+  const entries = Object.entries(mapping).map(([name, frames]) => `  ${JSON.stringify(name)}: [${frames.join(', ')}],`);
+  return `export const ${safeName}: Record<string, readonly number[]> = {\n${entries.join('\n')}\n};\n`;
+}
