@@ -67,7 +67,7 @@ export class GameRuntime {
       state.player.x + (dx / length) * speed * deltaSeconds,
       state.player.y + (dy / length) * speed * deltaSeconds,
     );
-    if (!this.world.canMove(state, next.x, next.y)) return false;
+    if (!this.world.canMove(next.x, next.y)) return false;
     this.store.update((current) => {
       current.player.x = next.x;
       current.player.y = next.y;
