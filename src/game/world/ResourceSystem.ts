@@ -21,7 +21,7 @@ export class ResourceSystem {
 
   /** Explicit persistence boundary used after loading a GameState into the runtime. */
   hydrateFromPersistence(): void {
-    const loaded = this.runtime.chunks.loadedCoords();
+    const loaded = this.runtime.loadedChunkCoords();
     const state = this.store.getState();
     this.runtime.rehydrate(state.world);
     const chunks = loaded.length > 0 ? loaded : [worldToChunk({ x: Math.floor(state.player.x / TILE_SIZE), y: Math.floor(state.player.y / TILE_SIZE) })];
@@ -31,14 +31,14 @@ export class ResourceSystem {
   }
 
   refresh(): void {
-    const chunks = this.runtime.chunks.loadedCoords();
+    const chunks = this.runtime.loadedChunkCoords();
     if (chunks.length === 0) return;
     this.ensureGenerated(this.runtime, chunks);
     this.commitRuntime(this.runtime);
   }
 
   getAll(): ResourceNode[] {
-    return this.readResources(this.runtime, this.runtime.chunks.loadedCoords());
+    return this.readResources(this.runtime, this.runtime.loadedChunkCoords());
   }
 
   get(key: string): ResourceNode | undefined {
