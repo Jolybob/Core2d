@@ -25,3 +25,4 @@
 23. `GameRuntime` owns dependency composition; `GameCommandHandler` receives explicit system dependencies so command routing is independently testable.
 24. `GameStore` owns commit/notification flow. A mutation creates exactly one committed state snapshot, and notification reuses that snapshot instead of cloning the whole state again. `getState()` remains the explicit isolation boundary for callers that need an independent mutable snapshot.
 25. Save schema, validation, migration, and normalization belong to `save-schema.ts`; `persistence.ts` owns only storage I/O and JSON serialization. Schema logic must remain testable without `localStorage` or browser APIs.
+26. `GameRuntime.dispatch()` executes each command inside one `GameStore.transaction()`. Nested system updates, including domain-event subscribers, share the same draft and produce one atomic commit/notification. Failed transactions roll back without notifying subscribers.
