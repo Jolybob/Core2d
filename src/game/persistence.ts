@@ -24,7 +24,7 @@ function isGameState(value: unknown): value is GameState {
   return ITEM_IDS.every((id) => isFiniteNonNegative(inventory[id]));
 }
 
-const defaultInventory = (): InventoryState => ({ wood: 12, stone: 10, ore: 8, crystal: 2, berry: 4, parsnip: 0, seeds: 6, torch: 6, sword: 1, fish: 0, coal: 3, rod: 0 });
+const defaultInventory = (): InventoryState => ({ wood: 12, stone: 10, ore: 8, crystal: 2, berry: 4, parsnip: 0, seeds: 6, torch: 6, sword: 1, fish: 0, coal: 3, rod: 0, salve: 0 });
 
 function normalizeInventory(value: unknown): InventoryState {
   const result = defaultInventory();
