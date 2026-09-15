@@ -1,5 +1,5 @@
 import { createEntityId, type EntityId, type EntityState, type PositionComponent } from '../entity';
-import { CHUNK_SIZE, chunkKey, ChunkCache, tileKey, worldToChunk, worldToLocalTile, type ChunkCoord, type ChunkPersistence, type ChunkGenerator, type GeneratedChunk, defaultChunkGenerator } from './chunks';
+import { CHUNK_SIZE, chunkKey, ChunkCache, tileKey, worldToChunk, worldToLocalTile, type ChunkCoord, type ChunkKey, type ChunkPersistence, type ChunkGenerator, type GeneratedChunk, defaultChunkGenerator } from './chunks';
 import type { WorldState } from '../types';
 
 export type ComponentName = string;
@@ -50,10 +50,50 @@ export class SpatialIndex {
   clear(): void { this.cells.clear(); this.positions.clear(); }
 }
 
+export class ChunkEntityIndex {
+  private readonly chunks = new Map<ChunkKey, Set<EntityId>>();
+  private readonly locations = new Map<EntityId, ChunkKey>();
+
+  set(entity: EntityId, position: PositionComponent): void {
+    this.remove(entity);
+    const key = chunkKey(worldToChunk({ x: Math.floor(position.x), y: Math.floor(position.y) }));
+    const entities = this.chunks.get(key) ?? new Set<EntityId>();
+    entities.add(entity);
+    this.chunks.set(key, entities);
+    this.locations.set(entity, key);
+  }
+
+  remove(entity: EntityId): void {
+    const key = this.locations.get(entity);
+    if (!key) return;
+    const entities = this.chunks.get(key);
+    entities?.delete(entity);
+    if (entities?.size === 0) this.chunks.delete(key);
+    this.locations.delete(entity);
+  }
+
+  inChunks(keys: ReadonlySet<ChunkKey>): EntityId[] {
+    const result: EntityId[] = [];
+    for (const key of keys) for (const entity of this.chunks.get(key) ?? []) result.push(entity);
+    return result;
+  }
+
+  clear(): void { this.chunks.clear(); this.locations.clear(); }
+}
+
 export interface WorldQueryResult<T extends ComponentValue = ComponentValue> { entity: EntityState; components: Record<ComponentName, T>; }
 export class WorldQuery {
-  constructor(private readonly entities: EntityStore, private readonly components: ComponentStore) {}
+  constructor(private readonly entities: EntityStore, private readonly components: ComponentStore, private readonly chunkIndex?: ChunkEntityIndex) {}
   with(...names: ComponentName[]): EntityState[] { const result: EntityState[] = []; for (const entity of this.entities.values()) if (names.every((name) => this.components.has(name, entity.id))) result.push(entity); return result; }
+  withInChunks(chunks: ReadonlySet<ChunkKey>, ...names: ComponentName[]): EntityState[] {
+    if (!this.chunkIndex) return this.with(...names);
+    const result: EntityState[] = [];
+    for (const id of this.chunkIndex.inChunks(chunks)) {
+      const entity = this.entities.get(id);
+      if (entity && names.every((name) => this.components.has(name, id))) result.push(entity);
+    }
+    return result;
+  }
   one(id: EntityId, ...names: ComponentName[]): WorldQueryResult | undefined { const entity = this.entities.get(id); if (!entity || !names.every((name) => this.components.has(name, id))) return undefined; const values: Record<ComponentName, ComponentValue> = {}; for (const name of names) { const value = this.components.get(name, id); if (value) values[name] = value; } return { entity, components: values }; }
 }
 
@@ -77,12 +117,14 @@ export class WorldRuntime {
   readonly entities = new EntityStore();
   readonly components = new ComponentStore();
   readonly spatial = new SpatialIndex();
-  readonly query = new WorldQuery(this.entities, this.components);
+  readonly chunkEntities = new ChunkEntityIndex();
+  readonly query: WorldQuery;
   readonly mutations = new WorldMutationQueue();
   readonly chunks: ChunkManager;
 
   constructor(private _world: WorldState, generator?: ChunkGenerator) {
     this.chunks = new ChunkManager(_world, generator);
+    this.query = new WorldQuery(this.entities, this.components, this.chunkEntities);
     this.hydrate();
   }
 
@@ -103,6 +145,7 @@ export class WorldRuntime {
     this.entities.clear();
     this.components.clear();
     this.spatial.clear();
+    this.chunkEntities.clear();
     this.mutations.drain();
     this.chunks.bindWorld(world);
     this.hydrate();
@@ -128,8 +171,8 @@ export class WorldRuntime {
     return id;
   }
 
-  removeEntity(id: EntityId): boolean { if (!this.entities.remove(id)) return false; this.components.removeEntity(id); this.spatial.remove(id); delete this._world.entities.entities[id]; if (this._world.entities.components) delete this._world.entities.components[id]; return true; }
-  setComponent<T extends ComponentValue>(id: EntityId, name: ComponentName, value: T): void { if (!this.entities.has(id)) throw new Error(`Unknown entity: ${id}`); this.components.set(name, id, value); const entityComponents = this._world.entities.components ??= {}; const persisted = entityComponents[id] ??= {}; persisted[name] = { ...value }; if (name === 'position' && isPositionComponent(value)) this.spatial.set(id, value); }
-  removeComponent(id: EntityId, name: ComponentName): boolean { if (!this.entities.has(id)) throw new Error(`Unknown entity: ${id}`); const removed = this.components.remove(name, id); const persisted = this._world.entities.components?.[id]; if (persisted) { delete persisted[name]; if (Object.keys(persisted).length === 0) delete this._world.entities.components?.[id]; } if (name === 'position') this.spatial.remove(id); return removed; }
+  removeEntity(id: EntityId): boolean { if (!this.entities.remove(id)) return false; this.components.removeEntity(id); this.spatial.remove(id); this.chunkEntities.remove(id); delete this._world.entities.entities[id]; if (this._world.entities.components) delete this._world.entities.components[id]; return true; }
+  setComponent<T extends ComponentValue>(id: EntityId, name: ComponentName, value: T): void { if (!this.entities.has(id)) throw new Error(`Unknown entity: ${id}`); this.components.set(name, id, value); const entityComponents = this._world.entities.components ??= {}; const persisted = entityComponents[id] ??= {}; persisted[name] = { ...value }; if (name === 'position' && isPositionComponent(value)) { this.spatial.set(id, value); this.chunkEntities.set(id, value); } }
+  removeComponent(id: EntityId, name: ComponentName): boolean { if (!this.entities.has(id)) throw new Error(`Unknown entity: ${id}`); const removed = this.components.remove(name, id); const persisted = this._world.entities.components?.[id]; if (persisted) { delete persisted[name]; if (Object.keys(persisted).length === 0) delete this._world.entities.components?.[id]; } if (name === 'position') { this.spatial.remove(id); this.chunkEntities.remove(id); } return removed; }
   applyMutations(): number { let applied = 0; for (const mutation of this.mutations.drain()) { if (mutation.type === 'setTile') { this.chunks.setTile(mutation.x, mutation.y, mutation.tile); applied += 1; } else if (this.removeEntity(mutation.entity)) applied += 1; } return applied; }
 }
