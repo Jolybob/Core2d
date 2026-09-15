@@ -10,23 +10,16 @@ import { rehydrateWorld } from '../world/runtime-persistence';
 const cropId = (key: string): EntityId => `crop-${encodeURIComponent(key)}` as EntityId;
 
 describe('FarmingSystem ECS runtime', () => {
-  it('stores crops as persisted ECS entities', () => {
+  it('stores crops as runtime ECS entities', () => {
     const runtime = new GameRuntime();
-
     expect(runtime.dispatch({ type: 'TILL', key: '4,7' })).toBe(true);
     expect(runtime.dispatch({ type: 'PLANT', key: '4,7' })).toBe(true);
     expect(runtime.dispatch({ type: 'WATER', key: '4,7' })).toBe(true);
 
     const id = cropId('4,7');
-    const entity = runtime.worldRuntime.entities.get(id);
-    const component = runtime.worldRuntime.components.get('crop', id);
-
-    expect(entity?.kind).toBe('crop');
-    expect(component).toMatchObject({ key: '4,7', stage: 1, watered: true, tilled: true });
-    expect(runtime.store.getState().world.crops['4,7']).toEqual({ stage: 1, watered: true, tilled: true });
-    expect(runtime.store.getState().world.entities.components?.[id]).toMatchObject({
-      crop: { key: '4,7', stage: 1, watered: true, tilled: true },
-      position: { x: 4, y: 7 },
+    expect(runtime.worldRuntime.entities.get(id)?.kind).toBe('crop');
+    expect(runtime.worldRuntime.components.get('crop', id)).toMatchObject({
+      key: '4,7', stage: 1, watered: true, tilled: true,
     });
   });
 
@@ -44,22 +37,18 @@ describe('FarmingSystem ECS runtime', () => {
     expect(runtime.farming.getCrop('2,3')?.watered).toBe(false);
     expect(runtime.dispatch({ type: 'HARVEST', key: '2,3' })).toBe(true);
     expect(runtime.worldRuntime.query.with('crop')).toHaveLength(0);
-    expect(runtime.store.getState().world.crops['2,3']).toBeUndefined();
   });
 
-  it('hydrates persisted crops only at the explicit persistence boundary', () => {
+  it('hydrates persisted crops only at the explicit world persistence boundary', () => {
     const store = new GameStore(createInitialState());
     const events = new DomainEventBus();
     const worldRuntime = new WorldRuntime(store.getState().world);
     const farming = new FarmingSystem(store, events, worldRuntime);
-
-    store.update((state) => {
-      state.world.crops['9,10'] = { stage: 2, watered: true, tilled: true };
-    });
+    const world = structuredClone(worldRuntime.exportWorld());
+    world.crops['9,10'] = { stage: 2, watered: true, tilled: true };
 
     expect(farming.getCrop('9,10')).toBeUndefined();
-    rehydrateWorld(worldRuntime, store.getState());
-    farming.hydrateFromPersistence();
+    rehydrateWorld(worldRuntime, world);
 
     expect(farming.getCrop('9,10')).toEqual({ stage: 2, watered: true, tilled: true });
     expect(worldRuntime.query.with('crop')).toHaveLength(1);
