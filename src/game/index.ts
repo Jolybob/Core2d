@@ -1,4 +1,5 @@
 export * from './catalog';
+export * from './commands';
 export * from './persistence';
 export * from './store';
 export * from './types';
