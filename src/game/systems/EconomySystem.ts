@@ -8,7 +8,7 @@ export class EconomySystem {
   }
 
   buySeeds(cost = 20, amount = 5): boolean {
-    if (this.store.getState().player.money < cost) return false;
+    if (this.store.select((state) => state.player.money) < cost) return false;
     this.store.update((state) => {
       state.player.money -= cost;
       state.inventory.seeds = (state.inventory.seeds ?? 0) + amount;
@@ -17,7 +17,7 @@ export class EconomySystem {
   }
 
   sellFish(value = 25): boolean {
-    if ((this.store.getState().inventory.fish ?? 0) < 1) return false;
+    if (this.store.select((state) => (state.inventory.fish ?? 0) < 1)) return false;
     this.store.update((state) => {
       state.inventory.fish -= 1;
       state.player.money += value;
@@ -27,7 +27,7 @@ export class EconomySystem {
   }
 
   shipParsnips(value = 35): number {
-    const amount = this.store.getState().inventory.parsnip ?? 0;
+    const amount = this.store.select((state) => state.inventory.parsnip ?? 0);
     if (!amount) return 0;
     this.store.update((state) => {
       state.inventory.parsnip = 0;
@@ -38,9 +38,8 @@ export class EconomySystem {
   }
 
   ship(): boolean {
-    const state = this.store.getState();
-    const parsnips = state.inventory.parsnip ?? 0;
-    const fish = state.inventory.fish ?? 0;
+    const parsnips = this.store.select((state) => state.inventory.parsnip ?? 0);
+    const fish = this.store.select((state) => state.inventory.fish ?? 0);
     if (!parsnips && !fish) return false;
     this.store.update((next) => {
       next.inventory.parsnip = 0;
