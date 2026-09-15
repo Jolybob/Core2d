@@ -1,7 +1,7 @@
 import './ui.css';
 import { VERSION } from './version';
 import { appRuntime } from './game/app-runtime';
-import { ITEM_IDS, type ItemId, type RecipeId, type ToolId } from './game/types';
+import { type ItemId, type RecipeId, type ToolId } from './game/types';
 import { connectUiRenderers, TOOL_BY_SLOT } from './ui-render';
 
 const root = document.createElement('div');
