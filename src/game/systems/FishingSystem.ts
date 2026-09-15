@@ -1,8 +1,8 @@
 import type { DomainEventBus } from '../events';
-import type { GameStore } from '../store';
+import type { GameStatePort } from '../store-ports';
 
 export class FishingSystem {
-  constructor(private readonly store: GameStore, private readonly events: DomainEventBus) {}
+  constructor(private readonly store: GameStatePort, private readonly events: DomainEventBus) {}
 
   catchFish(): boolean {
     if (this.store.select((state) => (state.inventory.rod ?? 0) < 1)) return false;
