@@ -22,10 +22,11 @@ export class GameRuntime {
   readonly crafting = new CraftingSystem(this.store);
   readonly economy = new EconomySystem(this.store);
   readonly fishing = new FishingSystem(this.store, this.events);
-  readonly combat = new CombatSystem(this.store);
-  readonly day = new DaySystem(this.store, this.farming);
   readonly world = new WorldSystem();
-  readonly player = new PlayerSystem(this.store, this.world);
+  readonly worldRuntime = new WorldRuntime(this.store.getState().world);
+  readonly player = new PlayerSystem(this.store, this.world, this.worldRuntime);
+  readonly combat = new CombatSystem(this.store, this.player);
+  readonly day = new DaySystem(this.store, this.farming, this.player);
   readonly resources = new ResourceSystem(this.store, this.events, (state) => new WorldRuntime(state.world));
   private readonly commandHandler = new GameCommandHandler({
     store: this.store,
@@ -39,24 +40,19 @@ export class GameRuntime {
     resources: this.resources,
   });
 
-  /**
-   * Returns an ECS view over the current transactional game state.
-   * A fresh view is intentional: GameStore transactions replace immutable snapshots.
-   */
-  get worldRuntime(): WorldRuntime {
-    return new WorldRuntime(this.store.getState().world);
-  }
-
   dispatch(command: GameCommand): boolean {
     return this.commandHandler.dispatch(command);
   }
 
   save(): boolean {
+    this.player.persist();
     return this.commandHandler.save();
   }
 
   load(): boolean {
-    return this.commandHandler.load();
+    const loaded = this.commandHandler.load();
+    if (loaded) this.player.refresh();
+    return loaded;
   }
 
   destroy(): void {
