@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import { appRuntime } from './game/app-runtime';
 import { DAY_SECONDS } from './game/systems/DaySystem';
 import type { GameState } from './game/types';
 import type { ResourceView } from './cozy-farm-world';
