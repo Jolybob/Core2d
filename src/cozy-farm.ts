@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { appRuntime } from './game/app-runtime';
 import { FarmInputController } from './cozy-farm-input';
 import { FarmRenderer } from './cozy-farm-renderer';
-import { buildFarmWorld, TILE, type FarmWorldRenderer, type ResourceView } from './cozy-farm-world';
+import { buildFarmWorld, TILE, WORLD_TILESET_FRAME_SIZE, WORLD_TILESET_KEY, type FarmWorldRenderer, type ResourceView } from './cozy-farm-world';
 
 export class CozyFarm extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
@@ -16,6 +16,13 @@ export class CozyFarm extends Phaser.Scene {
   private unsubscribe: (() => void) | undefined;
 
   constructor() { super('CozyFarm'); }
+
+  preload(): void {
+    this.load.spritesheet(WORLD_TILESET_KEY, '/assets/tilesets/Tileset.png', {
+      frameWidth: WORLD_TILESET_FRAME_SIZE,
+      frameHeight: WORLD_TILESET_FRAME_SIZE,
+    });
+  }
 
   create(): void {
     const state = appRuntime.store.getState();
@@ -49,7 +56,9 @@ export class CozyFarm extends Phaser.Scene {
     this.farmRenderer.updateNight(state.calendar.clock);
   }
 
-  private playAttackAnimation(): void { this.tweens.add({ targets: this.player, scaleX: 1.35, duration: 90, yoyo: true }); }
+  private playAttackAnimation(): void {
+    this.tweens.add({ targets: this.player, scaleX: 1.35, duration: 90, yoyo: true });
+  }
 
   private cleanup(): void {
     this.unsubscribe?.();
