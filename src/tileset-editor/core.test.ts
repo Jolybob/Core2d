@@ -31,6 +31,6 @@ describe('tileset editor core', () => {
     const selection = getSelection(config, 2, 0, 2, 0);
     const mapping = addMapping({}, 'water', selection);
     expect(mapping).toEqual({ water: [2] });
-    expect(serializeMappingAsTypescript(mapping)).toContain('water: [2]');
+    expect(serializeMappingAsTypescript(mapping)).toContain('"water": [2]');
   });
 });
