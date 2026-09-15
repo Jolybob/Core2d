@@ -33,13 +33,10 @@ const chunkCoordFromKey = (key: ChunkKey): ChunkCoord | undefined => {
 };
 
 const ensureWorldObject = (id: string, kind: string, x: number, y: number, view: WorldObjectView): void => {
-  const runtime = appRuntime.worldRuntime;
-  const entityId = id as EntityId;
-  if (!runtime.entities.has(entityId)) {
-    runtime.entities.add({ id: entityId, kind });
-    runtime.setComponent(entityId, 'position', { x, y });
-    runtime.setComponent(entityId, 'worldObject', view);
-  }
+  appRuntime.worldRuntime.ensureEntity(id as EntityId, kind, {
+    position: { x, y },
+    worldObject: view,
+  });
 };
 
 const ensureStaticWorldObjects = (): void => {
