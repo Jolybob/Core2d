@@ -12,7 +12,6 @@ export type WorldRuntimeFactory = (state: GameState) => WorldRuntime;
 
 const INTERACTION_RANGE = 4;
 const RESOURCE_KIND_PREFIX = 'resource:';
-const RESOURCE_CHUNK_RADIUS = 1;
 const TREES_PER_CHUNK = 4;
 const ROCKS_PER_CHUNK = 2;
 
@@ -26,7 +25,7 @@ export class ResourceSystem {
   refresh(): void {
     this.store.update((state) => {
       this.runtime.rehydrate(state.world);
-      this.ensureGenerated(this.runtime, this.loadedChunks(this.runtime));
+      this.ensureGenerated(this.runtime, this.runtime.chunks.loadedCoords());
       this.commitRuntime(state, this.runtime);
     });
   }
@@ -35,7 +34,7 @@ export class ResourceSystem {
     let chunks: ChunkCoord[] = [];
     this.store.update((state) => {
       this.runtime.rehydrate(state.world);
-      chunks = this.loadedChunks(this.runtime);
+      chunks = this.runtime.chunks.loadedCoords();
       this.ensureGenerated(this.runtime, chunks);
       this.commitRuntime(state, this.runtime);
     });
@@ -92,22 +91,6 @@ export class ResourceSystem {
 
   private isRemoved(key: string): boolean { return this.store.select((state) => Boolean(state.world.removedResources[key])); }
   private commitRuntime(state: GameState, runtime: WorldRuntime): void { state.world = runtime.world; }
-
-  private loadedChunks(runtime: WorldRuntime): ChunkCoord[] {
-    const position = runtime.query.with('player', 'position')[0];
-    const player = position
-      ? runtime.query.one(position.id, 'player', 'position')?.components.position as { x: number; y: number } | undefined
-      : undefined;
-    const fallback = this.store.select((state) => state.player);
-    const tileX = Math.floor((player?.x ?? fallback.x) / TILE_SIZE);
-    const tileY = Math.floor((player?.y ?? fallback.y) / TILE_SIZE);
-    const center = worldToChunk({ x: tileX, y: tileY });
-    const chunks: ChunkCoord[] = [];
-    for (let y = center.y - RESOURCE_CHUNK_RADIUS; y <= center.y + RESOURCE_CHUNK_RADIUS; y += 1) {
-      for (let x = center.x - RESOURCE_CHUNK_RADIUS; x <= center.x + RESOURCE_CHUNK_RADIUS; x += 1) chunks.push({ x, y });
-    }
-    return chunks;
-  }
 
   private ensureGenerated(runtime: WorldRuntime, chunks: readonly ChunkCoord[]): void {
     const existing = new Set<string>();
