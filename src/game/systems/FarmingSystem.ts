@@ -55,7 +55,7 @@ export class FarmingSystem {
   water(key: string): boolean {
     this.syncFromState();
     const current = this.getComponent(key);
-    if (!current || !current.tilled || current.stage < 1) return false;
+    if (!current || !current.tilled || current.stage < 1 || current.stage >= 3 || current.watered) return false;
     this.setCrop(key, { stage: current.stage, watered: true, tilled: current.tilled });
     this.syncToState();
     return true;
@@ -135,11 +135,23 @@ export class FarmingSystem {
   private syncToState(): void {
     if (!this.runtime) return;
     const crops: Record<string, CropState> = {};
+    const entities = Object.fromEntries(
+      [...this.runtime.entities.values()].map((entity) => [entity.id, { ...entity }]),
+    );
+    const components: Record<string, Record<string, Record<string, unknown>>> = {};
     for (const entity of this.runtime.query.with('crop')) {
       const crop = this.runtime.components.get<CropComponent>('crop', entity.id);
       if (!crop || !isCropComponent(crop)) continue;
       crops[crop.key] = { stage: crop.stage, watered: crop.watered, tilled: crop.tilled };
+      const entityComponents: Record<string, Record<string, unknown>> = { crop: { ...crop } };
+      const position = this.runtime.components.get('position', entity.id);
+      if (position) entityComponents.position = { ...position };
+      components[entity.id] = entityComponents;
     }
-    this.store.update((state) => { state.world.crops = crops; });
+    this.store.update((state) => {
+      state.world.crops = crops;
+      state.world.entities.entities = entities;
+      state.world.entities.components = components;
+    });
   }
 }
