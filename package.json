@@ -1,7 +1,7 @@
 {
   "name":"core2d",
   "private":true,
-  "version":"0.4.7",
+  "version":"0.4.8",
   "type":"module",
   "scripts":{"dev":"vite","build":"node scripts/ensure-game-bootstrap.mjs && tsc && vite build","preview":"vite preview"},
   "dependencies":{"phaser":"4.2.1"},
