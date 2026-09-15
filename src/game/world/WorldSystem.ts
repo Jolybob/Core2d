@@ -1,5 +1,3 @@
-import type { GameState } from '../types';
-
 export const TILE_SIZE = 24;
 export const WORLD_WIDTH = 70;
 export const WORLD_HEIGHT = 48;
@@ -23,7 +21,7 @@ export class WorldSystem {
     };
   }
 
-  canMove(state: GameState, x: number, y: number): boolean {
+  canMove(x: number, y: number): boolean {
     return Number.isFinite(x) && Number.isFinite(y) && !this.isBlocked(x, y) &&
       x >= 10 && x <= WORLD_WIDTH * TILE_SIZE - 10 &&
       y >= 10 && y <= WORLD_HEIGHT * TILE_SIZE - 10;
