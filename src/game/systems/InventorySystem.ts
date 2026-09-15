@@ -1,5 +1,6 @@
 import type { EquipmentSlot, InventoryLayoutState, ItemId } from '../types';
 import type { GameStatePort } from '../store-ports';
+import type { ReadonlyDeep } from '../store';
 
 export const INVENTORY_SLOT_COUNT = 30;
 export const HOTBAR_SIZE = 10;
@@ -147,7 +148,7 @@ export class InventorySystem {
 
   private isSlot(slot: number): boolean { return Number.isInteger(slot) && slot >= 0 && slot < INVENTORY_SLOT_COUNT; }
 
-  private ensureLayout(layout: Readonly<InventoryLayoutState> | undefined): InventoryLayoutState {
+  private ensureLayout(layout: ReadonlyDeep<InventoryLayoutState> | undefined): InventoryLayoutState {
     const source = layout ?? createInitialInventoryLayout();
     const next: InventoryLayoutState = {
       slots: Array.from({ length: INVENTORY_SLOT_COUNT }, (_, index) => source.slots?.[index] ?? null),
