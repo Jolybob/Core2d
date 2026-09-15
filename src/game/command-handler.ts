@@ -28,6 +28,10 @@ export class GameCommandHandler {
   constructor(private readonly dependencies: GameCommandDependencies) {}
 
   dispatch(command: GameCommand): boolean {
+    return this.dependencies.store.transaction(() => this.dispatchCommand(command));
+  }
+
+  private dispatchCommand(command: GameCommand): boolean {
     const { combat, crafting, day, economy, farming, fishing, player, resources } = this.dependencies;
 
     switch (command.type) {
