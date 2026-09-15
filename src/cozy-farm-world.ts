@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { appRuntime } from './game/app-runtime';
 import { CHUNK_SIZE, chunkKey, type ChunkCoord, type ChunkKey } from './game/world/chunks';
-import { TILE_SIZE } from './game/world/WorldSystem';
+import { TILE_SIZE } from './game/world/chunks';
 import type { EntityId } from './game/entity';
 
 export const TILE = TILE_SIZE;
@@ -31,18 +31,18 @@ export class FarmWorldRenderer {
     const position = player ? runtime.components.get<{ x: number; y: number }>('position', player.id) : undefined;
     runtime.ensureChunksAroundPixelPosition(position ?? { x: playerX, y: playerY }, RENDER_RADIUS);
     for (const key of [...this.chunkObjects.keys()]) {
-      if (runtime.chunks.loadedKeys().has(key)) continue;
+      if (runtime.loadedChunkKeys().has(key)) continue;
       this.chunkObjects.get(key)?.destroy(); this.chunkObjects.delete(key); this.chunkRevisions.delete(key);
     }
-    for (const coord of runtime.chunks.loadedCoords()) {
-      const key = chunkKey(coord); const revision = runtime.chunks.revision(coord); const current = this.chunkRevisions.get(key);
+    for (const coord of runtime.loadedChunkCoords()) {
+      const key = chunkKey(coord); const revision = runtime.chunkRevision(coord); const current = this.chunkRevisions.get(key);
       if (!this.chunkObjects.has(key) || current !== revision) {
         this.chunkObjects.get(key)?.destroy(); this.chunkObjects.set(key, this.renderChunk(coord)); this.chunkRevisions.set(key, revision);
       }
     }
     this.syncResources();
   }
-  getLoadedChunkKeys(): ReadonlySet<ChunkKey> { return appRuntime.worldRuntime.chunks.loadedKeys(); }
+  getLoadedChunkKeys(): ReadonlySet<ChunkKey> { return appRuntime.worldRuntime.loadedChunkKeys(); }
   destroy(): void {
     for (const graphics of this.chunkObjects.values()) graphics.destroy(); this.chunkObjects.clear(); this.chunkRevisions.clear();
     for (const resource of this.resourceObjects.values()) resource.object.destroy(); this.resourceObjects.clear(); this.resources.splice(0, this.resources.length);
@@ -50,7 +50,7 @@ export class FarmWorldRenderer {
   private renderChunk(coord: ChunkCoord): Phaser.GameObjects.Graphics {
     const graphics = this.scene.add.graphics().setDepth(0); const runtime = appRuntime.worldRuntime; let currentBase: number | undefined;
     for (let localY = 0; localY < CHUNK_SIZE; localY += 1) for (let localX = 0; localX < CHUNK_SIZE; localX += 1) {
-      const worldX = coord.x * CHUNK_SIZE + localX; const worldY = coord.y * CHUNK_SIZE + localY; const tile = runtime.chunks.getTile(worldX, worldY);
+      const worldX = coord.x * CHUNK_SIZE + localX; const worldY = coord.y * CHUNK_SIZE + localY; const tile = runtime.getTile(worldX, worldY);
       const base = tile === 'water' ? 0x4f8fa3 : tile === 'stone' ? 0x77736c : (worldX + worldY) % 2 ? 0x6f9b4f : 0x739f52;
       if (base !== currentBase) { graphics.fillStyle(base, 1); currentBase = base; }
       graphics.fillRect(worldX * TILE + 1, worldY * TILE + 1, TILE - 2, TILE - 2);
@@ -59,7 +59,7 @@ export class FarmWorldRenderer {
   }
   private syncResources(): void {
     const runtime = appRuntime.worldRuntime;
-    const loaded = runtime.chunks.loadedKeys();
+    const loaded = runtime.loadedChunkKeys();
     const active = new Map<string, ResourceView>();
     for (const entity of runtime.query.withInChunks(loaded, 'resource', 'position')) {
       const result = runtime.query.one(entity.id, 'resource', 'position');
