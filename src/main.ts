@@ -7,6 +7,7 @@ import './accessibility-fix.ts';
 import './version.ts';
 import './ui-fix.ts';
 import { CozyFarm } from './cozy-farm';
+import { MainMenu } from './main-menu';
 import { appRuntime } from './game/app-runtime';
 
 export { appRuntime };
@@ -16,9 +17,9 @@ new Phaser.Game({
   parent: 'game',
   width: 960,
   height: 640,
-  backgroundColor: '#739f52',
+  backgroundColor: '#17203b',
   pixelArt: true,
   antialias: false,
   scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
-  scene: [CozyFarm],
+  scene: [MainMenu, CozyFarm],
 });
