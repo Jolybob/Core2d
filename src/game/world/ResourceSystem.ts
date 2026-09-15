@@ -1,7 +1,7 @@
+import type { DomainEventBus } from '../events';
 import type { GameState } from '../types';
 import type { GameStore } from '../store';
 import { TILE_SIZE } from './WorldSystem';
-import type { QuestSystem } from '../systems/QuestSystem';
 
 export type ResourceType = 'tree' | 'rock';
 
@@ -19,7 +19,7 @@ export class ResourceSystem {
   private readonly resources = new Map<string, ResourceNode>();
   private readonly removedKeys = new Set<string>();
 
-  constructor(private readonly store: GameStore, private readonly quests: QuestSystem) {
+  constructor(private readonly store: GameStore, private readonly events: DomainEventBus) {
     this.refresh();
   }
 
@@ -61,12 +61,10 @@ export class ResourceSystem {
     this.store.update((state) => {
       state.world.removedResources[key] = 'rock';
       state.inventory.stone += 2;
-      if (resource.ore) {
-        state.inventory.ore += 1;
-        this.quests.progress(state, 'copper');
-      }
+      if (resource.ore) state.inventory.ore += 1;
     });
     this.removedKeys.add(key);
+    if (resource.ore) this.events.publish({ type: 'ORE_MINED', key });
     return true;
   }
 
