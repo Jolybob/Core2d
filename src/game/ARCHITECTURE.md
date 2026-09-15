@@ -16,9 +16,10 @@
 14. Resource definitions, generation, target lookup, yields and depletion are domain responsibilities owned by `ResourceSystem`.
 15. Phaser resource GameObjects are views of domain resources and must not carry authoritative gameplay state.
 16. Spatial resource commands use world coordinates (`MINE_AT` / `CHOP_AT`); the renderer must not resolve resource identities.
-17. `GameRuntime` is an orchestration boundary: command dispatch delegates gameplay rules to domain systems rather than implementing those rules itself.
+17. `GameRuntime` is the runtime/composition boundary; command dispatch is delegated to `GameCommandHandler` rather than implemented in the runtime container.
 18. Player movement, tool selection and player consumables belong to `PlayerSystem`; shipping and buying belong to `EconomySystem`; combat rules belong to `CombatSystem`.
 19. Loading a save must rebuild derived resource views from the loaded world seed and removed-resource state.
 20. Domain systems publish meaningful domain events for cross-system reactions instead of holding direct references to unrelated systems.
 21. Domain events are past-tense facts such as `CROP_HARVESTED`, `ORE_MINED` and `FISH_CAUGHT`; they must carry only the context subscribers need.
 22. `DomainEventBus` is an in-process domain boundary; event subscribers must unsubscribe when their lifecycle ends, and events must not replace explicit command sequencing where ordering is required.
+23. `GameRuntime` owns dependency composition; `GameCommandHandler` receives explicit system dependencies so command routing can be tested independently from Phaser and runtime construction.
