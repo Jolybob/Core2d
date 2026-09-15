@@ -2,7 +2,7 @@ import { createSaveData, migrateSave, SAVE_SCHEMA_VERSION } from './save-schema'
 import type { GameState } from './types';
 
 export const SAVE_KEY = `core2d-save-v${SAVE_SCHEMA_VERSION}`;
-const LEGACY_KEYS = ['core2d-save-v2', 'core2d-save-v1'];
+const LEGACY_KEYS = ['core2d-save-v3', 'core2d-save-v2', 'core2d-save-v1'];
 
 export function saveGame(state: GameState, storage: Storage = localStorage): void {
   storage.setItem(SAVE_KEY, JSON.stringify(createSaveData(state)));
