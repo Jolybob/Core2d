@@ -101,4 +101,28 @@ describe('WorldRuntime', () => {
     expect(world.entities.components?.[id]).toEqual({ health: { health: 5, maxHealth: 5 } });
     expect(runtime.spatial.at({ x: 2, y: 2 })).not.toContain(id);
   });
+
+  it('ensures stable world entities are registered and persisted through the runtime', () => {
+    const world = createInitialWorldSave(42);
+    const runtime = new WorldRuntime(world);
+    const id = 'world-pond' as ReturnType<typeof createEntityId>;
+
+    runtime.ensureEntity(id, 'structure', {
+      position: position(13, 11),
+      worldObject: { shape: 'ellipse', width: 230, height: 150 },
+    });
+
+    expect(world.entities.entities[id]).toEqual({ id, kind: 'structure' });
+    expect(world.entities.components?.[id]).toEqual({
+      position: { x: 13, y: 11 },
+      worldObject: { shape: 'ellipse', width: 230, height: 150 },
+    });
+
+    const restored = new WorldRuntime(world);
+    expect(restored.query.one(id, 'position', 'worldObject')?.components).toEqual({
+      position: { x: 13, y: 11 },
+      worldObject: { shape: 'ellipse', width: 230, height: 150 },
+    });
+    expect(restored.spatial.at({ x: 13, y: 11 })).toContain(id);
+  });
 });
