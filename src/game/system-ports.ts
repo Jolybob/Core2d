@@ -34,6 +34,8 @@ export interface PlayerPort {
   selectTool(tool: ToolId): boolean;
   eat(item: ConsumableId): boolean;
   useSalve(): boolean;
+  persist(): void;
+  refresh(): void;
 }
 
 export interface ResourcePort {
