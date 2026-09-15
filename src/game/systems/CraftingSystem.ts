@@ -10,7 +10,7 @@ export class CraftingSystem {
     if (recipeId === 'copperPickaxe' && state.player.pickaxeLevel >= 2) return false;
     if (recipeId === 'sword' && state.inventory.sword > 0) return false;
     if (recipeId === 'fishingRod' && state.inventory.rod > 0) return false;
-    if (recipeId === 'healingSalve' && state.player.pickaxeLevel < 2) return false;
+    if (recipeId === 'healingSalve' && (state.player.pickaxeLevel < 2 || state.inventory.salve > 0)) return false;
     const recipe = RECIPES[recipeId];
     return ITEM_IDS.every((item: ItemId) => {
       const amount = recipe.costs[item];
@@ -30,7 +30,7 @@ export class CraftingSystem {
         case 'copperPickaxe': state.player.pickaxeLevel += 1; break;
         case 'sword': state.inventory.sword = 1; break;
         case 'torch': state.inventory.torch += 3; break;
-        case 'healingSalve': state.inventory.berry += 0; break;
+        case 'healingSalve': state.inventory.salve += 1; break;
         case 'fishingRod': state.inventory.rod = 1; break;
       }
     });
