@@ -1,6 +1,6 @@
 import { createEntityId, type EntityId, type EntityState, type PositionComponent } from '../entity';
 import { CHUNK_SIZE, chunkKey, ChunkCache, tileKey, worldToChunk, worldToLocalTile, TILE_SIZE, type ChunkCoord, type ChunkKey, type ChunkPersistence, type ChunkGenerator, type GeneratedChunk, defaultChunkGenerator } from './chunks';
-import type { WorldState } from '../types';
+import type { WorldState, CropState } from '../types';
 
 export type ComponentName = string;
 export type ComponentValue = Record<string, unknown>;
@@ -74,7 +74,6 @@ class RuntimeChunkManager {
 export class WorldRuntime {
   readonly entities = new EntityStore(); readonly components = new ComponentStore(); readonly spatial = new SpatialIndex(); readonly chunkEntities = new ChunkEntityIndex(); readonly query: WorldQuery; readonly mutations = new WorldMutationQueue(); private readonly chunks: RuntimeChunkManager;
   constructor(private _world: WorldState, generator?: ChunkGenerator) { this.chunks = new RuntimeChunkManager(_world, generator); this.query = new WorldQuery(this.entities, this.components, this.chunkEntities); this.hydrate(); }
-  get world(): WorldState { return this._world; }
   loadedChunkKeys(): ReadonlySet<ChunkKey> { return this.chunks.loadedKeys(); }
   loadedChunkCoords(): ChunkCoord[] { return this.chunks.loadedCoords(); }
   isChunkLoaded(coord: ChunkCoord): boolean { return this.chunks.isLoaded(coord); }
@@ -83,6 +82,17 @@ export class WorldRuntime {
   getGeneratedChunk(coord: ChunkCoord): GeneratedChunk { return this.chunks.getGenerated(coord); }
   getTile(x: number, y: number): string { return this.chunks.getTile(x, y); }
   setTile(x: number, y: number, tile: string): void { this.chunks.setTile(x, y, tile); }
+  exportWorld(): WorldState { return this._world; }
+  readPersistence<T>(selector: (world: Readonly<WorldState>) => T): T { return selector(this._world); }
+  updatePersistence(mutator: (world: WorldState) => void): void { mutator(this._world); }
+  isResourceRemoved(key: string): boolean { return Boolean(this._world.removedResources[key]); }
+  markResourceRemoved(key: string, type: 'tree' | 'rock'): void { this._world.removedResources[key] = type; }
+  isChunkEntityRemoved(chunk: ChunkCoord, key: string): boolean { const persistence = this._world.chunks[chunkKey(chunk)]; return Boolean(persistence?.removedEntities[key]); }
+  markChunkEntityRemoved(chunk: ChunkCoord, key: string): void { const normalized = chunkKey(chunk); const persistence = this._world.chunks[normalized] ?? { key: normalized, modifiedTiles: {}, removedEntities: {} } as ChunkPersistence; this._world.chunks[normalized] = persistence; persistence.removedEntities[key] = true; }
+  getCropPersistence(key: string): CropState | undefined { const crop = this._world.crops[key]; return crop ? { ...crop } : undefined; }
+  setCropPersistence(key: string, crop: CropState): void { this._world.crops[key] = { ...crop }; }
+  removeCropPersistence(key: string): void { delete this._world.crops[key]; }
+  replaceCropPersistence(crops: Record<string, CropState>): void { this._world.crops = Object.fromEntries(Object.entries(crops).map(([key, crop]) => [key, { ...crop }])); }
   ensureChunksAroundPixelPosition(position: PositionComponent, radius = 1): void { const center = worldToChunk({ x: Math.floor(position.x / TILE_SIZE), y: Math.floor(position.y / TILE_SIZE) }); const desired = new Set<ChunkKey>(); for (let y = center.y - radius; y <= center.y + radius; y++) for (let x = center.x - radius; x <= center.x + radius; x++) desired.add(chunkKey({ x, y })); for (const key of [...this.chunks.loadedKeys()]) if (!desired.has(key)) { const parts = key.split(','); const x = Number(parts[0]); const y = Number(parts[1]); if (Number.isFinite(x) && Number.isFinite(y)) this.unloadChunk({ x, y }); } for (const key of desired) { const parts = key.split(','); const x = Number(parts[0]); const y = Number(parts[1]); if (Number.isFinite(x) && Number.isFinite(y)) this.loadChunk({ x, y }); } }
   canMove(x: number, y: number): boolean { if (!Number.isFinite(x) || !Number.isFinite(y)) return false; const tileX = Math.floor(x / TILE_SIZE), tileY = Math.floor(y / TILE_SIZE); if (tileX >= HOME_MIN_X && tileX <= HOME_MAX_X && tileY >= HOME_MIN_Y && tileY <= HOME_MAX_Y) return false; const tile = this.getTile(tileX, tileY); return tile !== 'blocked' && tile !== 'water'; }
   rehydrate(world: WorldState): void { this._world = world; this.entities.clear(); this.components.clear(); this.spatial.clear(); this.chunkEntities.clear(); this.mutations.drain(); this.chunks.bindWorld(world, true); this.hydrate(); }
