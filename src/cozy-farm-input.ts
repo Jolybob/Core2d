@@ -32,12 +32,13 @@ export class FarmInputController {
 
     if (Phaser.Input.Keyboard.JustDown(this.keys['E']!)) this.actionAt(playerX, playerY);
     if (Phaser.Input.Keyboard.JustDown(this.keys['SPACE']!)) appRuntime.dispatch({ type: 'EAT', item: 'berry' });
-    if (Phaser.Input.Keyboard.JustDown(this.keys['F']!)) return this.swing();
+    let attacked = false;
+    if (Phaser.Input.Keyboard.JustDown(this.keys['F']!)) attacked = this.swing();
     if (Phaser.Input.Keyboard.JustDown(this.keys['B']!)) appRuntime.dispatch({ type: 'BUY_SEEDS' });
     if (Phaser.Input.Keyboard.JustDown(this.keys['L']!)) appRuntime.dispatch({ type: 'SHIP' });
     if (Phaser.Input.Keyboard.JustDown(this.keys['P']!)) appRuntime.dispatch({ type: 'SAVE' });
 
-    return false;
+    return attacked;
   }
 
   private actionAt(worldX: number, worldY: number): void {
