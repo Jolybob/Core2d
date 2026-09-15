@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -36,6 +36,7 @@ jobs:
         run: npm run build
 
       - name: Verify Vite output
+        shell: bash
         run: |
           set -euo pipefail
           test -f dist/index.html
@@ -46,6 +47,22 @@ jobs:
             exit 1
           fi
           echo 'Vite output verified.'
+
+      - name: Publish built site to repository root
+        run: |
+          set -euo pipefail
+          cp dist/index.html index.html
+          rm -rf assets
+          cp -R dist/assets assets
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@github.com'
+          git add index.html assets
+          if git diff --cached --quiet; then
+            echo 'Root Pages bundle is already current.'
+            exit 0
+          fi
+          git commit -m 'chore: publish built Pages bundle'
+          git push origin HEAD:main
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
