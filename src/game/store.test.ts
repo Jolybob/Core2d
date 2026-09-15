@@ -9,6 +9,13 @@ describe('GameStore', () => {
     expect(store.getState().inventory.wood).toBe(12);
   });
 
+  it('returns isolated selected read models', () => {
+    const store = new GameStore(createInitialState());
+    const player = store.select((state) => state.player);
+    player.x = 999;
+    expect(store.select((state) => state.player.x)).toBe(35 * 24 + 12);
+  });
+
   it('publishes the committed state after an update', () => {
     const store = new GameStore(createInitialState());
     let money = 0;
