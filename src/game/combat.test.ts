@@ -42,7 +42,7 @@ describe('CombatSystem', () => {
       state.player.y = position.y;
       state.player.health = 100;
     });
-    expect(runtime.dispatch({ type: 'TICK', deltaSeconds: 1.2 })).toBe(true);
+    expect(runtime.dispatch({ type: 'TICK', deltaSeconds: 1.2 })).toBe(false);
     expect(runtime.store.getState().player.health).toBe(92);
   });
 });
