@@ -5,22 +5,32 @@ export type TilesetEditorSceneOptions = TilesetPickerOptions & {
   backgroundColor?: number;
 };
 
+export const DEFAULT_TILESET_EDITOR_OPTIONS: TilesetEditorSceneOptions = {
+  textureKey: 'editor-tileset',
+  imagePath: `${import.meta.env.BASE_URL}assets/tilesets/Tileset.png`,
+  tileWidth: 16,
+  tileHeight: 16,
+  zoom: 2,
+  title: 'CORE 2D TILESET EDITOR',
+  backgroundColor: 0x080d16,
+};
+
 export class TilesetEditorScene extends Phaser.Scene {
-  private readonly editorOptions: TilesetEditorSceneOptions;
   private picker?: TilesetPicker;
 
-  constructor(options: TilesetEditorSceneOptions) {
+  constructor() {
     super('TilesetEditor');
-    this.editorOptions = options;
   }
 
   preload(): void {
-    this.load.image(this.editorOptions.textureKey, this.editorOptions.imagePath);
+    const options = DEFAULT_TILESET_EDITOR_OPTIONS;
+    this.load.image(options.textureKey, options.imagePath);
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor(this.editorOptions.backgroundColor ?? 0x080d16);
-    this.picker = new TilesetPicker(this, this.editorOptions);
+    const options = DEFAULT_TILESET_EDITOR_OPTIONS;
+    this.cameras.main.setBackgroundColor(options.backgroundColor ?? 0x080d16);
+    this.picker = new TilesetPicker(this, options);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.picker?.destroy());
   }
 
