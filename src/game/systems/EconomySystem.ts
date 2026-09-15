@@ -36,4 +36,18 @@ export class EconomySystem {
     });
     return amount;
   }
+
+  ship(): boolean {
+    const state = this.store.getState();
+    const parsnips = state.inventory.parsnip ?? 0;
+    const fish = state.inventory.fish ?? 0;
+    if (!parsnips && !fish) return false;
+    this.store.update((next) => {
+      next.inventory.parsnip = 0;
+      next.inventory.fish = 0;
+      next.player.money += parsnips * 35 + fish * 25;
+      next.economy.shipped += parsnips + fish;
+    });
+    return true;
+  }
 }
