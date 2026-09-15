@@ -5,7 +5,6 @@ export class MainMenu extends Phaser.Scene {
   private title!: Phaser.GameObjects.Text;
   private subtitle!: Phaser.GameObjects.Text;
   private play!: Phaser.GameObjects.Text;
-  private editor!: Phaser.GameObjects.Text;
   private tilejam!: Phaser.GameObjects.Text;
   private hint!: Phaser.GameObjects.Text;
 
@@ -23,11 +22,7 @@ export class MainMenu extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '30px', color: '#fff0c2', backgroundColor: '#395a35',
       padding: { left: 28, right: 28, top: 14, bottom: 14 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    this.editor = this.add.text(0, 0, '[ CORE2D TILESET EDITOR ]', {
-      fontFamily: 'monospace', fontSize: '17px', color: '#d8f0ff', backgroundColor: '#25324a',
-      padding: { left: 18, right: 18, top: 10, bottom: 10 },
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    this.tilejam = this.add.text(0, 0, '[ TILEJAM ]', {
+    this.tilejam = this.add.text(0, 0, '[ TILESET EDITOR — TILEJAM ]', {
       fontFamily: 'monospace', fontSize: '17px', color: '#ffe7b8', backgroundColor: '#4a3b2a',
       padding: { left: 22, right: 22, top: 10, bottom: 10 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
@@ -46,10 +41,6 @@ export class MainMenu extends Phaser.Scene {
       this.time.delayedCall(250, () => this.scene.start('CozyFarm'));
     });
 
-    this.editor.on('pointerover', () => this.editor.setScale(1.04));
-    this.editor.on('pointerout', () => this.editor.setScale(1));
-    this.editor.on('pointerdown', () => this.scene.start('TilesetEditor'));
-
     this.tilejam.on('pointerover', () => this.tilejam.setScale(1.04));
     this.tilejam.on('pointerout', () => this.tilejam.setScale(1));
     this.tilejam.on('pointerdown', () => {
@@ -63,11 +54,10 @@ export class MainMenu extends Phaser.Scene {
 
   private layout(gameSize: Phaser.Structs.Size): void {
     const centerX = gameSize.width / 2;
-    this.title.setPosition(centerX, gameSize.height * 0.18);
-    this.subtitle.setPosition(centerX, gameSize.height * 0.28);
-    this.play.setPosition(centerX, gameSize.height * 0.45);
-    this.editor.setPosition(centerX, gameSize.height * 0.59);
-    this.tilejam.setPosition(centerX, gameSize.height * 0.71);
-    this.hint.setPosition(centerX, gameSize.height * 0.84);
+    this.title.setPosition(centerX, gameSize.height * 0.22);
+    this.subtitle.setPosition(centerX, gameSize.height * 0.33);
+    this.play.setPosition(centerX, gameSize.height * 0.51);
+    this.tilejam.setPosition(centerX, gameSize.height * 0.68);
+    this.hint.setPosition(centerX, gameSize.height * 0.82);
   }
 }
