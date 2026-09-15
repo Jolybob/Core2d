@@ -1,3 +1,4 @@
+import type { GameState } from '../types';
 import type { GameStore } from '../store';
 
 export type ResourceType = 'tree' | 'rock';
@@ -25,6 +26,16 @@ export class ResourceSystem {
     return this.resources.get(key);
   }
 
+  chopAt(x: number, y: number): boolean {
+    const resource = this.findAt(x, y, 'tree');
+    return resource ? this.chop(resource.key) : false;
+  }
+
+  mineAt(x: number, y: number): boolean {
+    const resource = this.findAt(x, y, 'rock');
+    return resource ? this.mine(resource.key) : false;
+  }
+
   chop(key: string): boolean {
     return this.remove(key, 'tree', (state) => {
       state.inventory.wood += 3;
@@ -46,7 +57,12 @@ export class ResourceSystem {
     return true;
   }
 
-  private remove(key: string, type: ResourceType, apply: (state: ReturnType<GameStore['getState']>) => void): boolean {
+  private findAt(x: number, y: number, type: ResourceType): ResourceNode | undefined {
+    if (!Number.isInteger(x) || !Number.isInteger(y)) return undefined;
+    return this.getAll().find((resource) => resource.type === type && !this.isRemoved(resource.key) && Math.abs(resource.x - x) <= 1 && Math.abs(resource.y - y) <= 1);
+  }
+
+  private remove(key: string, type: ResourceType, apply: (state: GameState) => void): boolean {
     const resource = this.resources.get(key);
     if (!resource || resource.type !== type || this.isRemoved(key)) return false;
     this.store.update((state) => {
