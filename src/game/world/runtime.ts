@@ -5,13 +5,7 @@ import type { WorldState } from '../types';
 export type ComponentName = string;
 export type ComponentValue = Record<string, unknown>;
 
-const isPositionComponent = (value: unknown): value is PositionComponent =>
-  typeof value === 'object' && value !== null
-  && typeof (value as Record<string, unknown>).x === 'number'
-  && Number.isFinite((value as Record<string, unknown>).x)
-  && typeof (value as Record<string, unknown>).y === 'number'
-  && Number.isFinite((value as Record<string, unknown>).y);
-
+const isPositionComponent = (value: unknown): value is PositionComponent => typeof value === 'object' && value !== null && typeof (value as Record<string, unknown>).x === 'number' && Number.isFinite((value as Record<string, unknown>).x) && typeof (value as Record<string, unknown>).y === 'number' && Number.isFinite((value as Record<string, unknown>).y);
 const TILE_SIZE = 24;
 const HOME_MIN_X = 33;
 const HOME_MAX_X = 37;
@@ -73,28 +67,19 @@ export class WorldMutationQueue { private readonly pending: WorldMutation[] = []
 export class ChunkManager {
   private readonly cache: ChunkCache;
   private readonly loaded = new Set<ChunkKey>();
+  private readonly revisions = new Map<ChunkKey, number>();
   constructor(private world: WorldState, generator: ChunkGenerator = defaultChunkGenerator) { this.cache = new ChunkCache(generator); }
-  bindWorld(world: WorldState, preserveLoaded = false): void {
-    const loaded = preserveLoaded ? [...this.loaded] : [];
-    this.world = world;
-    this.cache.clear();
-    this.loaded.clear();
-    for (const key of loaded) {
-      const parts = key.split(',');
-      const x = Number(parts[0]);
-      const y = Number(parts[1]);
-      if (Number.isFinite(x) && Number.isFinite(y)) this.load({ x, y });
-    }
-  }
-  load(coord: ChunkCoord): GeneratedChunk { const key = chunkKey(coord); const chunk = this.getGenerated(coord); this.loaded.add(key); return chunk; }
-  unload(coord: ChunkCoord): void { const key = chunkKey(coord); this.loaded.delete(key); this.cache.unload(coord); }
+  bindWorld(world: WorldState, preserveLoaded = false): void { const loaded = preserveLoaded ? [...this.loaded] : []; this.world = world; this.cache.clear(); this.loaded.clear(); this.revisions.clear(); for (const key of loaded) { const parts = key.split(','); const x = Number(parts[0]); const y = Number(parts[1]); if (Number.isFinite(x) && Number.isFinite(y)) this.load({ x, y }); } }
+  load(coord: ChunkCoord): GeneratedChunk { const key = chunkKey(coord); const chunk = this.getGenerated(coord); this.loaded.add(key); if (!this.revisions.has(key)) this.revisions.set(key, 0); return chunk; }
+  unload(coord: ChunkCoord): void { const key = chunkKey(coord); this.loaded.delete(key); this.cache.unload(coord); this.revisions.delete(key); }
   isLoaded(coord: ChunkCoord): boolean { return this.loaded.has(chunkKey(coord)); }
   loadedKeys(): ReadonlySet<ChunkKey> { return this.loaded; }
   loadedCoords(): ChunkCoord[] { return [...this.loaded].map((key) => { const parts = key.split(','); return { x: Number(parts[0]), y: Number(parts[1]) }; }); }
+  revision(coord: ChunkCoord): number { return this.revisions.get(chunkKey(coord)) ?? 0; }
   getGenerated(coord: ChunkCoord): GeneratedChunk { return this.cache.get(this.world.seed, coord); }
   getTile(x: number, y: number): string { const coord = worldToChunk({ x, y }); const local = worldToLocalTile({ x, y }); const chunk = this.getGenerated(coord); const key = tileKey(local); const modification = this.world.chunks[chunkKey(coord)]?.modifiedTiles[key]; return modification?.tile ?? chunk.tiles[local.y * CHUNK_SIZE + local.x] ?? 'ground'; }
-  setTile(x: number, y: number, tile: string): void { const coord = worldToChunk({ x, y }); const local = worldToLocalTile({ x, y }); const key = chunkKey(coord); const tileId = tileKey(local); const chunk = this.world.chunks[key] ?? this.createPersistence(key); chunk.modifiedTiles[tileId] = { tile }; }
-  clearCache(): void { this.cache.clear(); this.loaded.clear(); }
+  setTile(x: number, y: number, tile: string): void { const coord = worldToChunk({ x, y }); const local = worldToLocalTile({ x, y }); const key = chunkKey(coord); const tileId = tileKey(local); const chunk = this.world.chunks[key] ?? this.createPersistence(key); if (chunk.modifiedTiles[tileId]?.tile === tile) return; chunk.modifiedTiles[tileId] = { tile }; this.revisions.set(key, (this.revisions.get(key) ?? 0) + 1); }
+  clearCache(): void { this.cache.clear(); this.loaded.clear(); this.revisions.clear(); }
   private createPersistence(key: `${number},${number}`): ChunkPersistence { const chunk: ChunkPersistence = { key, modifiedTiles: {}, removedEntities: {} }; this.world.chunks[key] = chunk; return chunk; }
 }
 
@@ -109,6 +94,7 @@ export class WorldRuntime {
   constructor(private _world: WorldState, generator?: ChunkGenerator) { this.chunks = new ChunkManager(_world, generator); this.query = new WorldQuery(this.entities, this.components, this.chunkEntities); this.hydrate(); }
   get world(): WorldState { return this._world; }
   canMove(x: number, y: number): boolean { if (!Number.isFinite(x) || !Number.isFinite(y)) return false; const tileX = Math.floor(x / TILE_SIZE); const tileY = Math.floor(y / TILE_SIZE); if (tileX >= HOME_MIN_X && tileX <= HOME_MAX_X && tileY >= HOME_MIN_Y && tileY <= HOME_MAX_Y) return false; const tile = this.chunks.getTile(tileX, tileY); return tile !== 'blocked' && tile !== 'water'; }
+  ensureChunksAround(position: PositionComponent, radius: number): void { const center = worldToChunk({ x: Math.floor(position.x), y: Math.floor(position.y) }); const desired = new Set<ChunkKey>(); for (let y = center.y - radius; y <= center.y + radius; y += 1) for (let x = center.x - radius; x <= center.x + radius; x += 1) desired.add(chunkKey({ x, y })); for (const key of [...this.chunks.loadedKeys()]) if (!desired.has(key)) { const parts = key.split(','); const x = Number(parts[0]); const y = Number(parts[1]); if (Number.isFinite(x) && Number.isFinite(y)) this.chunks.unload({ x, y }); } for (const key of desired) { const parts = key.split(','); const x = Number(parts[0]); const y = Number(parts[1]); if (Number.isFinite(x) && Number.isFinite(y)) this.chunks.load({ x, y }); } }
   rehydrate(world: WorldState): void { this._world = world; this.entities.clear(); this.components.clear(); this.spatial.clear(); this.chunkEntities.clear(); this.mutations.drain(); this.chunks.bindWorld(world, true); this.hydrate(); }
   private hydrate(): void { for (const entity of Object.values(this._world.entities.entities)) this.entities.add(entity); for (const [id, components] of Object.entries(this._world.entities.components ?? {})) { if (!this.entities.has(id as EntityId)) continue; for (const [name, value] of Object.entries(components)) this.setComponent(id as EntityId, name, value); } }
   createEntity(kind: string, components: Record<ComponentName, ComponentValue> = {}): EntityId { const id = this.entities.create(kind); for (const [name, value] of Object.entries(components)) this.setComponent(id, name, value); this._world.entities.entities[id] = { id, kind }; return id; }
