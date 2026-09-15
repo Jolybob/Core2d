@@ -2,7 +2,7 @@
 
 1. `main.ts` is the composition root for Phaser, the domain runtime, and DOM UI.
 2. Phaser is an adapter/runtime, not the domain model.
-3. `GameState` is the single source of truth for the current simulation; Phaser GameObjects are views.
+3. `WorldRuntime` is the single source of truth for world simulation. `GameStore` owns non-world application/gameplay state; Phaser GameObjects are views.
 4. Systems contain game rules and must not import Phaser or DOM APIs.
 5. Static item, recipe, and tool definitions live in `catalog.ts`.
 6. All gameplay actions enter through `GameCommand` and `GameRuntime.dispatch()`.
@@ -12,7 +12,7 @@
 10. Domain systems must be unit-testable without Phaser, DOM, or browser rendering.
 11. The first inventory row is the canonical quickbar.
 12. Vite builds only the source entry into `dist`; build scripts must not mutate gameplay source.
-13. World collision is a domain rule in `WorldSystem`; Phaser does not decide legal movement.
+13. World movement/collision is a `WorldRuntime` rule. No separate world simulation or collision authority may exist in Phaser, `GameStore`, or a legacy world system.
 14. Resource definitions, generation, target lookup, yields, and depletion belong to domain services/systems, not rendering.
 15. Phaser resource GameObjects are views, not authoritative state.
 16. Spatial resource commands use world coordinates; the renderer does not resolve resource identities.
@@ -31,10 +31,12 @@
 29. World terrain is addressed by `ChunkCoord` and `ChunkKey`; `CHUNK_SIZE` is 64. Systems must not assume a finite global world rectangle.
 30. Procedural terrain is generated from `(worldSeed, generatorVersion, chunkCoord)`. Generated terrain is runtime/cache data and must not be serialized as the source of truth.
 31. Only persistent world mutations belong in `ChunkPersistence`: modified tiles and removed entity identities. A chunk can be unloaded and deterministically regenerated without losing player changes.
-32. `ChunkCache` is a disposable runtime cache. It must never become the persistence authority.
+32. `ChunkCache` is a disposable runtime cache. Its cache identity must include both world seed and generator version; it must never become the persistence authority.
 33. World-owned persistence is represented by `WorldSaveData`; player-owned persistence is represented by `PlayerSaveData`. `SaveData` is the envelope that joins them for local storage.
 34. Save schema migrations must preserve legacy v1-v4 saves and produce the v5 world/player envelope.
 35. The world generator has an explicit version so generator changes can be migrated deliberately instead of silently changing existing worlds.
 36. Entity IDs are domain identities, not Phaser object references. Future networking must be able to serialize commands/events using entity IDs without importing client/rendering types.
 37. The next multiplayer boundary is the command layer: clients request actions, while authoritative simulation validates and commits them. Client rendering must never become the authority for world mutation.
 38. `GameRuntime` owns one `WorldRuntime` instance for the live simulation. World-domain systems share that instance; loading a save rehydrates it instead of constructing parallel ECS runtimes.
+39. `WorldRuntime` persistence access is encapsulated: callers use explicit runtime APIs or the dedicated persistence adapter; they must not mutate the runtime's internal world object through returned references.
+40. There is exactly one world authority: `WorldRuntime`. Do not introduce replacement `WorldSystem`, finite-world bounds, parallel chunk managers, or mirrored world state in Phaser/GameStore.
