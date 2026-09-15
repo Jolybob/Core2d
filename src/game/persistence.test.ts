@@ -34,7 +34,7 @@ describe('persistence', () => {
   it('rejects malformed schema v3 saves instead of partially accepting them', () => {
     const storage = new MemoryStorage();
     const state = createInitialState();
-    const invalid = structuredClone(state) as { inventory: Record<string, unknown>; [key: string]: unknown };
+    const invalid = structuredClone(state) as unknown as { inventory: Record<string, unknown>; [key: string]: unknown };
     invalid.inventory.ore = Number.NaN;
     storage.setItem(SAVE_KEY, JSON.stringify({ schemaVersion: 3, state: invalid }));
 
@@ -44,7 +44,7 @@ describe('persistence', () => {
   it('rejects malformed nested crop and resource state', () => {
     const storage = new MemoryStorage();
     const state = createInitialState();
-    const invalid = structuredClone(state) as { world: { crops: unknown; removedResources: unknown }; [key: string]: unknown };
+    const invalid = structuredClone(state) as unknown as { world: { crops: unknown; removedResources: unknown }; [key: string]: unknown };
     invalid.world.crops = { '1,2': { stage: -1, watered: true, tilled: true } };
     invalid.world.removedResources = { 'rock:1,2': 'invalid' };
     storage.setItem(SAVE_KEY, JSON.stringify({ schemaVersion: 3, state: invalid }));
