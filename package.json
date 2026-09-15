@@ -6,15 +6,18 @@
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit",
-    "build": "npm run typecheck && vite build",
+    "tilejam:build": "tsc -p node_modules/tilejam/frontend/tsconfig.json && vite build --config node_modules/tilejam/frontend/vite.config.ts --outDir ../../../public/tilejam --emptyOutDir",
+    "build": "npm run typecheck && npm run tilejam:build && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview"
   },
   "dependencies": {
-    "phaser": "4.2.1"
+    "phaser": "4.2.1",
+    "tilejam": "github:Genxbit/tilejam#23efdf3c57f15e8e5f32882d684ebc5d07bc2ec2"
   },
   "devDependencies": {
+    "@types/node": "^24.5.2",
     "typescript": "~5.8.3",
     "vite": "^7.0.0",
     "vitest": "^3.2.4"
