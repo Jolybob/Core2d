@@ -1,7 +1,6 @@
 import type { ConsumableId, PlayerState, ToolId } from '../types';
 import type { GameStatePort } from '../store-ports';
 import { createEntityId, type EntityId } from '../entity';
-import { WorldSystem } from '../world/WorldSystem';
 import { WorldRuntime } from '../world/runtime';
 
 const isFiniteNonNegative = (value: number): boolean => Number.isFinite(value) && value >= 0;
@@ -15,7 +14,6 @@ export class PlayerSystem {
 
   constructor(
     private readonly store: GameStatePort,
-    private readonly world: WorldSystem,
     private readonly runtime: WorldRuntime,
   ) {
     this.playerId = this.ensureEntity();
@@ -50,11 +48,11 @@ export class PlayerSystem {
     const player = this.readComponent();
     const canSprint = sprint && player.stamina > 2;
     const speed = canSprint ? 230 : 145;
-    const next = this.world.clampPosition(
-      player.x + (dx / length) * speed * deltaSeconds,
-      player.y + (dy / length) * speed * deltaSeconds,
-    );
-    if (!this.world.canMove(next.x, next.y)) return false;
+    const next = {
+      x: player.x + (dx / length) * speed * deltaSeconds,
+      y: player.y + (dy / length) * speed * deltaSeconds,
+    };
+    if (!this.runtime.canMove(next.x, next.y)) return false;
 
     player.x = next.x;
     player.y = next.y;
@@ -141,10 +139,6 @@ export class PlayerSystem {
       this.setComponent(state);
       return { ...state };
     }
-
-    // GameState.player is still a compatibility mirror during migration. If a
-    // legacy system or caller mutates it directly, ingest that change before
-    // the next ECS-authoritative operation instead of silently overwriting it.
     const fields: Array<keyof PlayerState> = [
       'x', 'y', 'health', 'stamina', 'hunger', 'money', 'pickaxeLevel', 'tool',
     ];

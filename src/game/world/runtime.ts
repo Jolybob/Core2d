@@ -81,6 +81,15 @@ export class WorldRuntime {
 
   get world(): WorldState { return this._world; }
 
+  /** World-level movement validation. No finite global bounds are applied. */
+  canMove(x: number, y: number): boolean {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+    const tileX = Math.floor(x / 24);
+    const tileY = Math.floor(y / 24);
+    const tile = this.chunks.getTile(tileX, tileY);
+    return tile !== 'blocked' && tile !== 'water';
+  }
+
   rehydrate(world: WorldState): void {
     this._world = world;
     this.entities.clear();
