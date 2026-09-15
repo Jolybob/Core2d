@@ -8,9 +8,7 @@ const mount=()=>{
   let bar=document.querySelector<HTMLElement>('#backpack-quickbar');
   if(!bar){bar=document.createElement('div');bar.id='backpack-quickbar';bar.className='backpack-quickbar';document.body.appendChild(bar);}
 
-  // The quickbar is literally a visual copy of inventory cells 1–7.
-  // Clone the real inventory DOM so icons, names, quantities and empty slots
-  // can never drift into a separate item list.
+  // The quickbar is the first inventory row itself: copy cells 1–7 exactly.
   const cells=Array.from(grid.children).slice(0,7);
   if(cells.length<7)return;
   const fragment=document.createDocumentFragment();
@@ -20,8 +18,9 @@ const mount=()=>{
     clone.dataset.quickIndex=String(index);
     const button=clone.matches('button')?clone:clone.querySelector<HTMLButtonElement>('button');
     if(button){
+      const item=button.dataset.item??'';
+      button.dataset.quickItem=item;
       button.removeAttribute('data-item');
-      button.dataset.quickItem=button.closest<HTMLElement>('[data-item]')?.dataset.item??'';
       button.removeAttribute('data-slot');
       button.classList.add('backpack-quick-cell');
     }
@@ -37,10 +36,7 @@ document.addEventListener('click',e=>{
   const target=e.target as HTMLElement;
   const cell=target.closest<HTMLElement>('#backpack-quickbar .backpack-quick-slot');
   if(!cell)return;
-  const sourceIndex=Number(cell.dataset.quickIndex);
-  const grid=getGrid();
-  const source=grid?.children[sourceIndex] as HTMLElement|undefined;
-  const item=source?.querySelector<HTMLElement>('[data-item]')?.dataset.item;
+  const item=cell.querySelector<HTMLElement>('[data-quick-item]')?.dataset.quickItem??cell.dataset.quickItem;
   if(item)window.dispatchEvent(new CustomEvent('core2d:inventory'));
 });
 
@@ -50,6 +46,10 @@ const start=()=>{
   mount();
   const grid=getGrid();
   if(grid)new MutationObserver(refresh).observe(grid,{childList:true,subtree:true});
+  // ui-fix only redraws inventory when its tracked state changes. These two
+  // harmless UI-state passes guarantee the initial first row exists to clone.
+  window.dispatchEvent(new CustomEvent('core2d:state',{detail:{selectedSlot:1}}));
+  window.dispatchEvent(new CustomEvent('core2d:state',{detail:{selectedSlot:0}}));
   setTimeout(mount,100);
   setTimeout(mount,500);
 };
