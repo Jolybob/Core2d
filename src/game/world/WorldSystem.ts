@@ -1,5 +1,15 @@
 export const TILE_SIZE = 24;
 
+/**
+ * Legacy rendering dimensions.
+ *
+ * These are retained only for compatibility with the current Phaser adapter;
+ * they are not authoritative world bounds and are not used for collision or
+ * movement limits.
+ */
+export const WORLD_WIDTH = 70;
+export const WORLD_HEIGHT = 48;
+
 const HOME_MIN_X = 33;
 const HOME_MAX_X = 37;
 const HOME_MIN_Y = 14;
