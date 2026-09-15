@@ -1,6 +1,8 @@
 import type { DomainEventBus } from '../events';
-import type { GameState, } from '../types';
+import type { GameState } from '../types';
 import type { GameStatePort } from '../store-ports';
+import type { EntityId } from '../entity';
+import { WorldRuntime } from './runtime';
 import { TILE_SIZE } from './WorldSystem';
 
 export type ResourceType = 'tree' | 'rock';
@@ -13,31 +15,36 @@ export interface ResourceNode {
   ore: boolean;
 }
 
+interface ResourceComponent {
+  key: string;
+  type: ResourceType;
+  ore: boolean;
+}
+
 const INTERACTION_RANGE = 4;
+const RESOURCE_KIND_PREFIX = 'resource:';
 
 export class ResourceSystem {
-  private readonly resources = new Map<string, ResourceNode>();
-  private readonly removedKeys = new Set<string>();
-
   constructor(private readonly store: GameStatePort, private readonly events: DomainEventBus) {
     this.refresh();
   }
 
   refresh(): void {
-    const seed = this.store.select((state) => state.world.seed);
-    const removedResources = this.store.select((state) => state.world.removedResources);
-    this.resources.clear();
-    this.removedKeys.clear();
-    this.generate(seed);
-    for (const key of Object.keys(removedResources)) this.removedKeys.add(key);
+    this.store.update((state) => {
+      const runtime = this.createRuntime(state);
+      this.ensureGenerated(runtime);
+      this.commitRuntime(state, runtime);
+    });
   }
 
   getAll(): ResourceNode[] {
-    return [...this.resources.values()];
+    const runtime = this.createRuntime(this.store.getState());
+    this.ensureGenerated(runtime);
+    return this.readResources(runtime);
   }
 
   get(key: string): ResourceNode | undefined {
-    return this.resources.get(key);
+    return this.getAll().find((resource) => resource.key === key);
   }
 
   chopAt(x: number, y: number): boolean {
@@ -57,14 +64,14 @@ export class ResourceSystem {
   }
 
   mine(key: string): boolean {
-    const resource = this.resources.get(key);
+    const resource = this.get(key);
     if (!resource || resource.type !== 'rock' || this.isRemoved(key)) return false;
+
     this.store.update((state) => {
       state.world.removedResources[key] = 'rock';
       state.inventory.stone += 2;
       if (resource.ore) state.inventory.ore += 1;
     });
-    this.removedKeys.add(key);
     if (resource.ore) this.events.publish({ type: 'ORE_MINED', key });
     return true;
   }
@@ -75,41 +82,85 @@ export class ResourceSystem {
     const playerX = Math.floor(player.x / TILE_SIZE);
     const playerY = Math.floor(player.y / TILE_SIZE);
     if (Math.hypot(x - playerX, y - playerY) > INTERACTION_RANGE) return undefined;
+
     const key = `${type}:${x},${y}`;
-    const resource = this.resources.get(key);
+    const resource = this.get(key);
     return resource && !this.isRemoved(key) ? resource : undefined;
   }
 
   private remove(key: string, type: ResourceType, apply: (state: GameState) => void): boolean {
-    const resource = this.resources.get(key);
+    const resource = this.get(key);
     if (!resource || resource.type !== type || this.isRemoved(key)) return false;
     this.store.update((state) => {
       state.world.removedResources[key] = type;
       apply(state);
     });
-    this.removedKeys.add(key);
     return true;
   }
 
   private isRemoved(key: string): boolean {
-    return this.removedKeys.has(key) || this.store.select((state) => Boolean(state.world.removedResources[key]));
+    return this.store.select((state) => Boolean(state.world.removedResources[key]));
   }
 
-  private generate(seed: number): void {
+  private createRuntime(state: GameState): WorldRuntime {
+    return new WorldRuntime(state.world);
+  }
+
+  private commitRuntime(state: GameState, runtime: WorldRuntime): void {
+    state.world = runtime.world;
+  }
+
+  private ensureGenerated(runtime: WorldRuntime): void {
+    const existing = new Set<string>();
+    for (const entity of runtime.query.with('resource', 'position')) {
+      const result = runtime.query.one(entity.id, 'resource', 'position');
+      const resource = result?.components.resource as ResourceComponent | undefined;
+      if (resource) existing.add(resource.key);
+    }
+
+    for (const resource of this.generate(runtime.world.seed)) {
+      if (existing.has(resource.key)) continue;
+      runtime.createEntity(`${RESOURCE_KIND_PREFIX}${resource.type}`, {
+        position: { x: resource.x, y: resource.y },
+        resource: { key: resource.key, type: resource.type, ore: resource.ore },
+      });
+    }
+  }
+
+  private readResources(runtime: WorldRuntime): ResourceNode[] {
+    const resources: ResourceNode[] = [];
+    for (const entity of runtime.query.with('resource', 'position')) {
+      const result = runtime.query.one(entity.id, 'resource', 'position');
+      if (!result) continue;
+      const resource = result.components.resource as ResourceComponent | undefined;
+      const position = result.components.position as { x: number; y: number } | undefined;
+      if (!resource || !position) continue;
+      resources.push({
+        key: resource.key,
+        type: resource.type,
+        x: position.x,
+        y: position.y,
+        ore: resource.ore,
+      });
+    }
+    return resources;
+  }
+
+  private generate(seed: number): ResourceNode[] {
+    const resources: ResourceNode[] = [];
     const random = this.seeded(seed);
     for (let i = 0; i < 30; i += 1) {
       const x = 3 + Math.floor(random() * 63);
       const y = 3 + Math.floor(random() * 44);
       if (x > 25 && x < 46 && y > 15 && y < 37) continue;
-      const key = `tree:${x},${y}`;
-      this.resources.set(key, { key, type: 'tree', x, y, ore: false });
+      resources.push({ key: `tree:${x},${y}`, type: 'tree', x, y, ore: false });
     }
     for (let i = 0; i < 20; i += 1) {
       const x = 54 + Math.floor(random() * 10);
       const y = 20 + Math.floor(random() * 15);
-      const key = `rock:${x},${y}`;
-      this.resources.set(key, { key, type: 'rock', x, y, ore: i % 3 === 0 });
+      resources.push({ key: `rock:${x},${y}`, type: 'rock', x, y, ore: i % 3 === 0 });
     }
+    return resources;
   }
 
   private seeded(seed: number): () => number {
