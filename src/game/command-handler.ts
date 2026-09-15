@@ -1,27 +1,29 @@
 import { loadGame, saveGame } from './persistence';
 import type { GameCommand } from './commands';
 import type { GameStore } from './store';
-import type { CombatSystem } from './systems/CombatSystem';
-import type { CraftingSystem } from './systems/CraftingSystem';
-import type { DaySystem } from './systems/DaySystem';
-import type { EconomySystem } from './systems/EconomySystem';
-import type { FarmingSystem } from './systems/FarmingSystem';
-import type { FishingSystem } from './systems/FishingSystem';
-import type { PlayerSystem } from './systems/PlayerSystem';
-import type { ResourceSystem } from './world/ResourceSystem';
+import type {
+  CombatPort,
+  CraftingPort,
+  DayPort,
+  EconomyPort,
+  FarmingPort,
+  FishingPort,
+  PlayerPort,
+  ResourcePort,
+} from './system-ports';
 
 const isFiniteNonNegative = (value: number): boolean => Number.isFinite(value) && value >= 0;
 
 export interface GameCommandDependencies {
   store: GameStore;
-  combat: CombatSystem;
-  crafting: CraftingSystem;
-  day: DaySystem;
-  economy: EconomySystem;
-  farming: FarmingSystem;
-  fishing: FishingSystem;
-  player: PlayerSystem;
-  resources: ResourceSystem;
+  combat: CombatPort;
+  crafting: CraftingPort;
+  day: DayPort;
+  economy: EconomyPort;
+  farming: FarmingPort;
+  fishing: FishingPort;
+  player: PlayerPort;
+  resources: ResourcePort;
 }
 
 export class GameCommandHandler {
