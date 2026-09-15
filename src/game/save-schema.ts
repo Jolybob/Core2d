@@ -193,7 +193,11 @@ export function migrateSave(raw: unknown): GameState | null {
   }
 
   const schema = raw['schemaVersion'];
-  if ((schema === 4 || schema === 3 || schema === 2 || schema === 1) && isObject(raw['state'])) {
+  if (schema === 4 && isObject(raw['state'])) {
+    return isGameState(raw['state']) ? raw['state'] : null;
+  }
+
+  if ((schema === 3 || schema === 2 || schema === 1) && isObject(raw['state'])) {
     const candidate = migrateLegacyState(raw['state']);
     return isGameState(candidate) ? candidate : null;
   }
