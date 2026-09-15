@@ -50,4 +50,35 @@ describe('GameStore', () => {
     expect(calls).toBe(2);
     unsubscribe();
   });
+
+  it('commits nested updates once per transaction', () => {
+    const store = new GameStore(createInitialState());
+    let calls = 0;
+    const unsubscribe = store.subscribe(() => { calls += 1; });
+
+    store.transaction(() => {
+      store.update((state) => { state.player.health -= 10; });
+      store.update((state) => { state.player.hunger -= 5; });
+      store.update((state) => { state.player.money += 25; });
+    });
+
+    unsubscribe();
+    expect(calls).toBe(2);
+    expect(store.getState().player).toMatchObject({ health: 90, hunger: 95, money: 145 });
+  });
+
+  it('rolls back a failed transaction without notifying subscribers', () => {
+    const store = new GameStore(createInitialState());
+    let calls = 0;
+    const unsubscribe = store.subscribe(() => { calls += 1; });
+
+    expect(() => store.transaction(() => {
+      store.update((state) => { state.player.money = 999; });
+      throw new Error('abort');
+    })).toThrow('abort');
+
+    unsubscribe();
+    expect(calls).toBe(1);
+    expect(store.getState().player.money).toBe(120);
+  });
 });
