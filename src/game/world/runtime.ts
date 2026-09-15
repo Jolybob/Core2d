@@ -12,6 +12,12 @@ const isPositionComponent = (value: unknown): value is PositionComponent =>
   && typeof (value as Record<string, unknown>).y === 'number'
   && Number.isFinite((value as Record<string, unknown>).y);
 
+const TILE_SIZE = 24;
+const HOME_MIN_X = 33;
+const HOME_MAX_X = 37;
+const HOME_MIN_Y = 14;
+const HOME_MAX_Y = 20;
+
 export class EntityStore {
   private readonly entities = new Map<EntityId, EntityState>();
   create(kind: string, id = createEntityId(kind)): EntityId { if (this.entities.has(id)) throw new Error(`Entity already exists: ${id}`); this.entities.set(id, { id, kind }); return id; }
@@ -84,8 +90,9 @@ export class WorldRuntime {
   /** World-level movement validation. No finite global bounds are applied. */
   canMove(x: number, y: number): boolean {
     if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
-    const tileX = Math.floor(x / 24);
-    const tileY = Math.floor(y / 24);
+    const tileX = Math.floor(x / TILE_SIZE);
+    const tileY = Math.floor(y / TILE_SIZE);
+    if (tileX >= HOME_MIN_X && tileX <= HOME_MAX_X && tileY >= HOME_MIN_Y && tileY <= HOME_MAX_Y) return false;
     const tile = this.chunks.getTile(tileX, tileY);
     return tile !== 'blocked' && tile !== 'water';
   }
