@@ -1,8 +1,8 @@
 import './ui.css';
 import { VERSION } from './version';
-import { ITEMS, RECIPES } from './game/catalog';
 import { appRuntime } from './game/app-runtime';
 import { ITEM_IDS, type ItemId, type RecipeId, type ToolId } from './game/types';
+import { connectUiRenderers, TOOL_BY_SLOT } from './ui-render';
 
 const root = document.createElement('div');
 root.id = 'core-ui';
@@ -16,52 +16,12 @@ const inventory = document.querySelector<HTMLDivElement>('#ui-inventory')!;
 const crafting = document.querySelector<HTMLDivElement>('#ui-crafting')!;
 const help = document.querySelector<HTMLDivElement>('#ui-help')!;
 const message = document.querySelector<HTMLDivElement>('#ui-message')!;
-const TOOL_BY_SLOT: ToolId[] = ['hoe', 'seeds', 'water', 'axe', 'pick', 'sword', 'rod'];
-const FIRST_ROW = ITEM_IDS.slice(0, 7);
-
-type HudState = {
-  health: number;
-  hunger: number;
-  stamina: number;
-  money: number;
-  pickaxeLevel: number;
-  tool: ToolId;
-  day: number;
-  weather: string;
-};
 
 const show = (el: HTMLElement) => { el.classList.add('open'); el.setAttribute('aria-hidden', 'false'); };
 const hide = (el: HTMLElement) => { el.classList.remove('open'); el.setAttribute('aria-hidden', 'true'); };
 const closeMenus = () => { hide(inventory); hide(crafting); hide(help); };
 const setText = (selector: string, value: string) => { const el = document.querySelector<HTMLElement>(selector); if (el) el.textContent = value; };
 const setBar = (name: string, value: number) => { const el = document.querySelector<HTMLElement>(`[data-fill="${name}"]`); if (el) el.style.width = `${Math.max(0, Math.min(100, value))}%`; };
-const sameHud = (a: HudState, b: HudState) => a.health === b.health && a.hunger === b.hunger && a.stamina === b.stamina && a.money === b.money && a.pickaxeLevel === b.pickaxeLevel && a.tool === b.tool && a.day === b.day && a.weather === b.weather;
-const sameInventory = (a: number[], b: number[]) => a.length === b.length && a.every((value, index) => value === b[index]);
-
-function renderHud(state: HudState): void {
-  setText('[data-value="health"]', `${Math.ceil(state.health)} / 100`); setBar('health', state.health);
-  setText('[data-value="hunger"]', `${Math.ceil(state.hunger)} / 100`); setBar('hunger', state.hunger);
-  setText('[data-value="stamina"]', `${Math.ceil(state.stamina)} / 100`); setBar('stamina', state.stamina);
-  setText('#ui-day', `DAY ${state.day}`); setText('#ui-pickaxe', `Lv.${state.pickaxeLevel}`); setText('#ui-tool', state.tool.toUpperCase()); setText('#ui-money', `$${state.money}`); setText('#ui-weather', state.weather);
-}
-
-function renderInventory(counts: number[]): void {
-  const values = Object.fromEntries(ITEM_IDS.map((id, index) => [id, counts[index]])) as Record<ItemId, number>;
-  hotbar.innerHTML = FIRST_ROW.map((id, index) => `<button type="button" class="slot" data-item="${id}"><span class="slot-key">${index + 1}</span><span class="slot-icon">${ITEMS[id].icon}</span><span class="slot-name">${ITEMS[id].name}</span><span class="slot-count">${values[id]}</span></button>`).join('');
-  inventoryGrid.innerHTML = ITEM_IDS.map((id) => `<button type="button" class="inv-slot filled" data-item="${id}"><span>${ITEMS[id].icon}</span><b>${ITEMS[id].name}</b><em>${values[id]}</em></button>`).join('');
-  setText('#inventory-summary', `${counts.filter((count) => count > 0).length} / ${ITEM_IDS.length} item types used`);
-}
-
-function renderCrafting(counts: number[], pickaxeLevel: number): void {
-  const values = Object.fromEntries(ITEM_IDS.map((id, index) => [id, counts[index]])) as Record<ItemId, number>;
-  craftGrid.innerHTML = Object.values(RECIPES).map((recipe) => {
-    const enough = Object.entries(recipe.costs).every(([id, amount]) => values[id as ItemId] >= (amount ?? 0));
-    const built = (recipe.id === 'copperPickaxe' && pickaxeLevel >= 2) || (recipe.id === 'sword' && values.sword > 0) || (recipe.id === 'fishingRod' && values.rod > 0) || (recipe.id === 'healingSalve' && values.salve > 0);
-    const locked = recipe.id === 'healingSalve' && pickaxeLevel < 2;
-    const costs = Object.entries(recipe.costs).map(([id, amount]) => `${amount} ${ITEMS[id as ItemId].name}`).join(' · ');
-    return `<div class="recipe"><div class="recipe-icon">${recipe.id === 'copperPickaxe' ? '⛏' : recipe.id === 'sword' ? '⚔' : recipe.id === 'fishingRod' ? '🎣' : recipe.id === 'healingSalve' ? '✚' : '🔥'}</div><div class="recipe-info"><b>${recipe.name}</b><small>${locked ? 'Requires Copper Pickaxe' : costs}</small></div><button class="recipe-button" type="button" data-recipe="${recipe.id}" ${locked || !enough || built ? 'disabled' : ''}>${locked ? 'LOCKED' : built ? 'BUILT' : 'CRAFT'}</button></div>`;
-  }).join('');
-}
 
 function useItem(id: ItemId): void {
   if (id === 'berry' || id === 'fish' || id === 'parsnip') { appRuntime.dispatch({ type: 'EAT', item: id }); return; }
@@ -87,20 +47,4 @@ document.querySelector('#menu-close')!.addEventListener('click', closeMenus);
 [inventory, crafting, help].forEach((el) => el.addEventListener('click', (event) => { if (event.target === el) hide(el); }));
 window.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMenus(); if (event.key.toLowerCase() === 'i') show(inventory); if (event.key.toLowerCase() === 'c') show(crafting); });
 
-appRuntime.store.subscribe(
-  (state) => ({ health: state.player.health, hunger: state.player.hunger, stamina: state.player.stamina, money: state.player.money, pickaxeLevel: state.player.pickaxeLevel, tool: state.player.tool, day: state.calendar.day, weather: state.calendar.weather }),
-  renderHud,
-  sameHud,
-);
-
-appRuntime.store.subscribe(
-  (state) => ITEM_IDS.map((id) => state.inventory[id]),
-  renderInventory,
-  sameInventory,
-);
-
-appRuntime.store.subscribe(
-  (state) => ({ counts: ITEM_IDS.map((id) => state.inventory[id]), pickaxeLevel: state.player.pickaxeLevel }),
-  (selection) => renderCrafting(selection.counts, selection.pickaxeLevel),
-  (a, b) => a.pickaxeLevel === b.pickaxeLevel && sameInventory(a.counts, b.counts),
-);
+connectUiRenderers({ hotbar, inventoryGrid, craftGrid, setText, setBar });
