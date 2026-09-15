@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { loadGame, saveGame, SAVE_KEY } from './persistence';
 import { createInitialState } from './store';
-import type { GameState } from './types';
 
 class MemoryStorage implements Storage {
   private readonly values = new Map<string, string>();
@@ -21,7 +20,11 @@ describe('persistence', () => {
     state.world.seed = 9001;
     state.world.crops['30,24'] = { stage: 2, watered: true, tilled: true };
     state.world.removedResources['rock:55,21'] = 'rock';
-    state.quests[1].progress = 4;
+    const copperQuest = state.quests.find((quest) => quest.id === 'copper');
+    expect(copperQuest).toBeDefined();
+    if (!copperQuest) return;
+    copperQuest.progress = 4;
+
     saveGame(state, storage);
     const loaded = loadGame(storage);
     expect(storage.getItem(SAVE_KEY)).toContain('"schemaVersion":3');
@@ -31,7 +34,7 @@ describe('persistence', () => {
   it('rejects malformed schema v3 saves instead of partially accepting them', () => {
     const storage = new MemoryStorage();
     const state = createInitialState();
-    const invalid = structuredClone(state) as GameState & { inventory: Record<string, unknown> };
+    const invalid = structuredClone(state) as { inventory: Record<string, unknown>; [key: string]: unknown };
     invalid.inventory.ore = Number.NaN;
     storage.setItem(SAVE_KEY, JSON.stringify({ schemaVersion: 3, state: invalid }));
 
@@ -41,7 +44,7 @@ describe('persistence', () => {
   it('rejects malformed nested crop and resource state', () => {
     const storage = new MemoryStorage();
     const state = createInitialState();
-    const invalid = structuredClone(state) as GameState & { world: Record<string, unknown> };
+    const invalid = structuredClone(state) as { world: { crops: unknown; removedResources: unknown }; [key: string]: unknown };
     invalid.world.crops = { '1,2': { stage: -1, watered: true, tilled: true } };
     invalid.world.removedResources = { 'rock:1,2': 'invalid' };
     storage.setItem(SAVE_KEY, JSON.stringify({ schemaVersion: 3, state: invalid }));
