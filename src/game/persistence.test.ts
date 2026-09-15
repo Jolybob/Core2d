@@ -3,6 +3,7 @@ import { loadGame, saveGame, SAVE_KEY } from './persistence';
 import { createInitialState } from './store';
 import { WorldRuntime } from './world/runtime';
 import { createInitialWorldSave } from './world/world-save';
+import { createInitialInventoryLayout } from './systems/InventorySystem';
 
 class MemoryStorage implements Storage {
   private readonly values = new Map<string, string>();
@@ -30,7 +31,7 @@ describe('persistence', () => {
 
     saveGame(state, world, storage);
     const loaded = loadGame(storage);
-    expect(storage.getItem(SAVE_KEY)).toContain('"schemaVersion":5');
+    expect(storage.getItem(SAVE_KEY)).toContain('"schemaVersion":6');
     expect(loaded?.state).toEqual(state);
     expect(loaded?.world.seed).toBe(9001);
     expect(loaded?.world.chunks['0,0']?.modifiedTiles['30,24']?.tile).toBe('blocked');
@@ -40,14 +41,15 @@ describe('persistence', () => {
 
   it('rejects malformed current saves instead of partially accepting them', () => {
     const storage = new MemoryStorage();
-    storage.setItem(SAVE_KEY, JSON.stringify({ schemaVersion: 5, player: { player: createInitialState().player, inventory: createInitialState().inventory, quests: createInitialState().quests, economy: createInitialState().economy }, calendar: createInitialState().calendar, world: { seed: 2042, generatorVersion: 1, chunks: {}, crops: { '1,2': { stage: -1, watered: true, tilled: true } }, removedResources: {}, entities: { entities: {} } } }));
+    const state = createInitialState();
+    storage.setItem(SAVE_KEY, JSON.stringify({ schemaVersion: 6, player: { player: state.player, inventory: state.inventory, inventoryLayout: createInitialInventoryLayout(), quests: state.quests, economy: state.economy }, calendar: state.calendar, world: { seed: 2042, generatorVersion: 1, chunks: {}, crops: { '1,2': { stage: -1, watered: true, tilled: true } }, removedResources: {}, entities: { entities: {} } } }));
     expect(loadGame(storage)).toBeNull();
   });
 
   it('rejects malformed nested world state', () => {
     const storage = new MemoryStorage();
     const state = createInitialState();
-    storage.setItem(SAVE_KEY, JSON.stringify({ schemaVersion: 5, player: { player: state.player, inventory: state.inventory, quests: state.quests, economy: state.economy }, calendar: state.calendar, world: { seed: 2042, generatorVersion: 1, chunks: { '0,0': { key: '0,0', modifiedTiles: { '1,1': { tile: '' } }, removedEntities: {} } }, crops: {}, removedResources: {}, entities: { entities: {} } } }));
+    storage.setItem(SAVE_KEY, JSON.stringify({ schemaVersion: 6, player: { player: state.player, inventory: state.inventory, inventoryLayout: createInitialInventoryLayout(), quests: state.quests, economy: state.economy }, calendar: state.calendar, world: { seed: 2042, generatorVersion: 1, chunks: { '0,0': { key: '0,0', modifiedTiles: { '1,1': { tile: '' } }, removedEntities: {} } }, crops: {}, removedResources: {}, entities: { entities: {} } } }));
     expect(loadGame(storage)).toBeNull();
   });
 
@@ -58,6 +60,6 @@ describe('persistence', () => {
     expect(loaded?.state.player.x).toBe(100);
     expect(loaded?.state.inventory.wood).toBe(5);
     expect(loaded?.world.seed).toBe(2042);
-    expect(storage.getItem(SAVE_KEY)).toContain('"schemaVersion":5');
+    expect(storage.getItem(SAVE_KEY)).toContain('"schemaVersion":6');
   });
 });
