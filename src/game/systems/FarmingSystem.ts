@@ -6,7 +6,8 @@ import { WorldRuntime } from '../world/runtime';
 
 type CropComponent = PersistedComponent & CropState & { key: string };
 const isCropComponent = (value: PersistedComponent | undefined): value is CropComponent =>
-  typeof value.key === 'string'
+  typeof value === 'object' && value !== null
+  && typeof value.key === 'string'
   && typeof value.stage === 'number'
   && Number.isFinite(value.stage)
   && typeof value.watered === 'boolean'
