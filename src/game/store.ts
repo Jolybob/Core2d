@@ -1,4 +1,5 @@
 import type { GameState, InventoryState } from './types';
+import { createEntityRegistryState } from './entity';
 
 export type ReadonlyDeep<T> = T extends (...args: never[]) => unknown
   ? T
@@ -160,5 +161,5 @@ export const createInitialState = (): GameState => ({
   ],
   calendar: { day: 1, clock: 0, season: 0, weather: 'Sunny' },
   economy: { fishCaught: 0, shipped: 0, totalHarvests: 0 },
-  world: { seed: 2042, crops: {}, removedResources: {} },
+  world: { seed: 2042, crops: {}, removedResources: {}, entities: createEntityRegistryState() },
 });
