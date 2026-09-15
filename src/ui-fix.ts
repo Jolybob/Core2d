@@ -26,7 +26,7 @@ const setText = (selector: string, value: string) => { const el = document.query
 const setBar = (name: string, value: number) => { const el = document.querySelector<HTMLElement>(`[data-fill="${name}"]`); if (el) el.style.width = `${Math.max(0, Math.min(100, value))}%`; };
 
 function render(state: ReturnType<typeof appRuntime.store.getState>): void {
-  const signature = JSON.stringify([state.player, state.inventory, state.quests, state.calendar, state.economy]);
+  const signature = JSON.stringify([state.player.health, state.player.hunger, state.player.stamina, state.player.money, state.player.pickaxeLevel, state.player.tool, state.inventory, state.quests, state.calendar]);
   if (signature === lastSignature) return;
   lastSignature = signature;
   setText('[data-value="health"]', `${Math.ceil(state.player.health)} / 100`); setBar('health', state.player.health);
