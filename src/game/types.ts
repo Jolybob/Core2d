@@ -1,4 +1,6 @@
 import type { EntityRegistryState } from './entity';
+import type { ChunkPersistence } from './world/chunks';
+import type { WorldSaveData } from './world/world-save';
 
 export const TOOL_IDS = ['hoe', 'seeds', 'water', 'axe', 'pick', 'sword', 'rod'] as const;
 export type ToolId = typeof TOOL_IDS[number];
@@ -45,11 +47,16 @@ export interface PlayerState {
   tool: ToolId;
 }
 
-export interface WorldState {
-  seed: number;
+/**
+ * Runtime world state. Generated terrain is not stored here: it is reconstructed from
+ * seed + generatorVersion and overlaid with persistent chunk modifications.
+ */
+export interface WorldState extends WorldSaveData {
+  // Kept as named fields through v5 so existing gameplay systems remain source-compatible.
   crops: Record<string, CropState>;
   removedResources: Record<string, 'tree' | 'rock'>;
   entities: EntityRegistryState;
+  chunks: Record<string, ChunkPersistence>;
 }
 
 export interface EconomyState {
@@ -67,7 +74,17 @@ export interface GameState {
   world: WorldState;
 }
 
+/** v5 separates durable world ownership from player-owned runtime data. */
+export interface PlayerSaveData {
+  player: PlayerState;
+  inventory: InventoryState;
+  quests: QuestState[];
+  economy: EconomyState;
+}
+
 export interface SaveData {
-  schemaVersion: 4;
-  state: GameState;
+  schemaVersion: 5;
+  player: PlayerSaveData;
+  calendar: CalendarState;
+  world: WorldSaveData;
 }
