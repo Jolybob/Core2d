@@ -35,7 +35,7 @@ export class GameRuntime {
       case 'PLANT': return this.farming.plant(command.key);
       case 'WATER': return this.farming.water(command.key);
       case 'HARVEST': return this.farming.harvest(command.key);
-      case 'MINE': return this.mine(command.resourceKey, command.ore);
+      case 'MINE': return this.mine(command.resourceKey);
       case 'CHOP': return this.chop(command.resourceKey);
       case 'FISH': return this.fishing.catchFish();
       case 'ATTACK': return this.store.getState().inventory.sword > 0;
@@ -71,8 +71,9 @@ export class GameRuntime {
     return true;
   }
 
-  private mine(resourceKey: string, ore: boolean): boolean {
+  private mine(resourceKey: string): boolean {
     if (this.store.getState().world.removedResources[resourceKey]) return false;
+    const ore = resourceKey.startsWith('rock:ore:');
     this.store.update((state) => {
       state.world.removedResources[resourceKey] = 'rock';
       state.inventory.stone += 2;
