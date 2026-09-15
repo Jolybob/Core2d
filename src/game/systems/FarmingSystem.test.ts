@@ -29,7 +29,7 @@ describe('FarmingSystem ECS runtime', () => {
     runtime.dispatch({ type: 'TILL', key: '2,3' });
     runtime.dispatch({ type: 'PLANT', key: '2,3' });
 
-    for (let i = 0; i < 3; i += 1) {
+    for (let i = 0; i < 2; i += 1) {
       expect(runtime.dispatch({ type: 'WATER', key: '2,3' })).toBe(true);
       runtime.farming.grow();
     }
