@@ -38,8 +38,8 @@ export class GameRuntime {
       case 'PLANT': return this.farming.plant(command.key);
       case 'WATER': return this.farming.water(command.key);
       case 'HARVEST': return this.farming.harvest(command.key);
-      case 'MINE': return this.resources.mine(command.resourceKey);
-      case 'CHOP': return this.resources.chop(command.resourceKey);
+      case 'MINE_AT': return this.resources.mineAt(command.x, command.y);
+      case 'CHOP_AT': return this.resources.chopAt(command.x, command.y);
       case 'FISH': return this.fishing.catchFish();
       case 'ATTACK': return this.store.getState().inventory.sword > 0;
       case 'CRAFT': return this.crafting.craft(command.recipe);
