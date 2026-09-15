@@ -19,6 +19,7 @@ export const ITEMS: Record<ItemId, ItemDefinition> = {
   fish: { id: 'fish', name: 'Fish', icon: '🐟' },
   coal: { id: 'coal', name: 'Coal', icon: '●' },
   rod: { id: 'rod', name: 'Fishing Rod', icon: '🎣' },
+  salve: { id: 'salve', name: 'Healing Salve', icon: '✚' },
 };
 
 export interface RecipeDefinition {
