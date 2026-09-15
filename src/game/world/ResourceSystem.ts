@@ -13,10 +13,10 @@ const RESOURCE_KIND_PREFIX = 'resource:';
 const TREES_PER_CHUNK = 4;
 const ROCKS_PER_CHUNK = 2;
 
-/** Resource simulation is runtime-authoritative; WorldRuntime owns the persistence boundary. */
+/** Resource simulation is runtime-authoritative; persistence is handled at the runtime boundary. */
 export class ResourceSystem {
   constructor(private readonly store: GameStatePort, private readonly events: DomainEventBus, private readonly runtime: WorldRuntime = new WorldRuntime(store.getState().world)) { this.refresh(); }
-  hydrateFromPersistence(): void { const state = this.store.getState(); this.runtime.rehydrate(state.world); const chunks = this.runtime.loadedChunkCoords().length > 0 ? this.runtime.loadedChunkCoords() : [worldToChunk({ x: Math.floor(state.player.x / TILE_SIZE), y: Math.floor(state.player.y / TILE_SIZE) })]; for (const chunk of chunks) this.runtime.loadChunk(chunk); this.ensureGenerated(this.runtime, chunks); this.commitRuntime(this.runtime); }
+  hydrateFromPersistence(): void { this.refresh(); }
   refresh(): void { const chunks = this.runtime.loadedChunkCoords(); if (chunks.length === 0) return; this.ensureGenerated(this.runtime, chunks); this.commitRuntime(this.runtime); }
   getAll(): ResourceNode[] { return this.readResources(this.runtime, this.runtime.loadedChunkCoords()); }
   get(key: string): ResourceNode | undefined { const parsed = this.parseResourceKey(key); if (!parsed) return undefined; const chunk = worldToChunk({ x: parsed.x, y: parsed.y }); return this.readResources(this.runtime, [chunk]).find((resource) => resource.key === key); }
