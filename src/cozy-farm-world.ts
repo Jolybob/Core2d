@@ -6,7 +6,7 @@ import type { EntityId } from './game/entity';
 
 export const TILE = TILE_SIZE;
 const RENDER_RADIUS = 1;
-export type ResourceView = { key: string; x: number; y: number; type: 'tree' | 'rock'; object: Phaser.GameObjects.GameObject & { visible: boolean }; };
+export type ResourceView = { key: string; x: number; y: number; type: 'tree' | 'rock'; ore: boolean; object: Phaser.GameObjects.GameObject & { visible: boolean }; };
 export type WorldObjectView = { shape: 'ellipse' | 'rectangle' | 'label' | 'animal'; width?: number; height?: number; color?: number; stroke?: number; text?: string; };
 const ensureWorldObject = (id: string, kind: string, x: number, y: number, view: WorldObjectView): void => { appRuntime.worldRuntime.ensureEntity(id as EntityId, kind, { position: { x, y }, worldObject: view }); };
 const ensureStaticWorldObjects = (): void => {
@@ -66,19 +66,17 @@ export class FarmWorldRenderer {
       const resource = result?.components.resource as { key: string; type: 'tree' | 'rock'; ore: boolean } | undefined;
       const position = result?.components.position as { x: number; y: number } | undefined;
       if (!resource || !position || runtime.world.removedResources[resource.key]) continue;
-      active.set(resource.key, { key: resource.key, x: position.x, y: position.y, type: resource.type, object: this.resourceObjects.get(resource.key)?.object ?? this.scene.add.rectangle(0, 0, 1, 1) });
+      active.set(resource.key, { key: resource.key, x: position.x, y: position.y, type: resource.type, ore: resource.ore, object: this.resourceObjects.get(resource.key)?.object ?? this.scene.add.rectangle(0, 0, 1, 1) });
     }
     for (const [key, view] of this.resourceObjects) { if (active.has(key)) continue; view.object.destroy(); this.resourceObjects.delete(key); }
     for (const resource of active.values()) {
       let view = this.resourceObjects.get(resource.key);
       if (!view) {
-        const component = runtime.query.with('resource', 'position').map((entity) => runtime.query.one(entity.id, 'resource', 'position')).find((result) => (result?.components.resource as { key?: string })?.key === resource.key);
-        const data = component?.components.resource as { ore?: boolean } | undefined;
-        const object = resource.type === 'tree' ? this.scene.add.container(resource.x * TILE + 12, resource.y * TILE + 12).setDepth(5) : this.scene.add.rectangle(resource.x * TILE + 12, resource.y * TILE + 12, 17, 17, data?.ore ? 0xb7864f : 0x77736c).setDepth(3);
+        const object = resource.type === 'tree' ? this.scene.add.container(resource.x * TILE + 12, resource.y * TILE + 12).setDepth(5) : this.scene.add.rectangle(resource.x * TILE + 12, resource.y * TILE + 12, 17, 17, resource.ore ? 0xb7864f : 0x77736c).setDepth(3);
         if (resource.type === 'tree') { const container = object as Phaser.GameObjects.Container; container.add(this.scene.add.rectangle(0, 10, 11, 22, 0x60452e)); container.add(this.scene.add.circle(0, -5, 17, 0x355d3b)); }
         view = { ...resource, object }; this.resourceObjects.set(resource.key, view);
       } else {
-        view.x = resource.x; view.y = resource.y;
+        view.x = resource.x; view.y = resource.y; view.ore = resource.ore;
         (view.object as Phaser.GameObjects.Container | Phaser.GameObjects.Rectangle).setPosition(resource.x * TILE + 12, resource.y * TILE + 12);
         view.object.visible = true;
       }
