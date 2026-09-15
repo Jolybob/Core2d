@@ -1,5 +1,6 @@
 import type { GameState, InventoryState } from './types';
 import { createEntityRegistryState } from './entity';
+import { createInitialWorldSave } from './world/world-save';
 
 export type ReadonlyDeep<T> = T extends (...args: never[]) => unknown
   ? T
@@ -142,24 +143,31 @@ const inventory = (): InventoryState => ({
   salve: 0,
 });
 
-export const createInitialState = (): GameState => ({
-  player: {
-    x: 35 * 24 + 12,
-    y: 27 * 24 + 12,
-    health: 100,
-    stamina: 100,
-    hunger: 100,
-    money: 120,
-    pickaxeLevel: 1,
-    tool: 'hoe',
-  },
-  inventory: inventory(),
-  quests: [
-    { id: 'harvest', title: 'First Harvest', need: 3, progress: 0, reward: 100, done: false },
-    { id: 'copper', title: 'Copper Collector', need: 10, progress: 0, reward: 150, done: false },
-    { id: 'fish', title: 'River Friend', need: 3, progress: 0, reward: 125, done: false },
-  ],
-  calendar: { day: 1, clock: 0, season: 0, weather: 'Sunny' },
-  economy: { fishCaught: 0, shipped: 0, totalHarvests: 0 },
-  world: { seed: 2042, crops: {}, removedResources: {}, entities: createEntityRegistryState() },
-});
+export const createInitialState = (): GameState => {
+  const world = createInitialWorldSave(2042);
+  return {
+    player: {
+      x: 35 * 24 + 12,
+      y: 27 * 24 + 12,
+      health: 100,
+      stamina: 100,
+      hunger: 100,
+      money: 120,
+      pickaxeLevel: 1,
+      tool: 'hoe',
+    },
+    inventory: inventory(),
+    quests: [
+      { id: 'harvest', title: 'First Harvest', need: 3, progress: 0, reward: 100, done: false },
+      { id: 'copper', title: 'Copper Collector', need: 10, progress: 0, reward: 150, done: false },
+      { id: 'fish', title: 'River Friend', need: 3, progress: 0, reward: 125, done: false },
+    ],
+    calendar: { day: 1, clock: 0, season: 0, weather: 'Sunny' },
+    economy: { fishCaught: 0, shipped: 0, totalHarvests: 0 },
+    world: {
+      ...world,
+      // Entity registry remains part of runtime world state until entity storage is fully extracted.
+      entities: createEntityRegistryState(),
+    },
+  };
+};
