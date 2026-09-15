@@ -24,3 +24,4 @@
 22. `DomainEventBus` is an in-process boundary; subscribers unsubscribe, and events do not replace explicit command sequencing.
 23. `GameRuntime` owns dependency composition; `GameCommandHandler` receives explicit system dependencies so command routing is independently testable.
 24. `GameStore` owns commit/notification flow. A mutation creates exactly one committed state snapshot, and notification reuses that snapshot instead of cloning the whole state again. `getState()` remains the explicit isolation boundary for callers that need an independent mutable snapshot.
+25. Save schema, validation, migration, and normalization belong to `save-schema.ts`; `persistence.ts` owns only storage I/O and JSON serialization. Schema logic must remain testable without `localStorage` or browser APIs.
