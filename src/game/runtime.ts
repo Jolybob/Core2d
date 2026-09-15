@@ -32,7 +32,11 @@ export class GameRuntime {
       case 'FISH': return this.fishing.catchFish();
       case 'ATTACK': return this.store.getState().inventory.sword > 0;
       case 'CRAFT': return this.crafting.craft(command.recipe);
-      case 'EAT': return command.item === 'berry' || command.item === 'fish' || command.item === 'parsnip' ? this.eat(command.item) : false;
+      case 'EAT': {
+        const item = command.item;
+        if (item !== 'berry' && item !== 'fish' && item !== 'parsnip') return false;
+        return this.eat(item);
+      }
       case 'USE_SALVE': return this.useSalve();
       case 'BUY_SEEDS': return this.economy.buySeeds(command.cost, command.amount);
       case 'SHIP': return this.ship();
