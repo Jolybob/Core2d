@@ -9,10 +9,12 @@ import type { ComponentValue } from './game/world/runtime';
 
 interface CropComponent extends ComponentValue { key: string; stage: number; watered: boolean; tilled: boolean; }
 interface PositionComponent extends ComponentValue { x: number; y: number; }
+interface PlayerComponent extends ComponentValue { x: number; y: number; health: number; stamina: number; hunger: number; tool: string; }
 interface WorldObjectComponent extends ComponentValue { shape: 'ellipse' | 'rectangle' | 'label' | 'animal'; width?: number; height?: number; color?: number; stroke?: number; text?: string; }
 
 const isCrop = (value: ComponentValue | undefined): value is CropComponent => typeof value?.key === 'string' && typeof value.stage === 'number' && typeof value.watered === 'boolean' && typeof value.tilled === 'boolean';
 const isPosition = (value: ComponentValue | undefined): value is PositionComponent => typeof value?.x === 'number' && typeof value?.y === 'number';
+const isPlayer = (value: ComponentValue | undefined): value is PlayerComponent => typeof value?.x === 'number' && typeof value?.y === 'number' && typeof value?.health === 'number' && typeof value?.stamina === 'number' && typeof value?.hunger === 'number' && typeof value?.tool === 'string';
 const isWorldObject = (value: ComponentValue | undefined): value is WorldObjectComponent => value?.shape === 'ellipse' || value?.shape === 'rectangle' || value?.shape === 'label' || value?.shape === 'animal';
 
 export class FarmRenderer {
@@ -26,13 +28,22 @@ export class FarmRenderer {
   constructor(private readonly scene: Phaser.Scene, private readonly player: Phaser.GameObjects.Rectangle, private readonly hud: Phaser.GameObjects.Text, private readonly night: Phaser.GameObjects.Rectangle, private readonly resources: ResourceView[]) {}
 
   renderState(state: ReadonlyDeep<import('./game/types').GameState>): void {
-    this.player.setPosition(state.player.x, state.player.y);
+    const runtime = appRuntime.worldRuntime;
+    const playerEntity = runtime.query.with('player').find((entity) => entity.kind === 'player');
+    const playerComponent = playerEntity ? runtime.components.get('player', playerEntity.id) : undefined;
+    const playerPosition = playerEntity ? runtime.components.get('position', playerEntity.id) : undefined;
+    if (isPlayer(playerComponent)) {
+      this.player.setPosition(playerComponent.x, playerComponent.y);
+    } else if (isPosition(playerPosition)) {
+      this.player.setPosition(playerPosition.x, playerPosition.y);
+    }
     const season = ['Spring', 'Summer', 'Autumn', 'Winter'][state.calendar.season] ?? 'Spring';
-    this.hud.setText(`${season} • DAY ${state.calendar.day}  $${state.player.money}\nHP ${Math.ceil(state.player.health)}  HUN ${Math.ceil(state.player.hunger)}  STA ${Math.ceil(state.player.stamina)}\n${state.player.tool.toUpperCase()} • ${state.calendar.weather}`);
-    const removedSignature = JSON.stringify(state.world.removedResources);
+    const hudPlayer = isPlayer(playerComponent) ? playerComponent : state.player;
+    this.hud.setText(`${season} • DAY ${state.calendar.day}  $${hudPlayer.money ?? state.player.money}\nHP ${Math.ceil(hudPlayer.health)}  HUN ${Math.ceil(hudPlayer.hunger)}  STA ${Math.ceil(hudPlayer.stamina)}\n${hudPlayer.tool.toUpperCase()} • ${state.calendar.weather}`);
+    const removedSignature = JSON.stringify(runtime.world.removedResources);
     if (removedSignature !== this.lastRemovedSignature) {
       this.lastRemovedSignature = removedSignature;
-      for (const node of this.resources) node.object.visible = !Boolean(state.world.removedResources[node.key]);
+      for (const node of this.resources) node.object.visible = !Boolean(runtime.world.removedResources[node.key]);
     }
   }
 
