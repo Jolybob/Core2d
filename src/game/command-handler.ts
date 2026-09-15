@@ -64,6 +64,7 @@ export class GameCommandHandler {
   save(): boolean {
     try {
       this.dependencies.player.persist();
+      this.dependencies.farming.refresh();
       saveGame(this.dependencies.store.getState());
       return true;
     } catch {
@@ -77,6 +78,7 @@ export class GameCommandHandler {
       if (!state) return false;
       this.dependencies.store.replace(state);
       this.dependencies.player.refresh();
+      this.dependencies.farming.refresh();
       this.dependencies.resources.refresh();
       return true;
     } catch {
