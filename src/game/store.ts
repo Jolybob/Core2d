@@ -34,11 +34,11 @@ export class GameStore {
   constructor(private state: GameState) {}
 
   getState(): GameState {
-    return structuredClone(this.state);
+    return structuredClone(this.transactionState ?? this.state);
   }
 
   select<T>(selector: ReadSelector<T>): T {
-    return structuredClone(selector(this.state) as T);
+    return structuredClone(selector(this.transactionState ?? this.state) as T);
   }
 
   update(mutator: (state: GameState) => void): void {
