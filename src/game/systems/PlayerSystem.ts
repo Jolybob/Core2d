@@ -7,14 +7,12 @@ const isFiniteNonNegative = (value: number): boolean => Number.isFinite(value) &
 type PlayerComponent = PlayerState & Record<string, unknown>;
 const PLAYER_ENTITY_ID = createEntityId('player');
 
-/** Player simulation is owned by WorldRuntime; GameState is the persistence/UI mirror. */
+/** Player simulation is owned by WorldRuntime; GameState is the application/UI mirror. */
 export class PlayerSystem {
   private playerId: EntityId;
-  constructor(private readonly store: GameStatePort, private readonly runtime: WorldRuntime) {
-    this.playerId = this.ensureEntity(); this.refresh(); this.persist();
-  }
+  constructor(private readonly store: GameStatePort, private readonly runtime: WorldRuntime) { this.playerId = this.ensureEntity(); this.refresh(); this.persist(); }
   refresh(): void { this.setComponent(this.store.select((current) => current.player)); }
-  persist(): void { const entity = this.runtime.entities.get(this.playerId); const component = this.runtime.components.get<PlayerComponent>('player', this.playerId); if (!entity || !component) return; this.store.update((state) => { state.player.x = component.x; state.player.y = component.y; state.player.health = component.health; state.player.stamina = component.stamina; state.player.hunger = component.hunger; state.player.tool = component.tool; state.world.entities.entities[this.playerId] = { ...entity }; const components = state.world.entities.components ??= {}; components[this.playerId] = { player: { ...component }, position: { x: component.x, y: component.y } }; }); }
+  persist(): void { const component = this.runtime.components.get<PlayerComponent>('player', this.playerId); if (!component) return; this.store.update((state) => { state.player.x = component.x; state.player.y = component.y; state.player.health = component.health; state.player.stamina = component.stamina; state.player.hunger = component.hunger; state.player.tool = component.tool; }); }
   move(dx: number, dy: number, sprint: boolean, deltaSeconds: number): boolean { if (!Number.isFinite(dx) || !Number.isFinite(dy) || !isFiniteNonNegative(deltaSeconds)) return false; const length = Math.hypot(dx, dy); if (!length || deltaSeconds <= 0) return false; const player = this.readComponent(); const canSprint = sprint && player.stamina > 2; const speed = canSprint ? 230 : 145; const next = { x: player.x + (dx / length) * speed * deltaSeconds, y: player.y + (dy / length) * speed * deltaSeconds }; if (!this.runtime.canMove(next.x, next.y)) return false; player.x = next.x; player.y = next.y; player.stamina = Math.max(0, player.stamina - deltaSeconds * (canSprint ? 12 : 3)); this.setComponent(player); this.syncToState(player); return true; }
   selectTool(tool: ToolId): boolean { const player = this.readComponent(); player.tool = tool; this.setComponent(player); this.syncToState(player); return true; }
   eat(item: ConsumableId): boolean { if (this.store.select((state) => state.inventory[item]) < 1) return false; this.store.update((state) => { state.inventory[item] -= 1; }); const player = this.readComponent(); player.hunger = Math.min(100, player.hunger + (item === 'parsnip' ? 35 : item === 'fish' ? 20 : 25)); this.setComponent(player); this.syncToState(player); return true; }
