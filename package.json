@@ -1,12 +1,12 @@
 {
   "name": "core2d",
   "private": true,
-  "version": "0.5.49",
+  "version": "0.5.50",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit",
-    "tilejam:build": "node scripts/configure-tilejam.mjs prepare && tsc -p node_modules/tilejam/frontend/tsconfig.json && vite build --config node_modules/tilejam/frontend/vite.config.ts --outDir ../../../public/tilejam --emptyOutDir && node scripts/configure-tilejam.mjs finalize",
+    "tilejam:build": "node tools/tilejam/build.mjs prepare && tsc -p node_modules/tilejam/frontend/tsconfig.json && vite build --config node_modules/tilejam/frontend/vite.config.ts --outDir ../../../public/tilejam --emptyOutDir && node tools/tilejam/build.mjs finalize",
     "build": "npm run typecheck && npm run tilejam:build && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
