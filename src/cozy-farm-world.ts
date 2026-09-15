@@ -16,7 +16,7 @@ const TILE_FRAMES: Record<string, readonly number[]> = {
 };
 
 const pickTileFrame = (tile: string, worldX: number, worldY: number): number => {
-  const frames = TILE_FRAMES[tile] ?? TILE_FRAMES.ground;
+  const frames = TILE_FRAMES[tile] ?? [94];
   const hash = Math.abs((worldX * 374761393 + worldY * 668265263) | 0);
   return frames[hash % frames.length] ?? 94;
 };
