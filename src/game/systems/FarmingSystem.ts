@@ -5,8 +5,7 @@ export class FarmingSystem {
   constructor(private readonly store: GameStore) {}
 
   till(key: string): boolean {
-    const crop = this.store.getState().world.crops[key];
-    if (crop) return false;
+    if (this.store.getState().world.crops[key]) return false;
     this.store.update((state) => {
       state.world.crops[key] = { stage: 0, watered: false, tilled: true };
     });
@@ -19,7 +18,7 @@ export class FarmingSystem {
     if (this.store.getState().inventory.seeds < 1) return false;
     this.store.update((state) => {
       state.inventory.seeds -= 1;
-      state.world.crops[key] = { ...state.world.crops[key], stage: 1, watered: false, tilled: true };
+      state.world.crops[key] = { stage: 1, watered: false, tilled: true };
     });
     return true;
   }
@@ -28,7 +27,8 @@ export class FarmingSystem {
     const current = this.store.getState().world.crops[key];
     if (!current || !current.tilled || current.stage < 1) return false;
     this.store.update((state) => {
-      state.world.crops[key] = { ...state.world.crops[key], watered: true };
+      const crop = state.world.crops[key];
+      if (crop) state.world.crops[key] = { stage: crop.stage, watered: true, tilled: crop.tilled };
     });
     return true;
   }
@@ -36,9 +36,7 @@ export class FarmingSystem {
   grow(): void {
     this.store.update((state) => {
       for (const [key, crop] of Object.entries(state.world.crops)) {
-        if (crop.watered && crop.stage > 0 && crop.stage < 3) {
-          state.world.crops[key] = { ...crop, stage: crop.stage + 1, watered: false };
-        }
+        if (crop.watered && crop.stage > 0 && crop.stage < 3) state.world.crops[key] = { stage: crop.stage + 1, watered: false, tilled: crop.tilled };
       }
     });
   }
