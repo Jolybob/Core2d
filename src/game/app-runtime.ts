@@ -12,6 +12,7 @@ import { PlayerSystem } from './systems/PlayerSystem';
 import { QuestSystem } from './systems/QuestSystem';
 import { ResourceSystem } from './world/ResourceSystem';
 import { WorldRuntime } from './world/runtime';
+import { createInitialWorldSave } from './world/world-save';
 
 const INITIAL_CHUNK_RADIUS = 1;
 
@@ -35,7 +36,7 @@ export class GameRuntime {
     this.events = new DomainEventBus();
     this.quests = new QuestSystem(this.store, this.events);
     const initialState = this.store.getState();
-    this.worldRuntime = new WorldRuntime(initialState.world);
+    this.worldRuntime = new WorldRuntime(createInitialWorldSave(2042));
     this.worldRuntime.ensureChunksAroundPixelPosition({ x: initialState.player.x, y: initialState.player.y }, INITIAL_CHUNK_RADIUS);
     this.farming = new FarmingSystem(this.store, this.events, this.worldRuntime);
     this.crafting = new CraftingSystem(this.store);
