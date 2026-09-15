@@ -49,6 +49,7 @@ export class ResourceSystem {
   mine(key: string): boolean {
     const resource = this.get(key);
     if (!resource || resource.type !== 'rock' || this.isRemoved(key)) return false;
+    this.removeRuntimeResource(key, resource);
     this.store.update((state) => { state.world.removedResources[key] = 'rock'; state.inventory.stone += 2; if (resource.ore) state.inventory.ore += 1; });
     if (resource.ore) this.events.publish({ type: 'ORE_MINED', key });
     return true;
@@ -68,8 +69,25 @@ export class ResourceSystem {
   private remove(key: string, type: ResourceType, apply: (state: GameState) => void): boolean {
     const resource = this.get(key);
     if (!resource || resource.type !== type || this.isRemoved(key)) return false;
+    this.removeRuntimeResource(key, resource);
     this.store.update((state) => { state.world.removedResources[key] = type; apply(state); });
     return true;
+  }
+
+  private removeRuntimeResource(key: string, resource: ResourceNode): void {
+    const entity = this.findRuntimeResource(key);
+    if (entity) this.runtime.removeEntity(entity.id);
+    const chunk = chunkKey(worldToChunk({ x: resource.x, y: resource.y }));
+    const persistence = this.runtime.world.chunks[chunk] ??= { key: chunk, modifiedTiles: {}, removedEntities: {} };
+    persistence.removedEntities[key] = true;
+  }
+
+  private findRuntimeResource(key: string): { id: import('../entity').EntityId } | undefined {
+    for (const entity of this.runtime.query.with('resource')) {
+      const resource = this.runtime.components.get<ResourceComponent>('resource', entity.id);
+      if (resource?.key === key) return entity;
+    }
+    return undefined;
   }
 
   private isRemoved(key: string): boolean { return this.store.select((state) => Boolean(state.world.removedResources[key])); }
@@ -101,11 +119,9 @@ export class ResourceSystem {
 
     for (const chunk of chunks) {
       const key = chunkKey(chunk);
-      if (!runtime.world.chunks[key]) {
-        runtime.world.chunks[key] = { key, modifiedTiles: {}, removedEntities: {} };
-      }
+      const persistence = runtime.world.chunks[key] ??= { key, modifiedTiles: {}, removedEntities: {} };
       for (const resource of this.generateChunk(runtime.world.seed, chunk)) {
-        if (existing.has(resource.key) || runtime.world.removedResources[resource.key]) continue;
+        if (existing.has(resource.key) || persistence.removedEntities[resource.key] || runtime.world.removedResources[resource.key]) continue;
         runtime.createEntity(`${RESOURCE_KIND_PREFIX}${resource.type}`, {
           position: { x: resource.x, y: resource.y },
           resource: { key: resource.key, type: resource.type, ore: resource.ore },
