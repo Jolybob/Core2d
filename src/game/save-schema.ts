@@ -1,6 +1,6 @@
 import { createEntityRegistryState, type EntityRegistryState } from './entity';
 import { ITEM_IDS, TOOL_IDS, type GameState, type InventoryState, type SaveData, type ToolId } from './types';
-import { CURRENT_GENERATOR_VERSION, createInitialWorldSave, type WorldSaveData } from './world/world-save';
+import { CURRENT_GENERATOR_VERSION, type WorldSaveData } from './world/world-save';
 import type { ChunkPersistence } from './world/chunks';
 
 export const SAVE_SCHEMA_VERSION = 5 as const;
@@ -10,7 +10,13 @@ const isFiniteInteger = (value: unknown): value is number => typeof value === 'n
 const isBoundedNumber = (value: unknown, min: number, max: number): value is number => typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
 const isInventory = (value: unknown): value is InventoryState => isObject(value) && ITEM_IDS.every((id) => isFiniteNonNegative(value[id]));
 const isQuest = (value: unknown): boolean => isObject(value) && typeof value.id === 'string' && value.id.length > 0 && typeof value.title === 'string' && value.title.length > 0 && isFiniteInteger(value.need) && value.need > 0 && isFiniteInteger(value.progress) && value.progress >= 0 && value.progress <= value.need && isFiniteNonNegative(value.reward) && typeof value.done === 'boolean';
-function isEntityRegistry(value: unknown): value is EntityRegistryState { if (!isObject(value) || !isObject(value.entities)) return false; if (!Object.entries(value.entities).every(([id, entity]) => id.length > 0 && isObject(entity) && entity.id === id && typeof entity.kind === 'string' && entity.kind.length > 0)) return false; const components = value.components; return components === undefined || (isObject(components) && Object.entries(components).every(([id, c]) => isObject(c) && id in value.entities && Object.values(c).every(isObject))); }
+function isEntityRegistry(value: unknown): value is EntityRegistryState {
+  if (!isObject(value) || !isObject(value.entities)) return false;
+  const entities = value.entities;
+  if (!Object.entries(entities).every(([id, entity]) => id.length > 0 && isObject(entity) && entity.id === id && typeof entity.kind === 'string' && entity.kind.length > 0)) return false;
+  const components = value.components;
+  return components === undefined || (isObject(components) && Object.entries(components).every(([id, c]) => isObject(c) && id in entities && Object.values(c).every(isObject)));
+}
 function isChunkPersistence(value: unknown): value is ChunkPersistence { if (!isObject(value) || typeof value.key !== 'string' || !isObject(value.modifiedTiles) || !isObject(value.removedEntities)) return false; return Object.values(value.modifiedTiles).every((m) => isObject(m) && typeof m.tile === 'string' && m.tile.length > 0) && Object.values(value.removedEntities).every((v) => v === true); }
 function isWorldSave(value: unknown): value is WorldSaveData { if (!isObject(value)) return false; return isFiniteInteger(value.seed) && isFiniteInteger(value.generatorVersion) && value.generatorVersion >= 1 && isObject(value.chunks) && Object.values(value.chunks).every(isChunkPersistence) && isObject(value.crops) && Object.values(value.crops).every((c) => isObject(c) && isFiniteInteger(c.stage) && c.stage >= 0 && typeof c.watered === 'boolean' && typeof c.tilled === 'boolean') && isObject(value.removedResources) && Object.values(value.removedResources).every((t) => t === 'tree' || t === 'rock') && isEntityRegistry(value.entities); }
 const isCalendar = (value: unknown): boolean => isObject(value) && isFiniteInteger(value.day) && value.day >= 1 && isFiniteNonNegative(value.clock) && isFiniteInteger(value.season) && value.season >= 0 && (value.weather === 'Sunny' || value.weather === 'Rainy' || value.weather === 'Cloudy');
