@@ -11,8 +11,7 @@ import { FishingSystem } from './systems/FishingSystem';
 import { PlayerSystem } from './systems/PlayerSystem';
 import { QuestSystem } from './systems/QuestSystem';
 import { ResourceSystem } from './world/ResourceSystem';
-import { TILE_SIZE, WorldRuntime } from './world/runtime';
-import { worldToChunk } from './world/chunks';
+import { WorldRuntime } from './world/runtime';
 
 const INITIAL_CHUNK_RADIUS = 1;
 
