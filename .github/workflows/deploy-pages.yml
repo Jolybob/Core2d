@@ -32,26 +32,6 @@ jobs:
       - name: Restore Vite source entry
         run: cp index.vite.html index.html
 
-      - name: Ensure Phaser game bootstrap
-        run: |
-          set -euo pipefail
-          if ! grep -q 'new Phaser.Game' src/cozy-farm.ts; then
-            cat >> src/cozy-farm.ts <<'EOF'
-
-new Phaser.Game({
-  type: Phaser.AUTO,
-  parent: 'game',
-  width: 960,
-  height: 640,
-  backgroundColor: '#739f52',
-  pixelArt: true,
-  antialias: false,
-  scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
-  scene: [CozyFarm],
-});
-EOF
-          fi
-
       - name: Build
         run: npm run build
 
