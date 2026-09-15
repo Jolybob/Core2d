@@ -39,8 +39,7 @@ export class GameCommandHandler {
     switch (command.type) {
       case 'TICK':
         if (!isFiniteNonNegative(command.deltaSeconds)) return false;
-        day.update(command.deltaSeconds);
-        return true;
+        return day.update(command.deltaSeconds);
       case 'MOVE': return player.move(command.dx, command.dy, command.sprint, command.deltaSeconds);
       case 'SELECT_TOOL': return player.selectTool(command.tool);
       case 'TILL': return farming.till(command.key);
@@ -64,6 +63,7 @@ export class GameCommandHandler {
 
   save(): boolean {
     try {
+      this.dependencies.player.persist();
       saveGame(this.dependencies.store.getState());
       return true;
     } catch {
@@ -76,6 +76,7 @@ export class GameCommandHandler {
       const state = loadGame();
       if (!state) return false;
       this.dependencies.store.replace(state);
+      this.dependencies.player.refresh();
       this.dependencies.resources.refresh();
       return true;
     } catch {
