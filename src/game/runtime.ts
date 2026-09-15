@@ -8,7 +8,7 @@ import { EconomySystem } from './systems/EconomySystem';
 import { FarmingSystem } from './systems/FarmingSystem';
 import { FishingSystem } from './systems/FishingSystem';
 import { ResourceSystem } from './world/ResourceSystem';
-import { TILE_SIZE, WORLD_HEIGHT, WORLD_WIDTH, WorldSystem } from './world/WorldSystem';
+import { WorldSystem } from './world/WorldSystem';
 import type { ToolId } from './types';
 
 const isFiniteNonNegative = (value: number): boolean => Number.isFinite(value) && value >= 0;
@@ -128,5 +128,3 @@ export class GameRuntime {
     } catch { return false; }
   }
 }
-
-export { TILE_SIZE, WORLD_HEIGHT, WORLD_WIDTH };
