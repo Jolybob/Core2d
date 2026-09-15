@@ -18,29 +18,46 @@ const help = document.querySelector<HTMLDivElement>('#ui-help')!;
 const message = document.querySelector<HTMLDivElement>('#ui-message')!;
 const TOOL_BY_SLOT: ToolId[] = ['hoe', 'seeds', 'water', 'axe', 'pick', 'sword', 'rod'];
 const FIRST_ROW = ITEM_IDS.slice(0, 7);
-let lastSignature = '';
+
+type HudState = {
+  health: number;
+  hunger: number;
+  stamina: number;
+  money: number;
+  pickaxeLevel: number;
+  tool: ToolId;
+  day: number;
+  weather: string;
+};
 
 const show = (el: HTMLElement) => { el.classList.add('open'); el.setAttribute('aria-hidden', 'false'); };
 const hide = (el: HTMLElement) => { el.classList.remove('open'); el.setAttribute('aria-hidden', 'true'); };
 const closeMenus = () => { hide(inventory); hide(crafting); hide(help); };
 const setText = (selector: string, value: string) => { const el = document.querySelector<HTMLElement>(selector); if (el) el.textContent = value; };
 const setBar = (name: string, value: number) => { const el = document.querySelector<HTMLElement>(`[data-fill="${name}"]`); if (el) el.style.width = `${Math.max(0, Math.min(100, value))}%`; };
+const sameHud = (a: HudState, b: HudState) => a.health === b.health && a.hunger === b.hunger && a.stamina === b.stamina && a.money === b.money && a.pickaxeLevel === b.pickaxeLevel && a.tool === b.tool && a.day === b.day && a.weather === b.weather;
+const sameInventory = (a: number[], b: number[]) => a.length === b.length && a.every((value, index) => value === b[index]);
 
-function render(state: ReturnType<typeof appRuntime.store.getState>): void {
-  const signature = JSON.stringify([state.player.health, state.player.hunger, state.player.stamina, state.player.money, state.player.pickaxeLevel, state.player.tool, state.inventory, state.quests, state.calendar]);
-  if (signature === lastSignature) return;
-  lastSignature = signature;
-  setText('[data-value="health"]', `${Math.ceil(state.player.health)} / 100`); setBar('health', state.player.health);
-  setText('[data-value="hunger"]', `${Math.ceil(state.player.hunger)} / 100`); setBar('hunger', state.player.hunger);
-  setText('[data-value="stamina"]', `${Math.ceil(state.player.stamina)} / 100`); setBar('stamina', state.player.stamina);
-  setText('#ui-day', `DAY ${state.calendar.day}`); setText('#ui-pickaxe', `Lv.${state.player.pickaxeLevel}`); setText('#ui-tool', state.player.tool.toUpperCase()); setText('#ui-money', `$${state.player.money}`); setText('#ui-weather', state.calendar.weather);
-  hotbar.innerHTML = FIRST_ROW.map((id, index) => `<button type="button" class="slot" data-item="${id}"><span class="slot-key">${index + 1}</span><span class="slot-icon">${ITEMS[id].icon}</span><span class="slot-name">${ITEMS[id].name}</span><span class="slot-count">${state.inventory[id]}</span></button>`).join('');
-  inventoryGrid.innerHTML = ITEM_IDS.map((id) => `<button type="button" class="inv-slot filled" data-item="${id}"><span>${ITEMS[id].icon}</span><b>${ITEMS[id].name}</b><em>${state.inventory[id]}</em></button>`).join('');
-  setText('#inventory-summary', `${ITEM_IDS.filter((id) => state.inventory[id] > 0).length} / ${ITEM_IDS.length} item types used`);
+function renderHud(state: HudState): void {
+  setText('[data-value="health"]', `${Math.ceil(state.health)} / 100`); setBar('health', state.health);
+  setText('[data-value="hunger"]', `${Math.ceil(state.hunger)} / 100`); setBar('hunger', state.hunger);
+  setText('[data-value="stamina"]', `${Math.ceil(state.stamina)} / 100`); setBar('stamina', state.stamina);
+  setText('#ui-day', `DAY ${state.day}`); setText('#ui-pickaxe', `Lv.${state.pickaxeLevel}`); setText('#ui-tool', state.tool.toUpperCase()); setText('#ui-money', `$${state.money}`); setText('#ui-weather', state.weather);
+}
+
+function renderInventory(counts: number[]): void {
+  const values = Object.fromEntries(ITEM_IDS.map((id, index) => [id, counts[index]])) as Record<ItemId, number>;
+  hotbar.innerHTML = FIRST_ROW.map((id, index) => `<button type="button" class="slot" data-item="${id}"><span class="slot-key">${index + 1}</span><span class="slot-icon">${ITEMS[id].icon}</span><span class="slot-name">${ITEMS[id].name}</span><span class="slot-count">${values[id]}</span></button>`).join('');
+  inventoryGrid.innerHTML = ITEM_IDS.map((id) => `<button type="button" class="inv-slot filled" data-item="${id}"><span>${ITEMS[id].icon}</span><b>${ITEMS[id].name}</b><em>${values[id]}</em></button>`).join('');
+  setText('#inventory-summary', `${counts.filter((count) => count > 0).length} / ${ITEM_IDS.length} item types used`);
+}
+
+function renderCrafting(counts: number[], pickaxeLevel: number): void {
+  const values = Object.fromEntries(ITEM_IDS.map((id, index) => [id, counts[index]])) as Record<ItemId, number>;
   craftGrid.innerHTML = Object.values(RECIPES).map((recipe) => {
-    const enough = Object.entries(recipe.costs).every(([id, amount]) => state.inventory[id as ItemId] >= (amount ?? 0));
-    const built = (recipe.id === 'copperPickaxe' && state.player.pickaxeLevel >= 2) || (recipe.id === 'sword' && state.inventory.sword > 0) || (recipe.id === 'fishingRod' && state.inventory.rod > 0) || (recipe.id === 'healingSalve' && state.inventory.salve > 0);
-    const locked = recipe.id === 'healingSalve' && state.player.pickaxeLevel < 2;
+    const enough = Object.entries(recipe.costs).every(([id, amount]) => values[id as ItemId] >= (amount ?? 0));
+    const built = (recipe.id === 'copperPickaxe' && pickaxeLevel >= 2) || (recipe.id === 'sword' && values.sword > 0) || (recipe.id === 'fishingRod' && values.rod > 0) || (recipe.id === 'healingSalve' && values.salve > 0);
+    const locked = recipe.id === 'healingSalve' && pickaxeLevel < 2;
     const costs = Object.entries(recipe.costs).map(([id, amount]) => `${amount} ${ITEMS[id as ItemId].name}`).join(' · ');
     return `<div class="recipe"><div class="recipe-icon">${recipe.id === 'copperPickaxe' ? '⛏' : recipe.id === 'sword' ? '⚔' : recipe.id === 'fishingRod' ? '🎣' : recipe.id === 'healingSalve' ? '✚' : '🔥'}</div><div class="recipe-info"><b>${recipe.name}</b><small>${locked ? 'Requires Copper Pickaxe' : costs}</small></div><button class="recipe-button" type="button" data-recipe="${recipe.id}" ${locked || !enough || built ? 'disabled' : ''}>${locked ? 'LOCKED' : built ? 'BUILT' : 'CRAFT'}</button></div>`;
   }).join('');
@@ -69,4 +86,21 @@ document.querySelector('#menu-load')!.addEventListener('click', () => { message.
 document.querySelector('#menu-close')!.addEventListener('click', closeMenus);
 [inventory, crafting, help].forEach((el) => el.addEventListener('click', (event) => { if (event.target === el) hide(el); }));
 window.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMenus(); if (event.key.toLowerCase() === 'i') show(inventory); if (event.key.toLowerCase() === 'c') show(crafting); });
-appRuntime.store.subscribe(render);
+
+appRuntime.store.subscribe(
+  (state) => ({ health: state.player.health, hunger: state.player.hunger, stamina: state.player.stamina, money: state.player.money, pickaxeLevel: state.player.pickaxeLevel, tool: state.player.tool, day: state.calendar.day, weather: state.calendar.weather }),
+  renderHud,
+  sameHud,
+);
+
+appRuntime.store.subscribe(
+  (state) => ITEM_IDS.map((id) => state.inventory[id]),
+  renderInventory,
+  sameInventory,
+);
+
+appRuntime.store.subscribe(
+  (state) => ({ counts: ITEM_IDS.map((id) => state.inventory[id]), pickaxeLevel: state.player.pickaxeLevel }),
+  (selection) => renderCrafting(selection.counts, selection.pickaxeLevel),
+  (a, b) => a.pickaxeLevel === b.pickaxeLevel && sameInventory(a.counts, b.counts),
+);
