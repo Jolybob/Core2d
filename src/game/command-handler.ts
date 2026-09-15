@@ -1,4 +1,5 @@
 import { loadGame, saveGame } from './persistence';
+import { projectWorld, rehydrateWorld } from './world/runtime-persistence';
 import type { GameCommand } from './commands';
 import type { GameStore } from './store';
 import type { WorldRuntime } from './world/runtime';
@@ -23,9 +24,6 @@ export class GameCommandHandler {
   constructor(private readonly dependencies: GameCommandDependencies) {}
   dispatch(command: GameCommand): boolean {
     return this.dependencies.store.transaction(() => {
-      // GameState remains a compatibility/persistence adapter during migration. If an
-      // external adapter edits the legacy player projection, reconcile it once at the
-      // command boundary; gameplay itself then reads and mutates WorldRuntime.
       this.dependencies.player.refresh();
       return this.dispatchCommand(command);
     });
@@ -52,6 +50,6 @@ export class GameCommandHandler {
     case 'LOAD': return this.load();
   } }
 
-  save(): boolean { try { this.dependencies.player.persist(); this.dependencies.farming.refresh(); this.dependencies.store.update((state) => { state.world = this.dependencies.worldRuntime.world; }); saveGame(this.dependencies.store.getState()); return true; } catch { return false; } }
-  load(): boolean { try { const state = loadGame(); if (!state) return false; this.dependencies.store.replace(state); this.dependencies.worldRuntime.rehydrate(state.world); this.dependencies.player.refresh(); this.dependencies.farming.refresh(); this.dependencies.resources.refresh(); this.dependencies.store.update((current) => { current.world = this.dependencies.worldRuntime.world; }); return true; } catch { return false; } }
+  save(): boolean { try { this.dependencies.player.persist(); this.dependencies.farming.refresh(); const state = this.dependencies.store.getState(); saveGame(state, this.dependencies.worldRuntime); return true; } catch { return false; } }
+  load(): boolean { try { const state = loadGame(); if (!state) return false; this.dependencies.store.replace(state); rehydrateWorld(this.dependencies.worldRuntime, state); this.dependencies.player.refresh(); this.dependencies.farming.refresh(); this.dependencies.resources.refresh(); this.dependencies.store.update((current) => projectWorld(current, this.dependencies.worldRuntime)); return true; } catch { return false; } }
 }
