@@ -27,16 +27,16 @@ describe('persistence', () => {
 
     saveGame(state, storage);
     const loaded = loadGame(storage);
-    expect(storage.getItem(SAVE_KEY)).toContain('"schemaVersion":3');
+    expect(storage.getItem(SAVE_KEY)).toContain('"schemaVersion":4');
     expect(loaded).toEqual(state);
   });
 
-  it('rejects malformed schema v3 saves instead of partially accepting them', () => {
+  it('rejects malformed current saves instead of partially accepting them', () => {
     const storage = new MemoryStorage();
     const state = createInitialState();
     const invalid = structuredClone(state) as unknown as { inventory: Record<string, unknown>; [key: string]: unknown };
     invalid.inventory.ore = Number.NaN;
-    storage.setItem(SAVE_KEY, JSON.stringify({ schemaVersion: 3, state: invalid }));
+    storage.setItem(SAVE_KEY, JSON.stringify({ schemaVersion: 4, state: invalid }));
 
     expect(loadGame(storage)).toBeNull();
   });
@@ -47,7 +47,7 @@ describe('persistence', () => {
     const invalid = structuredClone(state) as unknown as { world: { crops: unknown; removedResources: unknown }; [key: string]: unknown };
     invalid.world.crops = { '1,2': { stage: -1, watered: true, tilled: true } };
     invalid.world.removedResources = { 'rock:1,2': 'invalid' };
-    storage.setItem(SAVE_KEY, JSON.stringify({ schemaVersion: 3, state: invalid }));
+    storage.setItem(SAVE_KEY, JSON.stringify({ schemaVersion: 4, state: invalid }));
 
     expect(loadGame(storage)).toBeNull();
   });
@@ -69,6 +69,6 @@ describe('persistence', () => {
     expect(state?.player.x).toBe(100);
     expect(state?.inventory.wood).toBe(5);
     expect(state?.world.seed).toBe(2042);
-    expect(storage.getItem(SAVE_KEY)).toContain('"schemaVersion":3');
+    expect(storage.getItem(SAVE_KEY)).toContain('"schemaVersion":4');
   });
 });
