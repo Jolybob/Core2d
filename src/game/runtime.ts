@@ -44,7 +44,7 @@ export class GameRuntime {
     });
     for (let y = center.y - INITIAL_CHUNK_RADIUS; y <= center.y + INITIAL_CHUNK_RADIUS; y += 1) {
       for (let x = center.x - INITIAL_CHUNK_RADIUS; x <= center.x + INITIAL_CHUNK_RADIUS; x += 1) {
-        this.worldRuntime.chunks.load({ x, y });
+        this.worldRuntime.loadChunk({ x, y });
       }
     }
     this.farming = new FarmingSystem(this.store, this.events, this.worldRuntime);
