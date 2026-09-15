@@ -1,4 +1,4 @@
-export const VERSION='0.5.26';
+export const VERSION='0.5.27';
 document.title=`v${VERSION} — Core2D`;
 const version=document.querySelector<HTMLElement>('.brand-version');
 if(version)version.textContent=`v${VERSION}`;
