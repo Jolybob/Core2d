@@ -34,7 +34,10 @@ describe('GameRuntime', () => {
     expect(runtime.dispatch({ type: 'BUY_SEEDS' })).toBe(true);
     expect(runtime.dispatch({ type: 'CRAFT', recipe: 'torch' })).toBe(true);
     expect(runtime.dispatch({ type: 'DAMAGE', amount: 15 })).toBe(false);
-    runtime.store.update((state) => { state.player.health = 80; });
+    runtime.store.update((state) => {
+      state.player.health = 80;
+      state.player.hunger = 70;
+    });
     expect(runtime.dispatch({ type: 'DAMAGE', amount: 15 })).toBe(false);
     expect(runtime.dispatch({ type: 'EAT', item: 'berry' })).toBe(true);
 
@@ -43,7 +46,7 @@ describe('GameRuntime', () => {
     expect(after.inventory.seeds).toBe(before.inventory.seeds + 5);
     expect(after.inventory.torch).toBe(before.inventory.torch + 3);
     expect(after.player.health).toBe(65);
-    expect(after.player.hunger).toBeGreaterThan(0);
+    expect(after.player.hunger).toBeGreaterThan(70);
   });
 
   it('rejects movement into the domain collision area', () => {
