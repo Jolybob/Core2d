@@ -65,7 +65,7 @@ function isCalendar(value: unknown): boolean {
     && (value['weather'] === 'Sunny' || value['weather'] === 'Rainy' || value['weather'] === 'Cloudy');
 }
 
-function isPlayer(value: unknown): boolean {
+function isPlayer(value: unknown): value is GameState['player'] {
   if (!isObject(value)) return false;
   return isFiniteNonNegative(value['x']) && isFiniteNonNegative(value['y'])
     && isBoundedNumber(value['health'], 0, 100)
@@ -83,7 +83,7 @@ function isEconomy(value: unknown): boolean {
     && isFiniteNonNegative(value['totalHarvests']);
 }
 
-function isPlayerSave(value: unknown): boolean {
+function isPlayerSave(value: unknown): value is SaveData['player'] {
   if (!isObject(value)) return false;
   return isPlayer(value['player']) && isInventory(value['inventory'])
     && Array.isArray(value['quests']) && value['quests'].every(isQuest)
@@ -135,8 +135,8 @@ function migrateLegacyState(old: Record<string, unknown>): GameState {
   const readPlayerNumber = (key: string, fallback: number, min = 0): number =>
     normalizeLegacyNumber(player[key], normalizeLegacyNumber(legacyPlayer[key], fallback, min), min);
 
-  const chunks = isObject(world['chunks'])
-    ? Object.fromEntries(Object.entries(world['chunks']).filter(([, chunk]) => isChunkPersistence(chunk)))
+  const chunks: Record<string, ChunkPersistence> = isObject(world['chunks'])
+    ? Object.fromEntries(Object.entries(world['chunks']).filter(([, chunk]) => isChunkPersistence(chunk))) as Record<string, ChunkPersistence>
     : {};
 
   return {
@@ -193,13 +193,7 @@ export function migrateSave(raw: unknown): GameState | null {
   }
 
   const schema = raw['schemaVersion'];
-  if (schema === 4 && isObject(raw['state'])) {
-    // v4 already used the complete GameState shape. Validate it strictly so
-    // malformed saves cannot be silently repaired into a playable state.
-    return isGameState(raw['state']) ? raw['state'] : null;
-  }
-
-  if ((schema === 3 || schema === 2 || schema === 1) && isObject(raw['state'])) {
+  if ((schema === 4 || schema === 3 || schema === 2 || schema === 1) && isObject(raw['state'])) {
     const candidate = migrateLegacyState(raw['state']);
     return isGameState(candidate) ? candidate : null;
   }
