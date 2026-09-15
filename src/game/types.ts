@@ -1,3 +1,5 @@
+import type { EntityRegistryState } from './entity';
+
 export const TOOL_IDS = ['hoe', 'seeds', 'water', 'axe', 'pick', 'sword', 'rod'] as const;
 export type ToolId = typeof TOOL_IDS[number];
 
@@ -47,6 +49,7 @@ export interface WorldState {
   seed: number;
   crops: Record<string, CropState>;
   removedResources: Record<string, 'tree' | 'rock'>;
+  entities: EntityRegistryState;
 }
 
 export interface EconomyState {
@@ -65,6 +68,6 @@ export interface GameState {
 }
 
 export interface SaveData {
-  schemaVersion: 3;
+  schemaVersion: 4;
   state: GameState;
 }
