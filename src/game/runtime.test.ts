@@ -30,8 +30,8 @@ describe('GameRuntime', () => {
   it('does not report mining or chopping a removed resource as successful', () => {
     const runtime = new GameRuntime();
 
-    expect(runtime.dispatch({ type: 'MINE', resourceKey: 'rock:1,1', ore: false })).toBe(true);
-    expect(runtime.dispatch({ type: 'MINE', resourceKey: 'rock:1,1', ore: false })).toBe(false);
+    expect(runtime.dispatch({ type: 'MINE', resourceKey: 'rock:1,1' })).toBe(true);
+    expect(runtime.dispatch({ type: 'MINE', resourceKey: 'rock:1,1' })).toBe(false);
     expect(runtime.dispatch({ type: 'CHOP', resourceKey: 'tree:1,1' })).toBe(true);
     expect(runtime.dispatch({ type: 'CHOP', resourceKey: 'tree:1,1' })).toBe(false);
   });
