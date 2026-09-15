@@ -8,10 +8,10 @@ type ReadonlyDeep<T> = T extends (...args: never[]) => unknown
       ? { readonly [K in keyof T]: ReadonlyDeep<T[K]> }
       : T;
 
-type Listener = (state: GameState) => void;
-type Selector<T> = (state: GameState) => T;
+type Listener = (state: ReadonlyDeep<GameState>) => void;
+type Selector<T> = (state: ReadonlyDeep<GameState>) => T;
 type ReadSelector<T> = (state: ReadonlyDeep<GameState>) => T;
-type SelectedListener<T> = (selected: T, state: GameState) => void;
+type SelectedListener<T> = (selected: T, state: ReadonlyDeep<GameState>) => void;
 type Equality<T> = (previous: T, next: T) => boolean;
 
 type Subscription = {
