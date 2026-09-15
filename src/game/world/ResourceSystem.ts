@@ -1,13 +1,13 @@
 import type { DomainEventBus } from '../events';
 import type { GameState } from '../types';
 import type { GameStatePort } from '../store-ports';
-import { WorldRuntime } from './runtime';
+import { WorldRuntime, type ComponentValue } from './runtime';
 import { CHUNK_SIZE, chunkKey, seededUnit, worldToChunk, type ChunkCoord } from './chunks';
 import { TILE_SIZE } from './WorldSystem';
 
 export type ResourceType = 'tree' | 'rock';
 export interface ResourceNode { key: string; type: ResourceType; x: number; y: number; ore: boolean; }
-interface ResourceComponent { key: string; type: ResourceType; ore: boolean; }
+type ResourceComponent = ComponentValue & { key: string; type: ResourceType; ore: boolean };
 export type WorldRuntimeFactory = (state: GameState) => WorldRuntime;
 
 const INTERACTION_RANGE = 4;
