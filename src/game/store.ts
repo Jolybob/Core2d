@@ -1,4 +1,5 @@
 import type { GameState, InventoryState } from './types';
+import { createInitialInventoryLayout } from './systems/InventorySystem';
 
 export type ReadonlyDeep<T> = T extends (...args: never[]) => unknown ? T : T extends readonly (infer U)[] ? readonly ReadonlyDeep<U>[] : T extends object ? { readonly [K in keyof T]: ReadonlyDeep<T[K]> } : T;
 type Listener = (state: ReadonlyDeep<GameState>) => void;
@@ -54,6 +55,7 @@ const inventory = (): InventoryState => ({ wood: 12, stone: 10, ore: 8, crystal:
 export const createInitialState = (): GameState => ({
   player: { x: 35 * 24 + 12, y: 27 * 24 + 12, health: 100, stamina: 100, hunger: 100, money: 120, pickaxeLevel: 1, tool: 'hoe' },
   inventory: inventory(),
+  inventoryLayout: createInitialInventoryLayout(),
   quests: [
     { id: 'harvest', title: 'First Harvest', need: 3, progress: 0, reward: 100, done: false },
     { id: 'copper', title: 'Copper Collector', need: 10, progress: 0, reward: 150, done: false },
