@@ -1,25 +1,26 @@
-# Core2D architecture rules
+# Game Architecture Rules
 
-1. `main.ts` is the composition root: it wires Phaser, the domain runtime and the DOM UI.
+1. `main.ts` is the composition root for Phaser, the domain runtime, and DOM UI.
 2. Phaser is an adapter/runtime, not the domain model.
-3. `GameState` is the single source of truth for persistent gameplay state; Phaser GameObjects are views.
+3. `GameState` is the single source of truth; Phaser GameObjects are views.
 4. Systems contain game rules and must not import Phaser or DOM APIs.
-5. Static item, recipe and tool definitions live in `catalog.ts`.
+5. Static item, recipe, and tool definitions live in `catalog.ts`.
 6. All gameplay actions enter through `GameCommand` and `GameRuntime.dispatch()`.
-7. UI renders from `GameStore.subscribe()` and dispatches typed commands; it must not use `CustomEvent` or `MutationObserver` for state synchronization.
-8. Persistence owns save keys, schema validation and migration boundaries; schema v3 saves are fully validated before use.
-9. Phaser Scene listeners must be released on `shutdown`/`destroy` so a scene can restart safely.
-10. Domain systems are unit-testable without Phaser, DOM or browser rendering.
-11. The first inventory row is the canonical quickbar; there is no second quickbar data model.
-12. Vite builds only the source entry into `dist`; build scripts must not mutate gameplay source files.
-13. World collision is a domain rule owned by `WorldSystem`; Phaser must not decide whether movement is legal.
-14. Resource definitions, generation, target lookup, yields and depletion are domain responsibilities owned by `ResourceSystem`.
-15. Phaser resource GameObjects are views of domain resources and must not carry authoritative gameplay state.
-16. Spatial resource commands use world coordinates (`MINE_AT` / `CHOP_AT`); the renderer must not resolve resource identities.
-17. `GameRuntime` is the runtime/composition boundary; command dispatch is delegated to `GameCommandHandler` rather than implemented in the runtime container.
-18. Player movement, tool selection and player consumables belong to `PlayerSystem`; shipping and buying belong to `EconomySystem`; combat rules belong to `CombatSystem`.
-19. Loading a save must rebuild derived resource views from the loaded world seed and removed-resource state.
-20. Domain systems publish meaningful domain events for cross-system reactions instead of holding direct references to unrelated systems.
-21. Domain events are past-tense facts such as `CROP_HARVESTED`, `ORE_MINED` and `FISH_CAUGHT`; they must carry only the context subscribers need.
-22. `DomainEventBus` is an in-process domain boundary; event subscribers must unsubscribe when their lifecycle ends, and events must not replace explicit command sequencing where ordering is required.
-23. `GameRuntime` owns dependency composition; `GameCommandHandler` receives explicit system dependencies so command routing can be tested independently from Phaser and runtime construction.
+7. UI renders from `GameStore.subscribe()` and dispatches typed commands; do not use CustomEvent/MutationObserver for state synchronization.
+8. Persistence owns save keys, schema validation, migration, and normalization; schema v3 is fully validated.
+9. Phaser Scene listeners must be released on shutdown/destroy.
+10. Domain systems must be unit-testable without Phaser, DOM, or browser rendering.
+11. The first inventory row is the canonical quickbar.
+12. Vite builds only the source entry into `dist`; build scripts must not mutate gameplay source.
+13. World collision is a domain rule in `WorldSystem`; Phaser does not decide legal movement.
+14. Resource definitions, generation, target lookup, yields, and depletion belong to `ResourceSystem`.
+15. Phaser resource GameObjects are views, not authoritative state.
+16. Spatial resource commands use world coordinates; the renderer does not resolve resource identities.
+17. `GameRuntime` is the runtime/composition boundary; command dispatch is delegated to `GameCommandHandler`.
+18. Player movement, tools, and consumables belong to `PlayerSystem`; shipping/buying belongs to `EconomySystem`; combat belongs to `CombatSystem`.
+19. Loading a save rebuilds derived resource views from the seed and removed-resource state.
+20. Domain systems publish meaningful domain events instead of holding direct references to unrelated systems.
+21. Domain events are past-tense facts such as `CROP_HARVESTED`, `ORE_MINED`, and `FISH_CAUGHT`, carrying only necessary context.
+22. `DomainEventBus` is an in-process boundary; subscribers unsubscribe, and events do not replace explicit command sequencing.
+23. `GameRuntime` owns dependency composition; `GameCommandHandler` receives explicit system dependencies so command routing is independently testable.
+24. `GameStore` owns commit/notification flow. A mutation creates exactly one committed state snapshot, and notification reuses that snapshot instead of cloning the whole state again. `getState()` remains the explicit isolation boundary for callers that need an independent mutable snapshot.
