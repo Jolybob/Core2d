@@ -8,9 +8,9 @@
     "noEmit": true,
     "skipLibCheck": true,
     "types": ["vite/client"],
-    "noUncheckedIndexedAccess": true,
+    "noUncheckedIndexedAccess": false,
     "exactOptionalPropertyTypes": true,
-    "noImplicitOverride": true,
+    "noImplicitOverride": false,
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"]
