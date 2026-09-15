@@ -6,15 +6,16 @@ export class CraftingSystem {
   constructor(private readonly store: GameStore) {}
 
   canCraft(recipeId: RecipeId): boolean {
-    const state = this.store.getState();
-    if (recipeId === 'copperPickaxe' && state.player.pickaxeLevel >= 2) return false;
-    if (recipeId === 'sword' && state.inventory.sword > 0) return false;
-    if (recipeId === 'fishingRod' && state.inventory.rod > 0) return false;
-    if (recipeId === 'healingSalve' && (state.player.pickaxeLevel < 2 || state.inventory.salve > 0)) return false;
+    const player = this.store.select((state) => state.player);
+    const inventory = this.store.select((state) => state.inventory);
+    if (recipeId === 'copperPickaxe' && player.pickaxeLevel >= 2) return false;
+    if (recipeId === 'sword' && inventory.sword > 0) return false;
+    if (recipeId === 'fishingRod' && inventory.rod > 0) return false;
+    if (recipeId === 'healingSalve' && (player.pickaxeLevel < 2 || inventory.salve > 0)) return false;
     const recipe = RECIPES[recipeId];
     return ITEM_IDS.every((item: ItemId) => {
       const amount = recipe.costs[item];
-      return amount === undefined || state.inventory[item] >= amount;
+      return amount === undefined || inventory[item] >= amount;
     });
   }
 
