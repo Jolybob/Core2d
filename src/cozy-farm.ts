@@ -1,9 +1,8 @@
 import Phaser from 'phaser';
 import { appRuntime } from './game/app-runtime';
-import { WORLD_HEIGHT, WORLD_WIDTH } from './game/world/WorldSystem';
 import { FarmInputController } from './cozy-farm-input';
 import { FarmRenderer } from './cozy-farm-renderer';
-import { buildFarmWorld, TILE, type ResourceView } from './cozy-farm-world';
+import { buildFarmWorld, TILE, type FarmWorldRenderer, type ResourceView } from './cozy-farm-world';
 
 export class CozyFarm extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
@@ -13,6 +12,7 @@ export class CozyFarm extends Phaser.Scene {
   private resources: ResourceView[] = [];
   private inputController!: FarmInputController;
   private farmRenderer!: FarmRenderer;
+  private worldRenderer!: FarmWorldRenderer;
   private unsubscribe: (() => void) | undefined;
 
   constructor() {
@@ -23,6 +23,7 @@ export class CozyFarm extends Phaser.Scene {
     const state = appRuntime.store.getState();
 
     this.resources = buildFarmWorld(this);
+    this.worldRenderer = (this as Phaser.Scene & { farmWorldRenderer?: FarmWorldRenderer }).farmWorldRenderer!;
     this.player = this.add.rectangle(state.player.x, state.player.y, 16, 20, 0xe7c48f).setDepth(20);
     this.target = this.add.rectangle(state.player.x, state.player.y, 24, 24, 0xffffff, 0)
       .setStrokeStyle(1, 0xfff0b5)
@@ -46,7 +47,6 @@ export class CozyFarm extends Phaser.Scene {
     this.events.once('destroy', this.cleanup, this);
 
     this.farmRenderer.renderState(state);
-    this.cameras.main.setBounds(0, 0, WORLD_WIDTH * TILE, WORLD_HEIGHT * TILE);
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
   }
 
@@ -63,6 +63,7 @@ export class CozyFarm extends Phaser.Scene {
       Math.floor(state.player.x / TILE) * TILE + 12,
       Math.floor(state.player.y / TILE) * TILE + 12,
     );
+    this.worldRenderer.sync(state.player.x, state.player.y);
     this.farmRenderer.updateNight(state.calendar.clock);
   }
 
@@ -73,6 +74,7 @@ export class CozyFarm extends Phaser.Scene {
   private cleanup(): void {
     this.unsubscribe?.();
     this.unsubscribe = undefined;
+    this.worldRenderer?.destroy();
     this.farmRenderer?.destroy();
   }
 }
