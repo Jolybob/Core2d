@@ -26,10 +26,19 @@ function isQuest(value: unknown): boolean {
 
 function isEntityRegistry(value: unknown): value is EntityRegistryState {
   if (!isObject(value) || !isObject(value['entities'])) return false;
-  return Object.entries(value['entities']).every(([id, entity]) =>
+  const validEntities = Object.entries(value['entities']).every(([id, entity]) =>
     id.length > 0 && isObject(entity) && entity['id'] === id
       && typeof entity['kind'] === 'string' && entity['kind'].length > 0,
   );
+  if (!validEntities) return false;
+
+  const components = value['components'];
+  if (components === undefined) return true;
+  if (!isObject(components)) return false;
+  return Object.entries(components).every(([id, entityComponents]) => {
+    if (!isObject(entityComponents) || !isObject(value['entities']) || !(id in value['entities'])) return false;
+    return Object.values(entityComponents).every((component) => isObject(component));
+  });
 }
 
 function isChunkPersistence(value: unknown): value is ChunkPersistence {
