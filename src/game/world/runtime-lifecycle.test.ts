@@ -4,18 +4,19 @@ import { GameRuntime } from '../runtime';
 import { GameStore, createInitialState } from '../store';
 import { ResourceSystem } from './ResourceSystem';
 import { WorldRuntime } from './runtime';
+import { rehydrateWorld } from './runtime-persistence';
 
 describe('WorldRuntime lifecycle', () => {
-  it('rebinds the runtime to a newly loaded world without replacing the runtime instance', () => {
+  it('rehydrates a runtime to a newly loaded world without replacing the runtime instance', () => {
     const first = createInitialState();
     const second = createInitialState();
     second.world.seed = 99;
     const runtime = new WorldRuntime(first.world);
     const entity = runtime.createEntity('npc', { position: { x: 4, y: 5 } });
 
-    runtime.rehydrate(second.world);
+    rehydrateWorld(runtime, second);
 
-    expect(runtime.world).toBe(second.world);
+    expect(runtime.exportWorld()).toBe(second.world);
     expect(runtime.entities.has(entity)).toBe(false);
     expect(runtime.spatial.at({ x: 4, y: 5 })).not.toContain(entity);
   });
@@ -37,16 +38,17 @@ describe('WorldRuntime lifecycle', () => {
     const events = new DomainEventBus();
     const runtime = new WorldRuntime(store.getState().world);
     const resources = new ResourceSystem(store, events, runtime);
-    const firstSeed = store.getState().world.seed;
+    const firstSeed = runtime.readPersistence((world) => world.seed);
 
     store.update((state) => {
       state.world.seed = firstSeed + 1;
       state.world.entities.entities = {};
       state.world.entities.components = {};
     });
+    rehydrateWorld(runtime, store.getState());
     resources.hydrateFromPersistence();
 
-    expect(runtime.world.seed).toBe(firstSeed + 1);
+    expect(runtime.readPersistence((world) => world.seed)).toBe(firstSeed + 1);
     expect(runtime.query.with('resource', 'position').length).toBeGreaterThan(0);
   });
 });
