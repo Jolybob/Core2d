@@ -2,6 +2,7 @@ import type { ConsumableId, PlayerState, ToolId } from '../types';
 import type { GameStatePort } from '../store-ports';
 import { createEntityId, type EntityId } from '../entity';
 import { WorldRuntime } from '../world/runtime';
+import type { WorldSystem } from '../world/WorldSystem';
 
 const isFiniteNonNegative = (value: number): boolean => Number.isFinite(value) && value >= 0;
 
@@ -11,11 +12,19 @@ const PLAYER_ENTITY_ID = createEntityId('player');
 
 export class PlayerSystem {
   private playerId: EntityId;
+  private readonly runtime: WorldRuntime;
 
+  constructor(store: GameStatePort, runtime: WorldRuntime);
+  /** @deprecated Use the WorldRuntime constructor. Kept for existing adapters/tests during migration. */
+  constructor(store: GameStatePort, world: WorldSystem, runtime: WorldRuntime);
   constructor(
     private readonly store: GameStatePort,
-    private readonly runtime: WorldRuntime,
+    runtimeOrWorld: WorldRuntime | WorldSystem,
+    compatibilityRuntime?: WorldRuntime,
   ) {
+    this.runtime = compatibilityRuntime ?? (runtimeOrWorld instanceof WorldRuntime
+      ? runtimeOrWorld
+      : new WorldRuntime(this.store.getState().world));
     this.playerId = this.ensureEntity();
     this.refresh();
     this.persist();
