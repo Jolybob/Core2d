@@ -1,60 +1,148 @@
 import type { DomainEventBus } from '../events';
 import type { GameStatePort } from '../store-ports';
 import type { CropState } from '../types';
+import type { EntityId } from '../entity';
+import { WorldRuntime } from '../world/runtime';
 
+interface CropComponent extends CropState {
+  key: string;
+}
+
+const isCropComponent = (value: Record<string, unknown>): value is CropComponent =>
+  typeof value.key === 'string'
+  && typeof value.stage === 'number'
+  && Number.isFinite(value.stage)
+  && typeof value.watered === 'boolean'
+  && typeof value.tilled === 'boolean';
+
+const cropEntityId = (key: string): EntityId => `crop-${encodeURIComponent(key)}` as EntityId;
+
+const positionFromKey = (key: string): { x: number; y: number } | undefined => {
+  const match = /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(key);
+  if (!match) return undefined;
+  const x = Number(match[1]);
+  const y = Number(match[2]);
+  return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
+};
+
+/**
+ * Crop simulation is ECS-authoritative. world.crops remains a compatibility mirror while
+ * callers migrate to entity queries; persisted ECS components make crop state durable.
+ */
 export class FarmingSystem {
-  constructor(private readonly store: GameStatePort, private readonly events: DomainEventBus) {}
+  constructor(
+    private readonly store: GameStatePort,
+    private readonly events: DomainEventBus,
+    private readonly runtime?: WorldRuntime,
+  ) {}
 
   till(key: string): boolean {
-    if (this.store.select((state) => Boolean(state.world.crops[key]))) return false;
-    this.store.update((state) => {
-      state.world.crops[key] = { stage: 0, watered: false, tilled: true };
-    });
+    this.syncFromState();
+    if (this.getComponent(key)) return false;
+    this.setCrop(key, { stage: 0, watered: false, tilled: true });
+    this.syncToState();
     return true;
   }
 
   plant(key: string): boolean {
-    const current = this.store.select((state) => state.world.crops[key]);
+    this.syncFromState();
+    const current = this.getComponent(key);
     if (!current || !current.tilled || current.stage > 0) return false;
     if (this.store.select((state) => state.inventory.seeds) < 1) return false;
-    this.store.update((state) => {
-      state.inventory.seeds -= 1;
-      state.world.crops[key] = { stage: 1, watered: false, tilled: true };
-    });
+    this.store.update((state) => { state.inventory.seeds -= 1; });
+    this.setCrop(key, { stage: 1, watered: false, tilled: true });
+    this.syncToState();
     return true;
   }
 
   water(key: string): boolean {
-    const current = this.store.select((state) => state.world.crops[key]);
+    this.syncFromState();
+    const current = this.getComponent(key);
     if (!current || !current.tilled || current.stage < 1) return false;
-    this.store.update((state) => {
-      const crop = state.world.crops[key];
-      if (crop) state.world.crops[key] = { stage: crop.stage, watered: true, tilled: crop.tilled };
-    });
+    this.setCrop(key, { stage: current.stage, watered: true, tilled: current.tilled });
+    this.syncToState();
     return true;
   }
 
   grow(): void {
-    this.store.update((state) => {
-      for (const [key, crop] of Object.entries(state.world.crops)) {
-        if (crop.watered && crop.stage > 0 && crop.stage < 3) state.world.crops[key] = { stage: crop.stage + 1, watered: false, tilled: crop.tilled };
-      }
-    });
+    this.syncFromState();
+    for (const entity of this.runtime?.query.with('crop') ?? []) {
+      const crop = this.runtime?.components.get<CropComponent>('crop', entity.id);
+      if (!crop || !crop.watered || crop.stage <= 0 || crop.stage >= 3) continue;
+      this.runtime?.setComponent(entity.id, 'crop', {
+        ...crop,
+        stage: crop.stage + 1,
+        watered: false,
+      });
+    }
+    this.syncToState();
   }
 
   harvest(key: string): boolean {
-    const crop = this.store.select((state) => state.world.crops[key]);
+    this.syncFromState();
+    const crop = this.getComponent(key);
     if (!crop || crop.stage < 3) return false;
+    if (this.runtime) this.runtime.removeEntity(cropEntityId(key));
     this.store.update((state) => {
       state.inventory.parsnip += 1;
       state.economy.totalHarvests += 1;
-      delete state.world.crops[key];
     });
+    this.syncToState();
     this.events.publish({ type: 'CROP_HARVESTED', key });
     return true;
   }
 
   getCrop(key: string): CropState | undefined {
-    return this.store.select((state) => state.world.crops[key]);
+    this.syncFromState();
+    const crop = this.getComponent(key);
+    return crop ? { stage: crop.stage, watered: crop.watered, tilled: crop.tilled } : undefined;
+  }
+
+  private getComponent(key: string): CropComponent | undefined {
+    if (!this.runtime) {
+      const crop = this.store.select((state) => state.world.crops[key]);
+      return crop ? { key, ...crop } : undefined;
+    }
+    const value = this.runtime.components.get<CropComponent>('crop', cropEntityId(key));
+    return value && isCropComponent(value) ? value : undefined;
+  }
+
+  private setCrop(key: string, crop: CropState): void {
+    if (!this.runtime) {
+      this.store.update((state) => { state.world.crops[key] = { ...crop }; });
+      return;
+    }
+    const id = cropEntityId(key);
+    if (!this.runtime.entities.has(id)) this.runtime.entities.add({ id, kind: 'crop' });
+    this.runtime.setComponent(id, 'crop', { key, ...crop });
+    const position = positionFromKey(key);
+    if (position) this.runtime.setComponent(id, 'position', position);
+  }
+
+  private syncFromState(): void {
+    if (!this.runtime) return;
+    const crops = this.store.select((state) => state.world.crops);
+    const stateKeys = new Set(Object.keys(crops));
+    for (const entity of this.runtime.query.with('crop')) {
+      const component = this.runtime.components.get<CropComponent>('crop', entity.id);
+      if (!component || !stateKeys.has(component.key)) this.runtime.removeEntity(entity.id);
+    }
+    for (const [key, crop] of Object.entries(crops)) {
+      const id = cropEntityId(key);
+      const current = this.runtime.components.get<CropComponent>('crop', id);
+      const next = { key, ...crop };
+      if (!current || JSON.stringify(current) !== JSON.stringify(next)) this.setCrop(key, crop);
+    }
+  }
+
+  private syncToState(): void {
+    if (!this.runtime) return;
+    const crops: Record<string, CropState> = {};
+    for (const entity of this.runtime.query.with('crop')) {
+      const crop = this.runtime.components.get<CropComponent>('crop', entity.id);
+      if (!crop || !isCropComponent(crop)) continue;
+      crops[crop.key] = { stage: crop.stage, watered: crop.watered, tilled: crop.tilled };
+    }
+    this.store.update((state) => { state.world.crops = crops; });
   }
 }
