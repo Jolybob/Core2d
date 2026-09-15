@@ -11,6 +11,7 @@ import { FishingSystem } from './systems/FishingSystem';
 import { PlayerSystem } from './systems/PlayerSystem';
 import { QuestSystem } from './systems/QuestSystem';
 import { ResourceSystem } from './world/ResourceSystem';
+import { WorldRuntime } from './world/runtime';
 import { WorldSystem } from './world/WorldSystem';
 
 export class GameRuntime {
@@ -25,7 +26,7 @@ export class GameRuntime {
   readonly day = new DaySystem(this.store, this.farming);
   readonly world = new WorldSystem();
   readonly player = new PlayerSystem(this.store, this.world);
-  readonly resources = new ResourceSystem(this.store, this.events);
+  readonly resources = new ResourceSystem(this.store, this.events, (state) => new WorldRuntime(state.world));
   private readonly commandHandler = new GameCommandHandler({
     store: this.store,
     combat: this.combat,
@@ -37,6 +38,14 @@ export class GameRuntime {
     player: this.player,
     resources: this.resources,
   });
+
+  /**
+   * Returns an ECS view over the current transactional game state.
+   * A fresh view is intentional: GameStore transactions replace immutable snapshots.
+   */
+  get worldRuntime(): WorldRuntime {
+    return new WorldRuntime(this.store.getState().world);
+  }
 
   dispatch(command: GameCommand): boolean {
     return this.commandHandler.dispatch(command);
