@@ -74,7 +74,16 @@ export class ChunkManager {
   private readonly cache: ChunkCache;
   private readonly loaded = new Set<ChunkKey>();
   constructor(private world: WorldState, generator: ChunkGenerator = defaultChunkGenerator) { this.cache = new ChunkCache(generator); }
-  bindWorld(world: WorldState): void { this.world = world; this.cache.clear(); this.loaded.clear(); }
+  bindWorld(world: WorldState, preserveLoaded = false): void {
+    const loaded = preserveLoaded ? [...this.loaded] : [];
+    this.world = world;
+    this.cache.clear();
+    this.loaded.clear();
+    for (const key of loaded) {
+      const [x, y] = key.split(',').map(Number);
+      if (Number.isFinite(x) && Number.isFinite(y)) this.load({ x, y });
+    }
+  }
   load(coord: ChunkCoord): GeneratedChunk { const key = chunkKey(coord); const chunk = this.getGenerated(coord); this.loaded.add(key); return chunk; }
   unload(coord: ChunkCoord): void { const key = chunkKey(coord); this.loaded.delete(key); this.cache.unload(coord); }
   isLoaded(coord: ChunkCoord): boolean { return this.loaded.has(chunkKey(coord)); }
@@ -98,7 +107,7 @@ export class WorldRuntime {
   constructor(private _world: WorldState, generator?: ChunkGenerator) { this.chunks = new ChunkManager(_world, generator); this.query = new WorldQuery(this.entities, this.components, this.chunkEntities); this.hydrate(); }
   get world(): WorldState { return this._world; }
   canMove(x: number, y: number): boolean { if (!Number.isFinite(x) || !Number.isFinite(y)) return false; const tileX = Math.floor(x / TILE_SIZE); const tileY = Math.floor(y / TILE_SIZE); if (tileX >= HOME_MIN_X && tileX <= HOME_MAX_X && tileY >= HOME_MIN_Y && tileY <= HOME_MAX_Y) return false; const tile = this.chunks.getTile(tileX, tileY); return tile !== 'blocked' && tile !== 'water'; }
-  rehydrate(world: WorldState): void { this._world = world; this.entities.clear(); this.components.clear(); this.spatial.clear(); this.chunkEntities.clear(); this.mutations.drain(); this.chunks.bindWorld(world); this.hydrate(); }
+  rehydrate(world: WorldState): void { this._world = world; this.entities.clear(); this.components.clear(); this.spatial.clear(); this.chunkEntities.clear(); this.mutations.drain(); this.chunks.bindWorld(world, true); this.hydrate(); }
   private hydrate(): void { for (const entity of Object.values(this._world.entities.entities)) this.entities.add(entity); for (const [id, components] of Object.entries(this._world.entities.components ?? {})) { if (!this.entities.has(id as EntityId)) continue; for (const [name, value] of Object.entries(components)) this.setComponent(id as EntityId, name, value); } }
   createEntity(kind: string, components: Record<ComponentName, ComponentValue> = {}): EntityId { const id = this.entities.create(kind); for (const [name, value] of Object.entries(components)) this.setComponent(id, name, value); this._world.entities.entities[id] = { id, kind }; return id; }
   ensureEntity(id: EntityId, kind: string, components: Record<ComponentName, ComponentValue> = {}): EntityId { if (!this.entities.has(id)) { this.entities.add({ id, kind }); this._world.entities.entities[id] = { id, kind }; } for (const [name, value] of Object.entries(components)) this.setComponent(id, name, value); return id; }
