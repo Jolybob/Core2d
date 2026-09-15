@@ -106,10 +106,9 @@ export class GameRuntime {
 
   private useSalve(): boolean {
     const state = this.store.getState();
-    if (state.inventory.berry < 2 || state.inventory.crystal < 1 || state.player.health >= 100) return false;
+    if (state.inventory.salve < 1 || state.player.health >= 100) return false;
     this.store.update((next) => {
-      next.inventory.berry -= 2;
-      next.inventory.crystal -= 1;
+      next.inventory.salve -= 1;
       next.player.health = Math.min(100, next.player.health + 35);
     });
     return true;
