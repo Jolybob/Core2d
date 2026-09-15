@@ -7,9 +7,7 @@ export type ItemId = typeof ITEM_IDS[number];
 export const RECIPE_IDS = ['copperPickaxe','sword','torch','healingSalve','fishingRod'] as const;
 export type RecipeId = typeof RECIPE_IDS[number];
 
-export interface InventoryState {
-  [item: string]: number;
-}
+export type InventoryState = Record<ItemId, number>;
 
 export interface CropState {
   stage: number;
@@ -57,6 +55,6 @@ export interface GameState {
 }
 
 export interface SaveData {
-  schemaVersion: 1;
+  schemaVersion: 2;
   state: GameState;
 }
