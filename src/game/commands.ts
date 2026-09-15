@@ -15,7 +15,7 @@ export type GameCommand =
   | { type: 'CRAFT'; recipe: RecipeId }
   | { type: 'EAT'; item: ItemId }
   | { type: 'USE_SALVE' }
-  | { type: 'BUY_SEEDS'; cost?: number; amount?: number }
+  | { type: 'BUY_SEEDS' }
   | { type: 'SHIP' }
   | { type: 'DAMAGE'; amount: number }
   | { type: 'SAVE' }
