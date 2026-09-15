@@ -23,7 +23,10 @@ export class GameCommandHandler {
     }
   }
   private dispatchCommand(command: GameCommand): boolean { const { combat, crafting, day, economy, farming, fishing, player, resources } = this.dependencies; switch (command.type) {
-    case 'TICK': if (!isFiniteNonNegative(command.deltaSeconds)) return false; return day.update(command.deltaSeconds);
+    case 'TICK':
+      if (!isFiniteNonNegative(command.deltaSeconds)) return false;
+      combat.update(command.deltaSeconds);
+      return day.update(command.deltaSeconds);
     case 'MOVE': return player.move(command.dx, command.dy, command.sprint, command.deltaSeconds);
     case 'SELECT_TOOL': return player.selectTool(command.tool);
     case 'TILL': return farming.till(command.key);
@@ -44,5 +47,5 @@ export class GameCommandHandler {
     case 'LOAD': return this.load();
   } }
   save(): boolean { try { this.dependencies.player.persist(); this.dependencies.farming.refresh(); const state = this.dependencies.store.getState(); saveGame(state, this.dependencies.worldRuntime); return true; } catch { return false; } }
-  load(): boolean { try { const loaded = loadGame(); if (!loaded) return false; this.dependencies.store.replace(loaded.state); rehydrateWorld(this.dependencies.worldRuntime, loaded.world); this.dependencies.player.refresh(); this.dependencies.farming.refresh(); this.dependencies.resources.refresh(); return true; } catch { return false; } }
+  load(): boolean { try { const loaded = loadGame(); if (!loaded) return false; this.dependencies.store.replace(loaded.state); rehydrateWorld(this.dependencies.worldRuntime, loaded.world); this.dependencies.player.refresh(); this.dependencies.farming.refresh(); this.dependencies.resources.refresh(); this.dependencies.combat.refresh(); return true; } catch { return false; } }
 }
