@@ -2,6 +2,13 @@ import Phaser from 'phaser';
 import { appRuntime } from './game/app-runtime';
 import type { ToolId } from './game/types';
 import { TILE } from './cozy-farm-world';
+import type { ComponentValue } from './game/world/runtime';
+
+type PlayerComponent = ComponentValue & { tool: ToolId };
+type CropComponent = ComponentValue & { key: string; stage: number };
+
+const isPlayerComponent = (value: ComponentValue | undefined): value is PlayerComponent => typeof value?.tool === 'string';
+const isCropComponent = (value: ComponentValue | undefined): value is CropComponent => typeof value?.key === 'string' && typeof value.stage === 'number';
 
 export class FarmInputController {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -44,16 +51,25 @@ export class FarmInputController {
   private actionAt(worldX: number, worldY: number): void {
     if (this.scene.time.now - this.lastAction < 160) return;
     this.lastAction = this.scene.time.now;
-    const state = appRuntime.store.getState();
+    const runtime = appRuntime.worldRuntime;
+    const playerEntity = runtime.query.with('player').find((entity) => entity.kind === 'player');
+    const player = playerEntity ? runtime.components.get('player', playerEntity.id) : undefined;
+    if (!isPlayerComponent(player)) return;
     const x = Math.floor(worldX / TILE);
     const y = Math.floor(worldY / TILE);
     const key = `${x},${y}`;
 
-    switch (state.player.tool) {
-      case 'hoe':
-        if (state.world.crops[key]?.stage === 3) appRuntime.dispatch({ type: 'HARVEST', key });
+    switch (player.tool) {
+      case 'hoe': {
+        const cropEntity = runtime.query.with('crop').find((entity) => {
+          const crop = runtime.components.get('crop', entity.id);
+          return isCropComponent(crop) && crop.key === key;
+        });
+        const crop = cropEntity ? runtime.components.get('crop', cropEntity.id) : undefined;
+        if (isCropComponent(crop) && crop.stage === 3) appRuntime.dispatch({ type: 'HARVEST', key });
         else appRuntime.dispatch({ type: 'TILL', key });
         break;
+      }
       case 'seeds': appRuntime.dispatch({ type: 'PLANT', key }); break;
       case 'water': appRuntime.dispatch({ type: 'WATER', key }); break;
       case 'axe': appRuntime.dispatch({ type: 'CHOP_AT', x, y }); break;
