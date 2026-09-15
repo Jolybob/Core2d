@@ -32,8 +32,13 @@ export class ResourceSystem {
   }
 
   getAll(): ResourceNode[] {
-    const chunks = this.loadedChunks(this.runtime);
-    this.ensureGenerated(this.runtime, chunks);
+    let chunks: ChunkCoord[] = [];
+    this.store.update((state) => {
+      this.runtime.rehydrate(state.world);
+      chunks = this.loadedChunks(this.runtime);
+      this.ensureGenerated(this.runtime, chunks);
+      this.commitRuntime(state, this.runtime);
+    });
     return this.readResources(this.runtime, chunks);
   }
 
@@ -95,6 +100,10 @@ export class ResourceSystem {
     }
 
     for (const chunk of chunks) {
+      const key = chunkKey(chunk);
+      if (!runtime.world.chunks[key]) {
+        runtime.world.chunks[key] = { key, modifiedTiles: {}, removedEntities: {} };
+      }
       for (const resource of this.generateChunk(runtime.world.seed, chunk)) {
         if (existing.has(resource.key) || runtime.world.removedResources[resource.key]) continue;
         runtime.createEntity(`${RESOURCE_KIND_PREFIX}${resource.type}`, {
