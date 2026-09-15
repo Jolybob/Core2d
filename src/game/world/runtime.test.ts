@@ -70,4 +70,35 @@ describe('WorldRuntime', () => {
     expect(runtime.components.has('health', id)).toBe(false);
     expect(runtime.spatial.at({ x: 1, y: 1 })).not.toContain(id);
   });
+
+  it('hydrates and persists ECS components with world entities', () => {
+    const world = createInitialWorldSave(42);
+    const runtime = new WorldRuntime(world);
+    const id = runtime.createEntity('enemy', {
+      position: position(8, 9),
+      health: { health: 20, maxHealth: 20 },
+    });
+
+    expect(world.entities.components?.[id]).toEqual({
+      position: { x: 8, y: 9 },
+      health: { health: 20, maxHealth: 20 },
+    });
+
+    const restored = new WorldRuntime(world);
+    expect(restored.query.one(id, 'position', 'health')?.components).toEqual({
+      position: { x: 8, y: 9 },
+      health: { health: 20, maxHealth: 20 },
+    });
+    expect(restored.spatial.at({ x: 8, y: 9 })).toContain(id);
+  });
+
+  it('removes persisted component data when a component is removed', () => {
+    const world = createInitialWorldSave(42);
+    const runtime = new WorldRuntime(world);
+    const id = runtime.createEntity('enemy', { position: position(2, 2), health: { health: 5, maxHealth: 5 } });
+
+    expect(runtime.removeComponent(id, 'position')).toBe(true);
+    expect(world.entities.components?.[id]).toEqual({ health: { health: 5, maxHealth: 5 } });
+    expect(runtime.spatial.at({ x: 2, y: 2 })).not.toContain(id);
+  });
 });
