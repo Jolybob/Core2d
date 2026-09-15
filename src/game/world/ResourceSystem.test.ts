@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DomainEventBus } from '../events';
 import { GameStore, createInitialState } from '../store';
+import { WorldRuntime } from './runtime';
+import { chunkKey } from './chunks';
 import { ResourceSystem } from './ResourceSystem';
 
 const createResources = () => {
@@ -75,6 +77,20 @@ describe('ResourceSystem', () => {
     const second = createResources().resources.getAll();
 
     expect(second).toEqual(first);
+  });
+
+  it('uses the runtime loaded chunks instead of deriving a player-centered radius', () => {
+    const store = new GameStore(createInitialState());
+    const events = new DomainEventBus();
+    const runtime = new WorldRuntime(store.getState().world);
+    runtime.chunks.load({ x: 12, y: -9 });
+    const resources = new ResourceSystem(store, events, runtime);
+    const nodes = resources.getAll();
+    const loadedKey = chunkKey({ x: 12, y: -9 });
+    const loadedNodes = nodes.filter((node) => chunkKey({ x: Math.floor(node.x / 64), y: Math.floor(node.y / 64) }) === loadedKey);
+
+    expect(loadedNodes.length).toBeGreaterThan(0);
+    expect(Object.keys(store.getState().world.chunks)).toContain(loadedKey);
   });
 
   it('generates resources from nearby chunks instead of a finite world rectangle', () => {
