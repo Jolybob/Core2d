@@ -3,6 +3,10 @@ import type { GameStore } from '../store';
 export class CombatSystem {
   constructor(private readonly store: GameStore) {}
 
+  attack(): boolean {
+    return this.store.getState().inventory.sword > 0;
+  }
+
   damagePlayer(amount: number): boolean {
     let defeated = false;
     this.store.update((state) => {
