@@ -23,9 +23,9 @@
 21. Domain events are past-tense facts such as `CROP_HARVESTED`, `ORE_MINED`, and `FISH_CAUGHT`, carrying only necessary context.
 22. `DomainEventBus` is an in-process boundary; subscribers unsubscribe, and events do not replace explicit command sequencing.
 23. `GameRuntime` owns dependency composition; `GameCommandHandler` receives explicit system dependencies so command routing is independently testable.
-24. `GameStore` owns commit/notification flow. A mutation creates exactly one committed state snapshot, and notification reuses that snapshot instead of cloning the whole state again. `getState()` remains the explicit full-state isolation boundary for callers that need an independent mutable snapshot.
+24. `GameStore` owns application-state commit/notification flow. A mutation creates exactly one committed state snapshot, and notification reuses that snapshot instead of cloning the whole state again. `getState()` remains the explicit full-state isolation boundary for callers that need an independent mutable snapshot.
 25. Save schema, validation, migration, and normalization belong to `save-schema.ts`; `persistence.ts` owns only storage I/O and JSON serialization. Schema logic must remain testable without `localStorage` or browser APIs.
-26. `GameRuntime.dispatch()` executes each command inside one `GameStore.transaction()`. Nested system updates, including domain-event subscribers, share the same draft and produce one atomic commit/notification. Failed transactions roll back without notifying subscribers.
+26. `GameRuntime.dispatch()` executes each command inside one application-state transaction and snapshots `WorldRuntime` before the command. If command execution throws, both application state and world state are rolled back and no application-state notification is committed.
 27. Domain systems use `GameStore.select()` for read-only queries instead of cloning the entire `GameState` with `getState()`. Selectors receive a deeply readonly view and return an isolated selected value, so read access cannot mutate authoritative state and remains cheaper for narrow queries.
 28. `GameStore.subscribe()` is a read-only observation boundary. Listener and selector callbacks receive a deeply readonly `GameState` view, while mutations remain exclusively inside `update()`, `replace()`, and `transaction()`.
 29. World terrain is addressed by `ChunkCoord` and `ChunkKey`; `CHUNK_SIZE` is 64. Systems must not assume a finite global world rectangle.
@@ -40,3 +40,4 @@
 38. `GameRuntime` owns one `WorldRuntime` instance for the live simulation. World-domain systems share that instance; loading a save rehydrates it instead of constructing parallel ECS runtimes.
 39. `WorldRuntime` persistence access is encapsulated: callers use explicit runtime APIs or the dedicated persistence adapter; they must not mutate the runtime's internal world object through returned references.
 40. There is exactly one world authority: `WorldRuntime`. Do not introduce replacement `WorldSystem`, finite-world bounds, parallel chunk managers, or mirrored world state in Phaser/GameStore.
+41. `GameState` contains no world state. The only bridge between application state and world state is the explicit `SaveData` envelope at persistence boundaries.
