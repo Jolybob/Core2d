@@ -1,7 +1,6 @@
 import type { DomainEventBus } from '../events';
 import type { GameState } from '../types';
 import type { GameStatePort } from '../store-ports';
-import type { EntityId } from '../entity';
 import { WorldRuntime } from './runtime';
 import { TILE_SIZE } from './WorldSystem';
 
@@ -21,24 +20,30 @@ interface ResourceComponent {
   ore: boolean;
 }
 
+export type WorldRuntimeFactory = (state: GameState) => WorldRuntime;
+
 const INTERACTION_RANGE = 4;
 const RESOURCE_KIND_PREFIX = 'resource:';
 
 export class ResourceSystem {
-  constructor(private readonly store: GameStatePort, private readonly events: DomainEventBus) {
+  constructor(
+    private readonly store: GameStatePort,
+    private readonly events: DomainEventBus,
+    private readonly createWorldRuntime: WorldRuntimeFactory = (state) => new WorldRuntime(state.world),
+  ) {
     this.refresh();
   }
 
   refresh(): void {
     this.store.update((state) => {
-      const runtime = this.createRuntime(state);
+      const runtime = this.createWorldRuntime(state);
       this.ensureGenerated(runtime);
       this.commitRuntime(state, runtime);
     });
   }
 
   getAll(): ResourceNode[] {
-    const runtime = this.createRuntime(this.store.getState());
+    const runtime = this.createWorldRuntime(this.store.getState());
     this.ensureGenerated(runtime);
     return this.readResources(runtime);
   }
@@ -100,10 +105,6 @@ export class ResourceSystem {
 
   private isRemoved(key: string): boolean {
     return this.store.select((state) => Boolean(state.world.removedResources[key]));
-  }
-
-  private createRuntime(state: GameState): WorldRuntime {
-    return new WorldRuntime(state.world);
   }
 
   private commitRuntime(state: GameState, runtime: WorldRuntime): void {
