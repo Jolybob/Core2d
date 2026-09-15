@@ -48,10 +48,24 @@ describe('GameRuntime', () => {
     expect(rock).toBeDefined();
     if (!tree || !rock) return;
 
+    runtime.store.update((state) => {
+      state.player.x = tree.x * 24;
+      state.player.y = tree.y * 24;
+    });
     expect(runtime.dispatch({ type: 'CHOP_AT', x: tree.x, y: tree.y })).toBe(true);
     expect(runtime.dispatch({ type: 'CHOP_AT', x: tree.x, y: tree.y })).toBe(false);
+
+    runtime.store.update((state) => {
+      state.player.x = rock.x * 24;
+      state.player.y = rock.y * 24;
+    });
     expect(runtime.dispatch({ type: 'MINE_AT', x: rock.x, y: rock.y })).toBe(true);
     expect(runtime.dispatch({ type: 'MINE_AT', x: rock.x, y: rock.y })).toBe(false);
-    expect(runtime.dispatch({ type: 'MINE_AT', x: 1, y: 1 })).toBe(false);
+
+    runtime.store.update((state) => {
+      state.player.x = 1 * 24;
+      state.player.y = 1 * 24;
+    });
+    expect(runtime.dispatch({ type: 'MINE_AT', x: rock.x, y: rock.y })).toBe(false);
   });
 });
