@@ -12,7 +12,6 @@ import { PlayerSystem } from './systems/PlayerSystem';
 import { QuestSystem } from './systems/QuestSystem';
 import { ResourceSystem } from './world/ResourceSystem';
 import { createInitialWorldSave } from './world/world-save';
-import { TILE_SIZE, worldToChunk } from './world/chunks';
 import { WorldRuntime } from './world/runtime';
 
 const INITIAL_CHUNK_RADIUS = 1;
@@ -49,9 +48,7 @@ export class GameRuntime {
   }
 
   startNewGame(): void {
-    const state = this.store.getState();
-    const center = worldToChunk({ x: Math.floor(state.player.x / TILE_SIZE), y: Math.floor(state.player.y / TILE_SIZE) });
-    this.worldRuntime.ensureChunksAroundPixelPosition({ x: state.player.x, y: state.player.y }, INITIAL_CHUNK_RADIUS);
+    this.worldRuntime.ensureChunksAroundPixelPosition({ x: this.store.getState().player.x, y: this.store.getState().player.y }, INITIAL_CHUNK_RADIUS);
     this.combat.refresh();
   }
 
