@@ -1,4 +1,4 @@
-import type { GameState } from './types';
+import type { GameState, InventoryState } from './types';
 
 type Listener = (state: GameState) => void;
 
@@ -8,20 +8,38 @@ export class GameStore {
   constructor(private state: GameState) {}
 
   getState(): GameState {
-    return this.state;
+    return structuredClone(this.state);
   }
 
   update(mutator: (state: GameState) => void): void {
-    mutator(this.state);
-    for (const listener of this.listeners) listener(this.state);
+    const next = structuredClone(this.state);
+    mutator(next);
+    this.state = next;
+    const snapshot = this.getState();
+    for (const listener of this.listeners) listener(snapshot);
   }
 
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
-    listener(this.state);
+    listener(this.getState());
     return () => this.listeners.delete(listener);
   }
 }
+
+const inventory = (): InventoryState => ({
+  wood: 12,
+  ore: 8,
+  stone: 10,
+  crystal: 2,
+  berry: 4,
+  parsnip: 0,
+  seeds: 6,
+  torch: 6,
+  sword: 1,
+  fish: 0,
+  coal: 3,
+  rod: 0,
+});
 
 export const createInitialState = (): GameState => ({
   player: {
@@ -32,20 +50,7 @@ export const createInitialState = (): GameState => ({
     pickaxeLevel: 1,
     tool: 'hoe',
   },
-  inventory: {
-    wood: 12,
-    ore: 8,
-    stone: 10,
-    berry: 4,
-    crystal: 2,
-    seeds: 6,
-    parsnip: 0,
-    torch: 6,
-    sword: 1,
-    fish: 0,
-    coal: 3,
-    rod: 0,
-  },
+  inventory: inventory(),
   quests: [
     { id: 'harvest', title: 'First Harvest', need: 3, progress: 0, reward: 100, done: false },
     { id: 'copper', title: 'Copper Collector', need: 10, progress: 0, reward: 150, done: false },
