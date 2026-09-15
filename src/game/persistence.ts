@@ -25,8 +25,7 @@ function isQuest(value: unknown): boolean {
     && value['progress'] >= 0
     && value['progress'] <= value['need']
     && isFiniteNonNegative(value['reward'])
-    && typeof value['done'] === 'boolean'
-    && (value['done'] ? value['progress'] >= value['need'] : value['progress'] < value['need']);
+    && typeof value['done'] === 'boolean';
 }
 
 function isGameState(value: unknown): value is GameState {
