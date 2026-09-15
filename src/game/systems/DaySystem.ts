@@ -1,4 +1,4 @@
-import type { GameStore } from '../store';
+import type { GameStatePort } from '../store-ports';
 import type { FarmingSystem } from './FarmingSystem';
 
 export const DAY_SECONDS = 150;
@@ -12,7 +12,7 @@ const weatherRoll = (seed: number, day: number): number => {
 };
 
 export class DaySystem {
-  constructor(private readonly store: GameStore, private readonly farming: FarmingSystem) {}
+  constructor(private readonly store: GameStatePort, private readonly farming: FarmingSystem) {}
 
   update(deltaSeconds: number): boolean {
     if (!Number.isFinite(deltaSeconds) || deltaSeconds < 0) return false;
