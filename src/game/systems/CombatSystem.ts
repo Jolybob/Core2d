@@ -1,7 +1,7 @@
-import type { GameStore } from '../store';
+import type { GameStatePort } from '../store-ports';
 
 export class CombatSystem {
-  constructor(private readonly store: GameStore) {}
+  constructor(private readonly store: GameStatePort) {}
 
   attack(): boolean {
     return this.store.select((state) => state.inventory.sword > 0);
