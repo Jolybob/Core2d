@@ -8,7 +8,6 @@ import './version.ts';
 import './ui-fix.ts';
 import { CozyFarm } from './cozy-farm';
 import { MainMenu } from './main-menu';
-import { TilesetEditorScene } from './tileset-editor';
 import { appRuntime } from './game/app-runtime';
 
 export { appRuntime };
@@ -22,5 +21,5 @@ new Phaser.Game({
   pixelArt: true,
   antialias: false,
   scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
-  scene: [MainMenu, CozyFarm, TilesetEditorScene],
+  scene: [MainMenu, CozyFarm],
 });
