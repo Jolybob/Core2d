@@ -32,7 +32,7 @@ describe('WorldRuntime lifecycle', () => {
     );
   });
 
-  it('rehydrates a shared resource runtime from the store on refresh', () => {
+  it('rehydrates a shared resource runtime through the explicit persistence boundary', () => {
     const store = new GameStore(createInitialState());
     const events = new DomainEventBus();
     const runtime = new WorldRuntime(store.getState().world);
@@ -44,7 +44,7 @@ describe('WorldRuntime lifecycle', () => {
       state.world.entities.entities = {};
       state.world.entities.components = {};
     });
-    resources.refresh();
+    resources.hydrateFromPersistence();
 
     expect(runtime.world.seed).toBe(firstSeed + 1);
     expect(runtime.query.with('resource', 'position').length).toBeGreaterThan(0);
