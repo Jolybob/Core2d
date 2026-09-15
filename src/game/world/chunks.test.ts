@@ -23,26 +23,41 @@ describe('world chunks', () => {
     expect(tileKey({ x: 12, y: 9 })).toBe('12,9');
   });
 
-  it('generates identical terrain for the same seed and coordinate', () => {
-    const a = defaultChunkGenerator.generate(2042, { x: 4, y: -3 });
-    const b = defaultChunkGenerator.generate(2042, { x: 4, y: -3 });
+  it('generates identical terrain for the same seed, generator version, and coordinate', () => {
+    const a = defaultChunkGenerator.generate(2042, 1, { x: 4, y: -3 });
+    const b = defaultChunkGenerator.generate(2042, 1, { x: 4, y: -3 });
     expect(a.tiles).toEqual(b.tiles);
+    expect(a.generatorVersion).toBe(1);
     expect(seededUnit(2042, 100, -50)).toBe(seededUnit(2042, 100, -50));
   });
 
   it('changes generation when the world seed changes', () => {
-    const a = defaultChunkGenerator.generate(2042, { x: 4, y: 2 });
-    const b = defaultChunkGenerator.generate(2043, { x: 4, y: 2 });
+    const a = defaultChunkGenerator.generate(2042, 1, { x: 4, y: 2 });
+    const b = defaultChunkGenerator.generate(2043, 1, { x: 4, y: 2 });
+    expect(a.tiles).not.toEqual(b.tiles);
+  });
+
+  it('changes generation when the generator version changes', () => {
+    const a = defaultChunkGenerator.generate(2042, 1, { x: 4, y: 2 });
+    const b = defaultChunkGenerator.generate(2042, 2, { x: 4, y: 2 });
     expect(a.tiles).not.toEqual(b.tiles);
   });
 
   it('caches generated chunks and supports unloading', () => {
     const cache = new ChunkCache();
-    const a = cache.get(2042, { x: 1, y: 2 });
-    const b = cache.get(2042, { x: 1, y: 2 });
+    const a = cache.get(2042, 1, { x: 1, y: 2 });
+    const b = cache.get(2042, 1, { x: 1, y: 2 });
     expect(a).toBe(b);
     expect(cache.has({ x: 1, y: 2 })).toBe(true);
     cache.unload({ x: 1, y: 2 });
     expect(cache.has({ x: 1, y: 2 })).toBe(false);
+  });
+
+  it('does not reuse a chunk when only the generator version changes', () => {
+    const cache = new ChunkCache();
+    const v1 = cache.get(2042, 1, { x: 1, y: 2 });
+    const v2 = cache.get(2042, 2, { x: 1, y: 2 });
+    expect(v2).not.toBe(v1);
+    expect(v2.generatorVersion).toBe(2);
   });
 });
