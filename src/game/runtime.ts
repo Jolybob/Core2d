@@ -65,6 +65,7 @@ export class GameRuntime {
       const state = loadGame();
       if (!state) return false;
       this.store.replace(state);
+      this.resources.refresh();
       return true;
     } catch { return false; }
   }
