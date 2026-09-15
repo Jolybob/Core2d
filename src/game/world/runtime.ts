@@ -96,9 +96,46 @@ export class WorldRuntime {
   canMove(x: number, y: number): boolean { if (!Number.isFinite(x) || !Number.isFinite(y)) return false; const tileX = Math.floor(x / TILE_SIZE); const tileY = Math.floor(y / TILE_SIZE); if (tileX >= HOME_MIN_X && tileX <= HOME_MAX_X && tileY >= HOME_MIN_Y && tileY <= HOME_MAX_Y) return false; const tile = this.chunks.getTile(tileX, tileY); return tile !== 'blocked' && tile !== 'water'; }
   ensureChunksAround(position: PositionComponent, radius: number): void { this.ensureChunksAroundTilePosition(position, radius); }
   ensureChunksAroundPixelPosition(position: PositionComponent, radius: number): void { this.ensureChunksAroundTilePosition({ x: position.x / TILE_SIZE, y: position.y / TILE_SIZE }, radius); }
-  private ensureChunksAroundTilePosition(position: PositionComponent, radius: number): void { if (!Number.isFinite(radius) || radius < 0) return; const center = worldToChunk({ x: Math.floor(position.x), y: Math.floor(position.y) }); const desired = new Set<ChunkKey>(); for (let y = center.y - radius; y <= center.y + radius; y += 1) for (let x = center.x - radius; x <= center.x + radius; x += 1) desired.add(chunkKey({ x, y })); for (const key of [...this.chunks.loadedKeys()]) if (!desired.has(key)) { const parts = key.split(','); const x = Number(parts[0]); const y = Number(parts[1]); if (Number.isFinite(x) && Number.isFinite(y)) this.chunks.unload({ x, y }); } for (const key of desired) { const parts = key.split(','); const x = Number(parts[0]); const y = Number(parts[1]); if (Number.isFinite(x) && Number.isFinite(y)) this.chunks.load({ x, y }); } }
+  private ensureChunksAroundTilePosition(position: PositionComponent, radius: number): void {
+    if (!Number.isFinite(radius) || radius < 0) return;
+    const center = worldToChunk({ x: Math.floor(position.x), y: Math.floor(position.y) });
+    const desired = new Set<ChunkKey>();
+    for (let y = center.y - radius; y <= center.y + radius; y += 1) for (let x = center.x - radius; x <= center.x + radius; x += 1) desired.add(chunkKey({ x, y }));
+    for (const key of [...this.chunks.loadedKeys()]) if (!desired.has(key)) {
+      const coord = this.parseChunkKey(key); if (!coord) continue;
+      this.unloadChunk(coord);
+    }
+    for (const key of desired) {
+      const coord = this.parseChunkKey(key); if (!coord) continue;
+      this.loadChunk(coord);
+    }
+  }
+  loadChunk(coord: ChunkCoord): void {
+    if (this.chunks.isLoaded(coord)) return;
+    this.chunks.load(coord);
+    this.hydrateChunkEntities(coord);
+  }
+  unloadChunk(coord: ChunkCoord): void {
+    if (!this.chunks.isLoaded(coord)) return;
+    const key = chunkKey(coord);
+    const ids = this.chunkEntities.inChunks(new Set([key]));
+    for (const id of ids) this.unloadEntity(id);
+    this.chunks.unload(coord);
+  }
   rehydrate(world: WorldState): void { this._world = world; this.entities.clear(); this.components.clear(); this.spatial.clear(); this.chunkEntities.clear(); this.mutations.drain(); this.chunks.bindWorld(world, true); this.hydrate(); }
   private hydrate(): void { for (const entity of Object.values(this._world.entities.entities)) this.entities.add(entity); for (const [id, components] of Object.entries(this._world.entities.components ?? {})) { if (!this.entities.has(id as EntityId)) continue; for (const [name, value] of Object.entries(components)) this.setComponent(id as EntityId, name, value); } }
+  private hydrateChunkEntities(coord: ChunkCoord): void {
+    const key = chunkKey(coord);
+    for (const [id, entity] of Object.entries(this._world.entities.entities)) {
+      if (this.entities.has(id as EntityId)) continue;
+      const position = this._world.entities.components?.[id]?.position;
+      if (!isPositionComponent(position) || chunkKey(worldToChunk({ x: Math.floor(position.x), y: Math.floor(position.y) })) !== key) continue;
+      this.entities.add(entity);
+      for (const [name, value] of Object.entries(this._world.entities.components?.[id] ?? {})) this.setComponent(id as EntityId, name, value);
+    }
+  }
+  private unloadEntity(id: EntityId): void { this.entities.remove(id); this.components.removeEntity(id); this.spatial.remove(id); this.chunkEntities.remove(id); }
+  private parseChunkKey(key: ChunkKey): ChunkCoord | undefined { const parts = key.split(','); if (parts.length !== 2) return undefined; const x = Number(parts[0]); const y = Number(parts[1]); return Number.isInteger(x) && Number.isInteger(y) ? { x, y } : undefined; }
   createEntity(kind: string, components: Record<ComponentName, ComponentValue> = {}): EntityId { const id = this.entities.create(kind); for (const [name, value] of Object.entries(components)) this.setComponent(id, name, value); this._world.entities.entities[id] = { id, kind }; return id; }
   ensureEntity(id: EntityId, kind: string, components: Record<ComponentName, ComponentValue> = {}): EntityId { if (!this.entities.has(id)) { this.entities.add({ id, kind }); this._world.entities.entities[id] = { id, kind }; } for (const [name, value] of Object.entries(components)) this.setComponent(id, name, value); return id; }
   removeEntity(id: EntityId): boolean { if (!this.entities.remove(id)) return false; this.components.removeEntity(id); this.spatial.remove(id); this.chunkEntities.remove(id); delete this._world.entities.entities[id]; if (this._world.entities.components) delete this._world.entities.components[id]; return true; }
