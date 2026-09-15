@@ -15,5 +15,6 @@ export * from './systems/DaySystem';
 export * from './systems/EconomySystem';
 export * from './systems/FarmingSystem';
 export * from './systems/FishingSystem';
+export * from './systems/InventorySystem';
 export * from './systems/PlayerSystem';
 export * from './systems/QuestSystem';
