@@ -7,6 +7,8 @@ import { DaySystem } from './systems/DaySystem';
 import { EconomySystem } from './systems/EconomySystem';
 import { FarmingSystem } from './systems/FarmingSystem';
 import { FishingSystem } from './systems/FishingSystem';
+import { ResourceSystem } from './world/ResourceSystem';
+import { TILE_SIZE, WORLD_HEIGHT, WORLD_WIDTH, WorldSystem } from './world/WorldSystem';
 import type { ToolId } from './types';
 
 const isFiniteNonNegative = (value: number): boolean => Number.isFinite(value) && value >= 0;
@@ -19,6 +21,8 @@ export class GameRuntime {
   readonly fishing = new FishingSystem(this.store);
   readonly combat = new CombatSystem(this.store);
   readonly day = new DaySystem(this.store, this.farming);
+  readonly world = new WorldSystem();
+  readonly resources = new ResourceSystem(this.store);
 
   dispatch(command: GameCommand): boolean {
     switch (command.type) {
@@ -28,15 +32,14 @@ export class GameRuntime {
         return true;
       case 'MOVE':
         if (!Number.isFinite(command.dx) || !Number.isFinite(command.dy) || !isFiniteNonNegative(command.deltaSeconds)) return false;
-        this.move(command.dx, command.dy, command.sprint, command.deltaSeconds);
-        return true;
+        return this.move(command.dx, command.dy, command.sprint, command.deltaSeconds);
       case 'SELECT_TOOL': return this.selectTool(command.tool);
       case 'TILL': return this.farming.till(command.key);
       case 'PLANT': return this.farming.plant(command.key);
       case 'WATER': return this.farming.water(command.key);
       case 'HARVEST': return this.farming.harvest(command.key);
-      case 'MINE': return this.mine(command.resourceKey);
-      case 'CHOP': return this.chop(command.resourceKey);
+      case 'MINE': return this.resources.mine(command.resourceKey);
+      case 'CHOP': return this.resources.chop(command.resourceKey);
       case 'FISH': return this.fishing.catchFish();
       case 'ATTACK': return this.store.getState().inventory.sword > 0;
       case 'CRAFT': return this.crafting.craft(command.recipe);
@@ -54,44 +57,27 @@ export class GameRuntime {
     }
   }
 
-  private move(dx: number, dy: number, sprint: boolean, deltaSeconds: number): void {
+  private move(dx: number, dy: number, sprint: boolean, deltaSeconds: number): boolean {
     const length = Math.hypot(dx, dy);
-    if (!length || deltaSeconds <= 0) return;
-    this.store.update((state) => {
-      const canSprint = sprint && state.player.stamina > 2;
-      const speed = canSprint ? 230 : 145;
-      state.player.x += (dx / length) * speed * deltaSeconds;
-      state.player.y += (dy / length) * speed * deltaSeconds;
-      state.player.stamina = Math.max(0, state.player.stamina - deltaSeconds * (canSprint ? 12 : 3));
+    if (!length || deltaSeconds <= 0) return false;
+    const state = this.store.getState();
+    const canSprint = sprint && state.player.stamina > 2;
+    const speed = canSprint ? 230 : 145;
+    const next = this.world.clampPosition(
+      state.player.x + (dx / length) * speed * deltaSeconds,
+      state.player.y + (dy / length) * speed * deltaSeconds,
+    );
+    if (!this.world.canMove(state, next.x, next.y)) return false;
+    this.store.update((current) => {
+      current.player.x = next.x;
+      current.player.y = next.y;
+      current.player.stamina = Math.max(0, current.player.stamina - deltaSeconds * (canSprint ? 12 : 3));
     });
+    return true;
   }
 
   private selectTool(tool: ToolId): boolean {
     this.store.update((state) => { state.player.tool = tool; });
-    return true;
-  }
-
-  private mine(resourceKey: string): boolean {
-    if (this.store.getState().world.removedResources[resourceKey]) return false;
-    const ore = resourceKey.startsWith('rock:ore:');
-    this.store.update((state) => {
-      state.world.removedResources[resourceKey] = 'rock';
-      state.inventory.stone += 2;
-      if (ore) {
-        state.inventory.ore += 1;
-        const quest = state.quests.find((entry) => entry.id === 'copper');
-        if (quest && !quest.done) quest.progress = Math.min(quest.need, quest.progress + 1);
-      }
-    });
-    return true;
-  }
-
-  private chop(resourceKey: string): boolean {
-    if (this.store.getState().world.removedResources[resourceKey]) return false;
-    this.store.update((state) => {
-      state.world.removedResources[resourceKey] = 'tree';
-      state.inventory.wood += 3;
-    });
     return true;
   }
 
@@ -142,3 +128,5 @@ export class GameRuntime {
     } catch { return false; }
   }
 }
+
+export { TILE_SIZE, WORLD_HEIGHT, WORLD_WIDTH };
