@@ -43,7 +43,6 @@ export class CozyFarm extends Phaser.Scene {
   private inputController!: FarmInputController;
   private farmRenderer!: FarmRenderer;
   private worldRenderer!: FarmWorldRenderer;
-  private unsubscribe: (() => void) | undefined;
   private direction: Direction = 'down';
   private previousPlayerX = 0;
   private previousPlayerY = 0;
@@ -79,7 +78,12 @@ export class CozyFarm extends Phaser.Scene {
     this.inputController = new FarmInputController(this);
     this.inputController.initialize();
     this.farmRenderer = new FarmRenderer(this, this.player, this.hud, this.night, this.resources);
-    this.unsubscribe = appRuntime.store.subscribe((next) => this.farmRenderer.renderState(next));
+    const unsubscribe = appRuntime.store.subscribe((next) => this.farmRenderer.renderState(next));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      unsubscribe();
+      this.worldRenderer.destroy();
+      this.farmRenderer.destroy();
+    });
     this.farmRenderer.renderState(state);
     this.farmRenderer.syncWorld(this.worldRenderer.getLoadedChunkKeys());
     this.previousPlayerX = state.player.x;
