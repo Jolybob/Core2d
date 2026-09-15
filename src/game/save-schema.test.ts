@@ -3,20 +3,35 @@ import { createSaveData, isGameState, migrateSave, SAVE_SCHEMA_VERSION } from '.
 import { createInitialState } from './store';
 
 describe('save schema', () => {
-  it('creates the current version only for valid game state', () => {
+  it('creates the current split world/player envelope', () => {
     const state = createInitialState();
     const data = createSaveData(state);
+
     expect(data.schemaVersion).toBe(SAVE_SCHEMA_VERSION);
-    expect(data.state).toEqual(state);
-    expect(isGameState(data.state)).toBe(true);
+    expect(data.player.player).toEqual(state.player);
+    expect(data.player.inventory).toEqual(state.inventory);
+    expect(data.world.seed).toBe(state.world.seed);
+    expect(data.world.chunks).toEqual({});
+    expect(isGameState(state)).toBe(true);
   });
 
   it('rejects malformed current saves without storage dependencies', () => {
     const state = createInitialState();
-    const invalid = structuredClone(state) as unknown as { inventory: Record<string, unknown> };
-    invalid.inventory.ore = Number.NaN;
+    const invalid = structuredClone(createSaveData(state)) as unknown as { player: { inventory: Record<string, unknown> } };
+    invalid.player.inventory.ore = Number.NaN;
 
-    expect(migrateSave({ schemaVersion: SAVE_SCHEMA_VERSION, state: invalid })).toBeNull();
+    expect(migrateSave(invalid)).toBeNull();
+  });
+
+  it('migrates schema v4 into the v5 world/player model', () => {
+    const state = createInitialState();
+    state.world.chunks['0,0'] = { key: '0,0', modifiedTiles: { '1,2': { tile: 'tilled' } }, removedEntities: {} };
+
+    const migrated = migrateSave({ schemaVersion: 4, state });
+
+    expect(migrated?.world.chunks['0,0'].modifiedTiles['1,2'].tile).toBe('tilled');
+    expect(migrated?.world.generatorVersion).toBe(1);
+    expect(migrated && isGameState(migrated)).toBe(true);
   });
 
   it('migrates schema v2 into the current validated state', () => {
