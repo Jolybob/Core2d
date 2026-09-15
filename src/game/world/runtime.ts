@@ -97,7 +97,26 @@ export class WorldRuntime {
   ensureChunksAroundPixelPosition(position: PositionComponent, radius = 1): void { const center = worldToChunk({ x: Math.floor(position.x / TILE_SIZE), y: Math.floor(position.y / TILE_SIZE) }); const desired = new Set<ChunkKey>(); for (let y = center.y - radius; y <= center.y + radius; y++) for (let x = center.x - radius; x <= center.x + radius; x++) desired.add(chunkKey({ x, y })); for (const key of [...this.chunks.loadedKeys()]) if (!desired.has(key)) { const parts = key.split(','); const x = Number(parts[0]); const y = Number(parts[1]); if (Number.isFinite(x) && Number.isFinite(y)) this.unloadChunk({ x, y }); } for (const key of desired) { const parts = key.split(','); const x = Number(parts[0]); const y = Number(parts[1]); if (Number.isFinite(x) && Number.isFinite(y)) this.loadChunk({ x, y }); } }
   canMove(x: number, y: number): boolean { if (!Number.isFinite(x) || !Number.isFinite(y)) return false; const tileX = Math.floor(x / TILE_SIZE), tileY = Math.floor(y / TILE_SIZE); if (tileX >= HOME_MIN_X && tileX <= HOME_MAX_X && tileY >= HOME_MIN_Y && tileY <= HOME_MAX_Y) return false; const tile = this.getTile(tileX, tileY); return tile !== 'blocked' && tile !== 'water'; }
   rehydrate(world: WorldState): void { this._world = world; this.entities.clear(); this.components.clear(); this.spatial.clear(); this.chunkEntities.clear(); this.mutations.drain(); this.chunks.bindWorld(world, true); this.hydrate(); }
-  private hydrate(): void { for (const entity of Object.values(this._world.entities.entities)) this.entities.add(entity); for (const [id, components] of Object.entries(this._world.entities.components ?? {})) { if (!this.entities.has(id as EntityId)) continue; for (const [name, value] of Object.entries(components)) this.setComponent(id as EntityId, name, value as ComponentValue); } }
+  private hydrate(): void {
+    for (const entity of Object.values(this._world.entities.entities)) this.entities.add(entity);
+    for (const [id, components] of Object.entries(this._world.entities.components ?? {})) {
+      if (!this.entities.has(id as EntityId)) continue;
+      for (const [name, value] of Object.entries(components)) this.setComponent(id as EntityId, name, value as ComponentValue);
+    }
+    for (const [key, crop] of Object.entries(this._world.crops)) {
+      const id = `crop-${encodeURIComponent(key)}` as EntityId;
+      if (this.entities.has(id)) continue;
+      const match = /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(key);
+      if (!match) continue;
+      const x = Number(match[1]);
+      const y = Number(match[2]);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      this.ensureEntity(id, 'crop', {
+        position: { x, y },
+        crop: { key, stage: crop.stage, watered: crop.watered, tilled: crop.tilled },
+      });
+    }
+  }
   createEntity(kind: string, components: Record<ComponentName, ComponentValue> = {}): EntityId { const id = this.entities.create(kind); this._world.entities.entities[id] = { id, kind }; for (const [name, value] of Object.entries(components)) this.setComponent(id, name, value); return id; }
   ensureEntity(id: EntityId, kind: string, components: Record<ComponentName, ComponentValue> = {}): EntityId { if (!this.entities.has(id)) { this.entities.add({ id, kind }); this._world.entities.entities[id] = { id, kind }; } for (const [name, value] of Object.entries(components)) this.setComponent(id, name, value); return id; }
   removeEntity(id: EntityId): boolean { if (!this.entities.remove(id)) return false; this.components.removeEntity(id); this.spatial.remove(id); this.chunkEntities.remove(id); delete this._world.entities.entities[id]; if (this._world.entities.components) delete this._world.entities.components[id]; return true; }
