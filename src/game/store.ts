@@ -36,7 +36,7 @@ export class GameStore {
   }
 
   select<T>(selector: ReadSelector<T>): T {
-    return selector(this.state);
+    return structuredClone(selector(this.state) as T);
   }
 
   update(mutator: (state: GameState) => void): void {
