@@ -1,6 +1,7 @@
 import type { GameState } from '../types';
 import type { GameStore } from '../store';
 import { TILE_SIZE } from './WorldSystem';
+import type { QuestSystem } from '../systems/QuestSystem';
 
 export type ResourceType = 'tree' | 'rock';
 
@@ -18,7 +19,7 @@ export class ResourceSystem {
   private readonly resources = new Map<string, ResourceNode>();
   private readonly removedKeys = new Set<string>();
 
-  constructor(private readonly store: GameStore) {
+  constructor(private readonly store: GameStore, private readonly quests: QuestSystem) {
     this.refresh();
   }
 
@@ -62,8 +63,7 @@ export class ResourceSystem {
       state.inventory.stone += 2;
       if (resource.ore) {
         state.inventory.ore += 1;
-        const quest = state.quests.find((entry) => entry.id === 'copper');
-        if (quest && !quest.done) quest.progress = Math.min(quest.need, quest.progress + 1);
+        this.quests.progress(state, 'copper');
       }
     });
     this.removedKeys.add(key);
