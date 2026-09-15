@@ -14,6 +14,11 @@ export type ResourceView = {
   object: Phaser.GameObjects.GameObject & { visible: boolean };
 };
 
+const chunkCoordFromKey = (key: ChunkKey): ChunkCoord | undefined => {
+  const [x, y] = key.split(',').map(Number);
+  return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
+};
+
 export class FarmWorldRenderer {
   private readonly chunkObjects = new Map<ChunkKey, Phaser.GameObjects.Graphics>();
   private readonly resourceObjects = new Map<string, ResourceView>();
@@ -34,8 +39,8 @@ export class FarmWorldRenderer {
       if (desiredKeys.has(key)) continue;
       this.chunkObjects.get(key)?.destroy();
       this.chunkObjects.delete(key);
-      const [x, y] = key.split(',').map(Number);
-      appRuntime.worldRuntime.chunks.unload({ x, y });
+      const coord = chunkCoordFromKey(key);
+      if (coord) appRuntime.worldRuntime.chunks.unload(coord);
     }
     for (const coord of desired) {
       const key = chunkKey(coord);
@@ -53,8 +58,8 @@ export class FarmWorldRenderer {
     for (const graphics of this.chunkObjects.values()) graphics.destroy();
     this.chunkObjects.clear();
     for (const key of this.loadedKeys) {
-      const [x, y] = key.split(',').map(Number);
-      appRuntime.worldRuntime.chunks.unload({ x, y });
+      const coord = chunkCoordFromKey(key);
+      if (coord) appRuntime.worldRuntime.chunks.unload(coord);
     }
     for (const resource of this.resourceObjects.values()) resource.object.destroy();
     this.resourceObjects.clear();
@@ -86,7 +91,6 @@ export class FarmWorldRenderer {
         graphics.fillRect(worldX * TILE + 1, worldY * TILE + 1, TILE - 2, TILE - 2);
       }
     }
-
     return graphics;
   }
 
