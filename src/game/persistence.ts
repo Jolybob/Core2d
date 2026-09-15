@@ -11,9 +11,13 @@ const defaultStorage = (): Storage => {
   return localStorage;
 };
 
-export function saveGame(state: GameState, runtime?: WorldRuntime, storage: Storage = defaultStorage()): void {
+export function saveGame(state: GameState, storage?: Storage): void;
+export function saveGame(state: GameState, runtime: WorldRuntime, storage?: Storage): void;
+export function saveGame(state: GameState, runtimeOrStorage?: WorldRuntime | Storage, storage?: Storage): void {
+  const runtime = runtimeOrStorage && 'exportWorld' in runtimeOrStorage ? runtimeOrStorage : undefined;
+  const targetStorage = runtime ? (storage ?? defaultStorage()) : (runtimeOrStorage ?? defaultStorage());
   const saveState = runtime ? { ...state, world: serializeWorld(runtime) } : state;
-  storage.setItem(SAVE_KEY, JSON.stringify(createSaveData(saveState)));
+  targetStorage.setItem(SAVE_KEY, JSON.stringify(createSaveData(saveState)));
 }
 
 export function loadGame(storage: Storage = defaultStorage()): GameState | null {
