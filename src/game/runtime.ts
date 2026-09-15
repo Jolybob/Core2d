@@ -13,7 +13,6 @@ import { QuestSystem } from './systems/QuestSystem';
 import { ResourceSystem } from './world/ResourceSystem';
 import { worldToChunk } from './world/chunks';
 import { WorldRuntime } from './world/runtime';
-import { WorldSystem } from './world/WorldSystem';
 
 const INITIAL_CHUNK_RADIUS = 1;
 const TILE_SIZE = 24;
@@ -22,8 +21,6 @@ export class GameRuntime {
   readonly store: GameStore;
   readonly events: DomainEventBus;
   readonly quests: QuestSystem;
-  /** @deprecated Phaser compatibility adapter; WorldRuntime is authoritative. */
-  readonly world: WorldSystem;
   readonly worldRuntime: WorldRuntime;
   readonly farming: FarmingSystem;
   readonly crafting: CraftingSystem;
@@ -39,7 +36,6 @@ export class GameRuntime {
     this.store = new GameStore(createInitialState());
     this.events = new DomainEventBus();
     this.quests = new QuestSystem(this.store, this.events);
-    this.world = new WorldSystem();
     const initialState = this.store.getState();
     this.worldRuntime = new WorldRuntime(initialState.world);
     const center = worldToChunk({
@@ -55,7 +51,7 @@ export class GameRuntime {
     this.crafting = new CraftingSystem(this.store);
     this.economy = new EconomySystem(this.store);
     this.fishing = new FishingSystem(this.store, this.events);
-    this.player = new PlayerSystem(this.store, this.world, this.worldRuntime);
+    this.player = new PlayerSystem(this.store, this.worldRuntime);
     this.combat = new CombatSystem(this.store, this.player);
     this.day = new DaySystem(this.store, this.farming, this.player);
     this.resources = new ResourceSystem(this.store, this.events, this.worldRuntime);
