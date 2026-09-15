@@ -50,11 +50,11 @@ describe('WorldRuntime', () => {
     expect(runtime.chunks.loadedKeys()).toHaveLength(0);
   });
 
-  it('resets loaded chunk lifecycle on world rehydration', () => {
+  it('preserves loaded chunk lifecycle across world rehydration', () => {
     const runtime = new WorldRuntime(createInitialWorldSave(42));
     runtime.chunks.load({ x: 1, y: -1 });
     runtime.rehydrate(createInitialWorldSave(99));
-    expect(runtime.chunks.loadedKeys()).toHaveLength(0);
+    expect(runtime.chunks.loadedKeys()).toEqual(new Set(['1,-1']));
   });
 
   it('persists tile mutations without storing generated terrain', () => {
