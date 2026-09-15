@@ -76,11 +76,12 @@ export interface ChunkGenerator {
 export const defaultChunkGenerator: ChunkGenerator = {
   generate(seed, generatorVersion, coord) {
     const tiles = new Array<string>(CHUNK_SIZE * CHUNK_SIZE);
+    const versionSeed = generatorVersion <= 1 ? seed : seed ^ Math.imul(generatorVersion - 1, 0x1f123bb5);
     for (let y = 0; y < CHUNK_SIZE; y += 1) {
       for (let x = 0; x < CHUNK_SIZE; x += 1) {
         const worldX = coord.x * CHUNK_SIZE + x;
         const worldY = coord.y * CHUNK_SIZE + y;
-        const roll = seededUnit(seed ^ Math.imul(generatorVersion, 0x1f123bb5), worldX, worldY);
+        const roll = seededUnit(versionSeed, worldX, worldY);
         tiles[y * CHUNK_SIZE + x] = roll < 0.08 ? 'water' : roll < 0.18 ? 'stone' : 'ground';
       }
     }
