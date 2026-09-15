@@ -27,12 +27,31 @@ describe('GameRuntime', () => {
     expect(first.store.getState().calendar.weather).toBe(second.store.getState().calendar.weather);
   });
 
-  it('does not report mining or chopping a removed resource as successful', () => {
+  it('rejects movement into the domain collision area', () => {
     const runtime = new GameRuntime();
+    runtime.store.update((state) => {
+      state.player.x = 32 * 24 + 12;
+      state.player.y = 17 * 24 + 12;
+    });
+    const before = runtime.store.getState();
 
-    expect(runtime.dispatch({ type: 'MINE', resourceKey: 'rock:1,1' })).toBe(true);
-    expect(runtime.dispatch({ type: 'MINE', resourceKey: 'rock:1,1' })).toBe(false);
-    expect(runtime.dispatch({ type: 'CHOP', resourceKey: 'tree:1,1' })).toBe(true);
-    expect(runtime.dispatch({ type: 'CHOP', resourceKey: 'tree:1,1' })).toBe(false);
+    expect(runtime.dispatch({ type: 'MOVE', dx: 1, dy: 0, sprint: false, deltaSeconds: 0.2 })).toBe(false);
+    expect(runtime.store.getState()).toEqual(before);
+  });
+
+  it('validates resource targets in the domain and prevents repeat gathering', () => {
+    const runtime = new GameRuntime();
+    const tree = runtime.resources.getAll().find((resource) => resource.type === 'tree');
+    const rock = runtime.resources.getAll().find((resource) => resource.type === 'rock');
+
+    expect(tree).toBeDefined();
+    expect(rock).toBeDefined();
+    if (!tree || !rock) return;
+
+    expect(runtime.dispatch({ type: 'CHOP_AT', x: tree.x, y: tree.y })).toBe(true);
+    expect(runtime.dispatch({ type: 'CHOP_AT', x: tree.x, y: tree.y })).toBe(false);
+    expect(runtime.dispatch({ type: 'MINE_AT', x: rock.x, y: rock.y })).toBe(true);
+    expect(runtime.dispatch({ type: 'MINE_AT', x: rock.x, y: rock.y })).toBe(false);
+    expect(runtime.dispatch({ type: 'MINE_AT', x: 1, y: 1 })).toBe(false);
   });
 });
