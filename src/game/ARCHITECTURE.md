@@ -7,7 +7,7 @@
 5. Static item, recipe and tool definitions live in `catalog.ts`.
 6. All gameplay actions enter through `GameCommand` and `GameRuntime.dispatch()`.
 7. UI renders from `GameStore.subscribe()` and dispatches typed commands; it must not use `CustomEvent` or `MutationObserver` for state synchronization.
-8. Persistence owns save keys, schema validation and migration boundaries.
+8. Persistence owns save keys, schema validation and migration boundaries; schema v3 saves are fully validated before use.
 9. Phaser Scene listeners must be released on `shutdown`/`destroy` so a scene can restart safely.
 10. Domain systems are unit-testable without Phaser, DOM or browser rendering.
 11. The first inventory row is the canonical quickbar; there is no second quickbar data model.
@@ -18,3 +18,4 @@
 16. Spatial resource commands use world coordinates (`MINE_AT` / `CHOP_AT`); the renderer must not resolve resource identities.
 17. `GameRuntime` is an orchestration boundary: command dispatch delegates gameplay rules to domain systems rather than implementing those rules itself.
 18. Player movement, tool selection and player consumables belong to `PlayerSystem`; shipping and buying belong to `EconomySystem`; combat rules belong to `CombatSystem`.
+19. Loading a save must rebuild derived resource views from the loaded world seed and removed-resource state.
