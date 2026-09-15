@@ -6,14 +6,17 @@ import { serializeWorld } from './world/runtime-persistence';
 export const SAVE_KEY = `core2d-save-v${SAVE_SCHEMA_VERSION}`;
 const LEGACY_KEYS = ['core2d-save-v4', 'core2d-save-v3', 'core2d-save-v2', 'core2d-save-v1'];
 
-export function saveGame(state: GameState, runtime?: WorldRuntime, storage: Storage = localStorage): void {
-  const saveState = runtime
-    ? { ...state, world: serializeWorld(runtime) }
-    : state;
+const defaultStorage = (): Storage => {
+  if (typeof localStorage === 'undefined') throw new Error('No browser storage is available');
+  return localStorage;
+};
+
+export function saveGame(state: GameState, runtime?: WorldRuntime, storage: Storage = defaultStorage()): void {
+  const saveState = runtime ? { ...state, world: serializeWorld(runtime) } : state;
   storage.setItem(SAVE_KEY, JSON.stringify(createSaveData(saveState)));
 }
 
-export function loadGame(storage: Storage = localStorage): GameState | null {
+export function loadGame(storage: Storage = defaultStorage()): GameState | null {
   for (const key of [SAVE_KEY, ...LEGACY_KEYS]) {
     const raw = storage.getItem(key);
     if (!raw) continue;
