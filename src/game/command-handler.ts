@@ -25,8 +25,9 @@ export class GameCommandHandler {
   private dispatchCommand(command: GameCommand): boolean { const { combat, crafting, day, economy, farming, fishing, player, resources } = this.dependencies; switch (command.type) {
     case 'TICK':
       if (!isFiniteNonNegative(command.deltaSeconds)) return false;
-      combat.update(command.deltaSeconds);
-      return day.update(command.deltaSeconds);
+      const combatActed = combat.update(command.deltaSeconds);
+      const dayAdvanced = day.update(command.deltaSeconds);
+      return combatActed || dayAdvanced;
     case 'MOVE': return player.move(command.dx, command.dy, command.sprint, command.deltaSeconds);
     case 'SELECT_TOOL': return player.selectTool(command.tool);
     case 'TILL': return farming.till(command.key);
