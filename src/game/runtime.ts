@@ -10,7 +10,6 @@ import { FishingSystem } from './systems/FishingSystem';
 import { PlayerSystem } from './systems/PlayerSystem';
 import { ResourceSystem } from './world/ResourceSystem';
 import { WorldSystem } from './world/WorldSystem';
-import type { ToolId } from './types';
 
 const isFiniteNonNegative = (value: number): boolean => Number.isFinite(value) && value >= 0;
 
@@ -32,8 +31,7 @@ export class GameRuntime {
         if (!isFiniteNonNegative(command.deltaSeconds)) return false;
         this.day.update(command.deltaSeconds);
         return true;
-      case 'MOVE':
-        return this.player.move(command.dx, command.dy, command.sprint, command.deltaSeconds);
+      case 'MOVE': return this.player.move(command.dx, command.dy, command.sprint, command.deltaSeconds);
       case 'SELECT_TOOL': return this.player.selectTool(command.tool);
       case 'TILL': return this.farming.till(command.key);
       case 'PLANT': return this.farming.plant(command.key);
@@ -42,7 +40,7 @@ export class GameRuntime {
       case 'MINE_AT': return this.resources.mineAt(command.x, command.y);
       case 'CHOP_AT': return this.resources.chopAt(command.x, command.y);
       case 'FISH': return this.fishing.catchFish();
-      case 'ATTACK': return this.store.getState().inventory.sword > 0;
+      case 'ATTACK': return this.combat.attack();
       case 'CRAFT': return this.crafting.craft(command.recipe);
       case 'EAT': return this.player.eat(command.item);
       case 'USE_SALVE': return this.player.useSalve();
