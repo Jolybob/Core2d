@@ -20,6 +20,7 @@ export class PlayerSystem {
   ) {
     this.playerId = this.ensureEntity();
     this.refresh();
+    this.persist();
   }
 
   refresh(): void {
