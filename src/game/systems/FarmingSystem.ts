@@ -1,9 +1,9 @@
+import type { DomainEventBus } from '../events';
 import type { GameStore } from '../store';
 import type { CropState } from '../types';
-import type { QuestSystem } from './QuestSystem';
 
 export class FarmingSystem {
-  constructor(private readonly store: GameStore, private readonly quests: QuestSystem) {}
+  constructor(private readonly store: GameStore, private readonly events: DomainEventBus) {}
 
   till(key: string): boolean {
     if (this.store.getState().world.crops[key]) return false;
@@ -48,9 +48,9 @@ export class FarmingSystem {
     this.store.update((state) => {
       state.inventory.parsnip += 1;
       state.economy.totalHarvests += 1;
-      this.quests.progress(state, 'harvest');
       delete state.world.crops[key];
     });
+    this.events.publish({ type: 'CROP_HARVESTED', key });
     return true;
   }
 
