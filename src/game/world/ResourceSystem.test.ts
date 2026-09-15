@@ -8,7 +8,9 @@ import { ResourceSystem } from './ResourceSystem';
 const createResources = () => {
   const store = new GameStore(createInitialState());
   const events = new DomainEventBus();
-  const resources = new ResourceSystem(store, events);
+  const runtime = new WorldRuntime(store.getState().world);
+  for (let y = -1; y <= 1; y += 1) for (let x = -1; x <= 1; x += 1) runtime.chunks.load({ x, y });
+  const resources = new ResourceSystem(store, events, runtime);
   return { store, resources };
 };
 
@@ -93,7 +95,7 @@ describe('ResourceSystem', () => {
     expect(Object.keys(store.getState().world.chunks)).toContain(loadedKey);
   });
 
-  it('generates resources from nearby chunks instead of a finite world rectangle', () => {
+  it('generates resources from runtime-loaded chunks instead of a finite world rectangle', () => {
     const { store, resources } = createResources();
     const nodes = resources.getAll();
     const state = store.getState();
