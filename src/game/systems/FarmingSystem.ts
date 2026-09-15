@@ -84,9 +84,10 @@ export class FarmingSystem {
   private setCrop(key: string, crop: CropState): void {
     if (!this.runtime) { this.store.update((state) => { state.world.crops[key] = { ...crop }; }); return; }
     const id = cropEntityId(key);
-    if (!this.runtime.entities.has(id)) this.runtime.entities.add({ id, kind: 'crop' });
-    this.runtime.setComponent(id, 'crop', { key, ...crop });
-    const position = positionFromKey(key); if (position) this.runtime.setComponent(id, 'position', position);
+    const components: Record<string, PersistedComponent> = { crop: { key, ...crop } };
+    const position = positionFromKey(key);
+    if (position) components.position = position;
+    this.runtime.ensureEntity(id, 'crop', components);
   }
 
   private syncFromState(): void {
