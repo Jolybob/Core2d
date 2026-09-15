@@ -61,7 +61,9 @@ export class InventorySystem {
     });
   }
 
-  getLayout(): InventoryLayoutState { return this.store.select((state) => this.ensureLayout(state.inventoryLayout)); }
+  getLayout(): InventoryLayoutState {
+    return this.ensureLayout(this.store.select((state) => state.inventoryLayout));
+  }
 
   move(source: number, target: number): boolean {
     if (!this.isSlot(source) || !this.isSlot(target) || source === target) return false;
@@ -103,8 +105,8 @@ export class InventorySystem {
   sort(): boolean {
     this.store.update((state) => {
       const layout = this.ensureLayout(state.inventoryLayout);
-      const lockedItems = layout.slots.map((item, index) => layout.locked[index] ? item : null);
-      const movable = layout.slots.filter((_, index) => !layout.locked[index]).filter(Boolean) as ItemId[];
+      const lockedItems: Array<ItemId | null> = layout.slots.map((item, index) => layout.locked[index] ? item : null);
+      const movable = layout.slots.filter((_, index) => !layout.locked[index]).filter((item): item is ItemId => item !== null);
       movable.sort((a, b) => a.localeCompare(b));
       layout.slots = lockedItems;
       let cursor = 0;
@@ -145,7 +147,7 @@ export class InventorySystem {
 
   private isSlot(slot: number): boolean { return Number.isInteger(slot) && slot >= 0 && slot < INVENTORY_SLOT_COUNT; }
 
-  private ensureLayout(layout: InventoryLayoutState | undefined): InventoryLayoutState {
+  private ensureLayout(layout: Readonly<InventoryLayoutState> | undefined): InventoryLayoutState {
     const source = layout ?? createInitialInventoryLayout();
     const next: InventoryLayoutState = {
       slots: Array.from({ length: INVENTORY_SLOT_COUNT }, (_, index) => source.slots?.[index] ?? null),
