@@ -37,7 +37,7 @@ export function createSeededRandom(initialSeed: number): RandomSource {
       }
       return next() < probability;
     },
-    pick<T>(values) {
+    pick<T>(values: readonly T[]): T {
       if (values.length === 0) throw new Error('Cannot pick from an empty collection');
       return values[Math.floor(next() * values.length)];
     },
