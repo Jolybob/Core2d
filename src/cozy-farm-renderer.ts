@@ -4,7 +4,7 @@ import type { ReadonlyDeep } from './game/store';
 import { appRuntime } from './game/app-runtime';
 import type { ResourceView } from './cozy-farm-world';
 import { TILE } from './cozy-farm-world';
-import { chunkKey, worldToChunk, type ChunkKey } from './game/world/chunks';
+import { type ChunkKey } from './game/world/chunks';
 import type { ComponentValue } from './game/world/runtime';
 
 interface CropComponent extends ComponentValue { key: string; stage: number; watered: boolean; tilled: boolean; }
@@ -39,14 +39,16 @@ export class FarmRenderer {
   syncWorld(loadedChunkKeys: ReadonlySet<ChunkKey>): void {
     const loadedSignature = [...loadedChunkKeys].sort().join('|');
     const runtime = appRuntime.worldRuntime;
-    const cropSignature = [...runtime.query.with('crop', 'position')].map((entity) => `${entity.id}:${JSON.stringify(runtime.components.get('crop', entity.id))}:${JSON.stringify(runtime.components.get('position', entity.id))}`).sort().join('|');
-    const worldObjectSignature = [...runtime.query.with('worldObject', 'position')].map((entity) => `${entity.id}:${JSON.stringify(runtime.components.get('worldObject', entity.id))}:${JSON.stringify(runtime.components.get('position', entity.id))}`).sort().join('|');
+    const cropEntities = runtime.query.withInChunks(loadedChunkKeys, 'crop', 'position');
+    const worldObjectEntities = runtime.query.withInChunks(loadedChunkKeys, 'worldObject', 'position');
+    const cropSignature = cropEntities.map((entity) => `${entity.id}:${JSON.stringify(runtime.components.get('crop', entity.id))}:${JSON.stringify(runtime.components.get('position', entity.id))}`).sort().join('|');
+    const worldObjectSignature = worldObjectEntities.map((entity) => `${entity.id}:${JSON.stringify(runtime.components.get('worldObject', entity.id))}:${JSON.stringify(runtime.components.get('position', entity.id))}`).sort().join('|');
     if (`${loadedSignature}::${cropSignature}::${worldObjectSignature}` === `${this.lastLoadedSignature}::${this.lastCropSignature}::${this.lastWorldObjectSignature}`) return;
     this.lastLoadedSignature = loadedSignature;
     this.lastCropSignature = cropSignature;
     this.lastWorldObjectSignature = worldObjectSignature;
-    this.renderVisibleCrops(loadedChunkKeys);
-    this.renderVisibleWorldObjects(loadedChunkKeys);
+    this.renderVisibleCrops(cropEntities);
+    this.renderVisibleWorldObjects(worldObjectEntities);
   }
 
   updateNight(clock: number): void {
@@ -61,16 +63,14 @@ export class FarmRenderer {
     this.worldObjectGraphics.clear();
   }
 
-  private renderVisibleCrops(loadedChunkKeys: ReadonlySet<ChunkKey>): void {
+  private renderVisibleCrops(entities: readonly import('./game/entity').EntityState[]): void {
     for (const graphics of this.cropGraphics.values()) graphics.destroy();
     this.cropGraphics.clear();
     const runtime = appRuntime.worldRuntime;
-    for (const entity of runtime.query.with('crop', 'position')) {
+    for (const entity of entities) {
       const crop = runtime.components.get('crop', entity.id);
       const position = runtime.components.get('position', entity.id);
       if (!isCrop(crop) || !isPosition(position)) continue;
-      const chunk = chunkKey(worldToChunk({ x: Math.floor(position.x), y: Math.floor(position.y) }));
-      if (!loadedChunkKeys.has(chunk)) continue;
       const graphics = this.scene.add.graphics().setDepth(15);
       graphics.fillStyle(crop.stage === 0 ? 0x6b4b2f : crop.stage === 1 ? 0x70b85a : crop.stage === 2 ? 0x8bc34a : 0xd9bd4a).fillRect(position.x * TILE + 3, position.y * TILE + 3, 18, 18);
       if (crop.stage > 0) graphics.fillStyle(crop.watered ? 0x4e8cc0 : 0x355d3b).fillCircle(position.x * TILE + 12, position.y * TILE + 13, crop.stage === 3 ? 7 : 4);
@@ -78,16 +78,14 @@ export class FarmRenderer {
     }
   }
 
-  private renderVisibleWorldObjects(loadedChunkKeys: ReadonlySet<ChunkKey>): void {
+  private renderVisibleWorldObjects(entities: readonly import('./game/entity').EntityState[]): void {
     for (const objects of this.worldObjectGraphics.values()) for (const object of objects) object.destroy();
     this.worldObjectGraphics.clear();
     const runtime = appRuntime.worldRuntime;
-    for (const entity of runtime.query.with('worldObject', 'position')) {
+    for (const entity of entities) {
       const view = runtime.components.get('worldObject', entity.id);
       const position = runtime.components.get('position', entity.id);
       if (!isWorldObject(view) || !isPosition(position)) continue;
-      const chunk = chunkKey(worldToChunk({ x: Math.floor(position.x), y: Math.floor(position.y) }));
-      if (!loadedChunkKeys.has(chunk)) continue;
       const objects: Phaser.GameObjects.GameObject[] = [];
       const px = position.x * TILE;
       const py = position.y * TILE;
