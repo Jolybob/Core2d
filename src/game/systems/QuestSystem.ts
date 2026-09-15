@@ -37,10 +37,19 @@ export class QuestSystem {
   private handleEvent(event: DomainEvent, store: GameStore): void {
     switch (event.type) {
       case 'CROP_HARVESTED':
-        store.update((state) => this.progress(state, 'harvest'));
+        store.update((state) => {
+          this.progress(state, 'harvest');
+        });
         break;
       case 'ORE_MINED':
-        store.update((state) => this.progress(state, 'copper'));
+        store.update((state) => {
+          this.progress(state, 'copper');
+        });
+        break;
+      case 'FISH_CAUGHT':
+        store.update((state) => {
+          this.progress(state, 'fish');
+        });
         break;
     }
   }
