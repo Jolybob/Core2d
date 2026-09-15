@@ -1,9 +1,22 @@
 import type { GameState, InventoryState } from './types';
 
 type Listener = (state: GameState) => void;
+type Selector<T> = (state: GameState) => T;
+type SelectedListener<T> = (selected: T, state: GameState) => void;
+type Equality<T> = (previous: T, next: T) => boolean;
+
+type Subscription = {
+  selector: Selector<unknown>;
+  listener: SelectedListener<unknown>;
+  equals: Equality<unknown>;
+  selected: unknown;
+};
+
+const objectIs: Equality<unknown> = Object.is;
 
 export class GameStore {
   private readonly listeners = new Set<Listener>();
+  private readonly subscriptions = new Set<Subscription>();
 
   constructor(private state: GameState) {}
 
@@ -15,20 +28,50 @@ export class GameStore {
     const next = structuredClone(this.state);
     mutator(next);
     this.state = next;
-    const snapshot = this.getState();
-    for (const listener of this.listeners) listener(snapshot);
+    this.notify();
   }
 
   replace(state: GameState): void {
     this.state = structuredClone(state);
-    const snapshot = this.getState();
-    for (const listener of this.listeners) listener(snapshot);
+    this.notify();
   }
 
-  subscribe(listener: Listener): () => void {
-    this.listeners.add(listener);
-    listener(this.getState());
-    return () => this.listeners.delete(listener);
+  subscribe(listener: Listener): () => void;
+  subscribe<T>(selector: Selector<T>, listener: SelectedListener<T>, equals?: Equality<T>): () => void;
+  subscribe<T>(
+    selectorOrListener: Selector<T> | Listener,
+    listener?: SelectedListener<T>,
+    equals: Equality<T> = objectIs as Equality<T>,
+  ): () => void {
+    if (!listener) {
+      const legacyListener = selectorOrListener as Listener;
+      this.listeners.add(legacyListener);
+      legacyListener(this.getState());
+      return () => this.listeners.delete(legacyListener);
+    }
+
+    const selector = selectorOrListener as Selector<T>;
+    const subscription: Subscription = {
+      selector,
+      listener: listener as SelectedListener<unknown>,
+      equals: equals as Equality<unknown>,
+      selected: selector(this.state),
+    };
+    this.subscriptions.add(subscription);
+    listener(subscription.selected as T, this.getState());
+    return () => this.subscriptions.delete(subscription);
+  }
+
+  private notify(): void {
+    const snapshot = this.getState();
+    for (const listener of this.listeners) listener(snapshot);
+
+    for (const subscription of this.subscriptions) {
+      const nextSelected = subscription.selector(this.state);
+      if (subscription.equals(subscription.selected, nextSelected)) continue;
+      subscription.selected = nextSelected;
+      subscription.listener(nextSelected, snapshot);
+    }
   }
 }
 
