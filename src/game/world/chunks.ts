@@ -60,12 +60,13 @@ export function seededUnit(seed: number, x: number, y: number): number {
 export interface GeneratedChunk {
   coord: ChunkCoord;
   seed: number;
+  generatorVersion: number;
   /** Deterministic generated terrain. Do not persist this array. */
   tiles: string[];
 }
 
 export interface ChunkGenerator {
-  generate(seed: number, coord: ChunkCoord): GeneratedChunk;
+  generate(seed: number, generatorVersion: number, coord: ChunkCoord): GeneratedChunk;
 }
 
 /**
@@ -73,17 +74,17 @@ export interface ChunkGenerator {
  * implementation without changing persistence or chunk addressing.
  */
 export const defaultChunkGenerator: ChunkGenerator = {
-  generate(seed, coord) {
+  generate(seed, generatorVersion, coord) {
     const tiles = new Array<string>(CHUNK_SIZE * CHUNK_SIZE);
     for (let y = 0; y < CHUNK_SIZE; y += 1) {
       for (let x = 0; x < CHUNK_SIZE; x += 1) {
         const worldX = coord.x * CHUNK_SIZE + x;
         const worldY = coord.y * CHUNK_SIZE + y;
-        const roll = seededUnit(seed, worldX, worldY);
+        const roll = seededUnit(seed ^ Math.imul(generatorVersion, 0x1f123bb5), worldX, worldY);
         tiles[y * CHUNK_SIZE + x] = roll < 0.08 ? 'water' : roll < 0.18 ? 'stone' : 'ground';
       }
     }
-    return { coord: { ...coord }, seed, tiles };
+    return { coord: { ...coord }, seed, generatorVersion, tiles };
   },
 };
 
@@ -93,12 +94,12 @@ export class ChunkCache {
 
   constructor(private readonly generator: ChunkGenerator = defaultChunkGenerator) {}
 
-  get(seed: number, coord: ChunkCoord): GeneratedChunk {
+  get(seed: number, generatorVersion: number, coord: ChunkCoord): GeneratedChunk {
     const key = chunkKey(coord);
     const cached = this.chunks.get(key);
-    if (cached?.seed === seed) return cached;
+    if (cached?.seed === seed && cached.generatorVersion === generatorVersion) return cached;
 
-    const generated = this.generator.generate(seed, coord);
+    const generated = this.generator.generate(seed, generatorVersion, coord);
     this.chunks.set(key, generated);
     return generated;
   }
