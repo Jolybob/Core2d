@@ -29,9 +29,12 @@ describe('save schema', () => {
 
     const migrated = migrateSave({ schemaVersion: 4, state });
 
-    expect(migrated?.world.chunks['0,0'].modifiedTiles['1,2'].tile).toBe('tilled');
-    expect(migrated?.world.generatorVersion).toBe(1);
-    expect(migrated && isGameState(migrated)).toBe(true);
+    expect(migrated).not.toBeNull();
+    expect(migrated?.world.chunks['0,0']).toBeDefined();
+    const chunk = migrated!.world.chunks['0,0'];
+    expect(chunk.modifiedTiles['1,2'].tile).toBe('tilled');
+    expect(migrated!.world.generatorVersion).toBe(1);
+    expect(isGameState(migrated)).toBe(true);
   });
 
   it('migrates schema v2 into the current validated state', () => {
