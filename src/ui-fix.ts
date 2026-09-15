@@ -1,7 +1,7 @@
 import './ui.css';
 import { ITEMS, RECIPES } from './game/catalog';
 import { appRuntime } from './game/app-runtime';
-import { ITEM_IDS, type ItemId, type ToolId } from './game/types';
+import { ITEM_IDS, type ItemId, type RecipeId, type ToolId } from './game/types';
 
 const root = document.createElement('div');
 root.id = 'core-ui';
@@ -52,7 +52,7 @@ function useItem(id: ItemId): void {
 
 hotbar.addEventListener('click', (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-item]'); if (button) useItem(button.dataset.item as ItemId); });
 inventoryGrid.addEventListener('click', (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-item]'); if (button) useItem(button.dataset.item as ItemId); });
-craftGrid.addEventListener('click', (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-recipe]'); if (button && !button.disabled) appRuntime.dispatch({ type: 'CRAFT', recipe: button.dataset.recipe as never }); });
+craftGrid.addEventListener('click', (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-recipe]'); if (button && !button.disabled) appRuntime.dispatch({ type: 'CRAFT', recipe: button.dataset.recipe as RecipeId }); });
 document.querySelector('#ui-inventory-button')!.addEventListener('click', () => show(inventory));
 document.querySelector('#ui-inventory-close')!.addEventListener('click', () => hide(inventory));
 document.querySelector('#inventory-done')!.addEventListener('click', () => hide(inventory));
