@@ -6,27 +6,21 @@ import type { WorldRuntime } from './world/runtime';
 import type { CombatPort, CraftingPort, DayPort, EconomyPort, FarmingPort, FishingPort, PlayerPort, ResourcePort } from './system-ports';
 
 const isFiniteNonNegative = (value: number): boolean => Number.isFinite(value) && value >= 0;
-
-export interface GameCommandDependencies {
-  store: GameStore;
-  worldRuntime: WorldRuntime;
-  combat: CombatPort;
-  crafting: CraftingPort;
-  day: DayPort;
-  economy: EconomyPort;
-  farming: FarmingPort;
-  fishing: FishingPort;
-  player: PlayerPort;
-  resources: ResourcePort;
-}
+export interface GameCommandDependencies { store: GameStore; worldRuntime: WorldRuntime; combat: CombatPort; crafting: CraftingPort; day: DayPort; economy: EconomyPort; farming: FarmingPort; fishing: FishingPort; player: PlayerPort; resources: ResourcePort; }
 
 export class GameCommandHandler {
   constructor(private readonly dependencies: GameCommandDependencies) {}
   dispatch(command: GameCommand): boolean {
-    return this.dependencies.store.transaction(() => {
-      this.dependencies.player.refresh();
-      return this.dispatchCommand(command);
-    });
+    const worldBefore = this.dependencies.worldRuntime.exportWorld();
+    try {
+      return this.dependencies.store.transaction(() => {
+        this.dependencies.player.refresh();
+        return this.dispatchCommand(command);
+      });
+    } catch (error) {
+      this.dependencies.worldRuntime.rehydrate(worldBefore);
+      throw error;
+    }
   }
   private dispatchCommand(command: GameCommand): boolean { const { combat, crafting, day, economy, farming, fishing, player, resources } = this.dependencies; switch (command.type) {
     case 'TICK': if (!isFiniteNonNegative(command.deltaSeconds)) return false; return day.update(command.deltaSeconds);
@@ -49,7 +43,6 @@ export class GameCommandHandler {
     case 'SAVE': return this.save();
     case 'LOAD': return this.load();
   } }
-
   save(): boolean { try { this.dependencies.player.persist(); this.dependencies.farming.refresh(); const state = this.dependencies.store.getState(); saveGame(state, this.dependencies.worldRuntime); return true; } catch { return false; } }
-  load(): boolean { try { const state = loadGame(); if (!state) return false; this.dependencies.store.replace(state); rehydrateWorld(this.dependencies.worldRuntime, state.world); this.dependencies.player.refresh(); this.dependencies.farming.refresh(); this.dependencies.resources.refresh(); return true; } catch { return false; } }
+  load(): boolean { try { const loaded = loadGame(); if (!loaded) return false; this.dependencies.store.replace(loaded.state); rehydrateWorld(this.dependencies.worldRuntime, loaded.world); this.dependencies.player.refresh(); this.dependencies.farming.refresh(); this.dependencies.resources.refresh(); return true; } catch { return false; } }
 }
