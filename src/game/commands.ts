@@ -2,7 +2,7 @@ import type { ItemId, RecipeId, ToolId } from './types';
 
 export type GameCommand =
   | { type: 'TICK'; deltaSeconds: number }
-  | { type: 'MOVE'; dx: number; dy: number; sprint: boolean }
+  | { type: 'MOVE'; dx: number; dy: number; sprint: boolean; deltaSeconds: number }
   | { type: 'SELECT_TOOL'; tool: ToolId }
   | { type: 'TILL'; key: string }
   | { type: 'PLANT'; key: string }
