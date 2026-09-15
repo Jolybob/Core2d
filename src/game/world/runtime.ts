@@ -1,12 +1,13 @@
 import { createEntityId, type EntityId, type EntityState, type PositionComponent } from '../entity';
-import { CHUNK_SIZE, chunkKey, ChunkCache, tileKey, worldToChunk, worldToLocalTile, type ChunkCoord, type ChunkKey, type ChunkPersistence, type ChunkGenerator, type GeneratedChunk, defaultChunkGenerator } from './chunks';
+import { CHUNK_SIZE, chunkKey, ChunkCache, tileKey, worldToChunk, worldToLocalTile, TILE_SIZE, type ChunkCoord, type ChunkKey, type ChunkPersistence, type ChunkGenerator, type GeneratedChunk, defaultChunkGenerator } from './chunks';
 import type { WorldState } from '../types';
+
+export { TILE_SIZE } from './chunks';
 
 export type ComponentName = string;
 export type ComponentValue = Record<string, unknown>;
 
 const isPositionComponent = (value: unknown): value is PositionComponent => typeof value === 'object' && value !== null && typeof (value as Record<string, unknown>).x === 'number' && Number.isFinite((value as Record<string, unknown>).x) && typeof (value as Record<string, unknown>).y === 'number' && Number.isFinite((value as Record<string, unknown>).y);
-export const TILE_SIZE = 24;
 const HOME_MIN_X = 33;
 const HOME_MAX_X = 37;
 const HOME_MIN_Y = 14;
@@ -93,7 +94,12 @@ export class WorldRuntime {
   readonly chunks: ChunkManager;
   constructor(private _world: WorldState, generator?: ChunkGenerator) { this.chunks = new ChunkManager(_world, generator); this.query = new WorldQuery(this.entities, this.components, this.chunkEntities); this.hydrate(); }
   get world(): WorldState { return this._world; }
-  canMove(x: number, y: number): boolean { if (!Number.isFinite(x) || !Number.isFinite(y)) return false; const tileX = Math.floor(x / TILE_SIZE); const tileY = Math.floor(y / TILE_SIZE); if (tileX >= HOME_MIN_X && tileX <= HOME_MAX_X && tileY >= HOME_MIN_Y && tileY <= HOME_MAX_Y) return false; const tile = this.chunks.getTile(tileX, tileY); return tile !== 'blocked' && tile !== 'water'; }
+  loadedChunkKeys(): ReadonlySet<ChunkKey> { return this.chunks.loadedKeys(); }
+  loadedChunkCoords(): ChunkCoord[] { return this.chunks.loadedCoords(); }
+  isChunkLoaded(coord: ChunkCoord): boolean { return this.chunks.isLoaded(coord); }
+  getTile(x: number, y: number): string { return this.chunks.getTile(x, y); }
+  setTile(x: number, y: number, tile: string): void { this.chunks.setTile(x, y, tile); }
+  canMove(x: number, y: number): boolean { if (!Number.isFinite(x) || !Number.isFinite(y)) return false; const tileX = Math.floor(x / TILE_SIZE); const tileY = Math.floor(y / TILE_SIZE); if (tileX >= HOME_MIN_X && tileX <= HOME_MAX_X && tileY >= HOME_MIN_Y && tileY <= HOME_MAX_Y) return false; const tile = this.getTile(tileX, tileY); return tile !== 'blocked' && tile !== 'water'; }
   ensureChunksAround(position: PositionComponent, radius: number): void { this.ensureChunksAroundTilePosition(position, radius); }
   ensureChunksAroundPixelPosition(position: PositionComponent, radius: number): void { this.ensureChunksAroundTilePosition({ x: position.x / TILE_SIZE, y: position.y / TILE_SIZE }, radius); }
   private ensureChunksAroundTilePosition(position: PositionComponent, radius: number): void {
@@ -143,5 +149,5 @@ export class WorldRuntime {
   removeEntity(id: EntityId): boolean { if (!this.entities.remove(id)) return false; this.components.removeEntity(id); this.spatial.remove(id); this.chunkEntities.remove(id); delete this._world.entities.entities[id]; if (this._world.entities.components) delete this._world.entities.components[id]; return true; }
   setComponent<T extends ComponentValue>(id: EntityId, name: ComponentName, value: T): void { if (!this.entities.has(id)) throw new Error(`Unknown entity: ${id}`); this.components.set(name, id, value); const entityComponents = this._world.entities.components ??= {}; const persisted = entityComponents[id] ??= {}; persisted[name] = { ...value }; if (name === 'position' && isPositionComponent(value)) { this.spatial.set(id, value); this.chunkEntities.set(id, value); } }
   removeComponent(id: EntityId, name: ComponentName): boolean { if (!this.entities.has(id)) throw new Error(`Unknown entity: ${id}`); const removed = this.components.remove(name, id); const persisted = this._world.entities.components?.[id]; if (persisted) { delete persisted[name]; if (Object.keys(persisted).length === 0) delete this._world.entities.components?.[id]; } if (name === 'position') { this.spatial.remove(id); this.chunkEntities.remove(id); } return removed; }
-  applyMutations(): number { let applied = 0; for (const mutation of this.mutations.drain()) { if (mutation.type === 'setTile') { this.chunks.setTile(mutation.x, mutation.y, mutation.tile); applied += 1; } else if (this.removeEntity(mutation.entity)) applied += 1; } return applied; }
+  applyMutations(): number { let applied = 0; for (const mutation of this.mutations.drain()) { if (mutation.type === 'setTile') { this.setTile(mutation.x, mutation.y, mutation.tile); applied += 1; } else if (this.removeEntity(mutation.entity)) applied += 1; } return applied; }
 }
