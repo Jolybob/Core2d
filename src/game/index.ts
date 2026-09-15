@@ -10,3 +10,4 @@ export * from './systems/DaySystem';
 export * from './systems/EconomySystem';
 export * from './systems/FarmingSystem';
 export * from './systems/FishingSystem';
+export * from './systems/QuestSystem';
