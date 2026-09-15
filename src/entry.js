@@ -2,8 +2,6 @@ import './ui-fix.ts';
 import './polish.css';
 import './corekeeper-ui.css';
 import './quickbar-fix.css';
-import './equipment-ui.css';
 import './version.ts';
 import './quickbar-fix.ts';
-import './equipment-ui.ts';
 import './cozy-farm.ts';
