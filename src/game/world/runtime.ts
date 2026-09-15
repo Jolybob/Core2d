@@ -79,6 +79,7 @@ export class ChunkManager {
   unload(coord: ChunkCoord): void { const key = chunkKey(coord); this.loaded.delete(key); this.cache.unload(coord); }
   isLoaded(coord: ChunkCoord): boolean { return this.loaded.has(chunkKey(coord)); }
   loadedKeys(): ReadonlySet<ChunkKey> { return this.loaded; }
+  loadedCoords(): ChunkCoord[] { return [...this.loaded].map((key) => { const [x, y] = key.split(',').map(Number); return { x: x ?? 0, y: y ?? 0 }; }); }
   getGenerated(coord: ChunkCoord): GeneratedChunk { return this.cache.get(this.world.seed, coord); }
   getTile(x: number, y: number): string { const coord = worldToChunk({ x, y }); const local = worldToLocalTile({ x, y }); const chunk = this.getGenerated(coord); const key = tileKey(local); const modification = this.world.chunks[chunkKey(coord)]?.modifiedTiles[key]; return modification?.tile ?? chunk.tiles[local.y * CHUNK_SIZE + local.x] ?? 'ground'; }
   setTile(x: number, y: number, tile: string): void { const coord = worldToChunk({ x, y }); const local = worldToLocalTile({ x, y }); const key = chunkKey(coord); const tileId = tileKey(local); const chunk = this.world.chunks[key] ?? this.createPersistence(key); chunk.modifiedTiles[tileId] = { tile }; }
