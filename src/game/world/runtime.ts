@@ -127,11 +127,13 @@ export class WorldRuntime {
   private hydrateChunkEntities(coord: ChunkCoord): void {
     const key = chunkKey(coord);
     for (const [id, entity] of Object.entries(this._world.entities.entities)) {
-      if (this.entities.has(id as EntityId)) continue;
-      const position = this._world.entities.components?.[id]?.position;
+      const entityId = id as EntityId;
+      if (this.entities.has(entityId)) continue;
+      const entityComponents = this._world.entities.components?.[entityId];
+      const position = entityComponents?.position;
       if (!isPositionComponent(position) || chunkKey(worldToChunk({ x: Math.floor(position.x), y: Math.floor(position.y) })) !== key) continue;
       this.entities.add(entity);
-      for (const [name, value] of Object.entries(this._world.entities.components?.[id] ?? {})) this.setComponent(id as EntityId, name, value);
+      for (const [name, value] of Object.entries(entityComponents ?? {})) this.setComponent(entityId, name, value as ComponentValue);
     }
   }
   private unloadEntity(id: EntityId): void { this.entities.remove(id); this.components.removeEntity(id); this.spatial.remove(id); this.chunkEntities.remove(id); }
