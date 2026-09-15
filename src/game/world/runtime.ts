@@ -242,8 +242,11 @@ export class WorldRuntime {
 
   constructor(readonly world: WorldState, generator?: ChunkGenerator) {
     this.chunks = new ChunkManager(world, generator);
-    for (const entity of Object.values(world.entities.entities)) {
-      this.entities.add(entity);
+    for (const entity of Object.values(world.entities.entities)) this.entities.add(entity);
+
+    for (const [id, components] of Object.entries(world.entities.components ?? {})) {
+      if (!this.entities.has(id as EntityId)) continue;
+      for (const [name, value] of Object.entries(components)) this.setComponent(id as EntityId, name, value);
     }
   }
 
@@ -259,18 +262,27 @@ export class WorldRuntime {
     this.components.removeEntity(id);
     this.spatial.remove(id);
     delete this.world.entities.entities[id];
+    if (this.world.entities.components) delete this.world.entities.components[id];
     return true;
   }
 
   setComponent<T extends ComponentValue>(id: EntityId, name: ComponentName, value: T): void {
     if (!this.entities.has(id)) throw new Error(`Unknown entity: ${id}`);
     this.components.set(name, id, value);
+    const entityComponents = this.world.entities.components ??= {};
+    const persisted = entityComponents[id] ??= {};
+    persisted[name] = { ...value };
     if (name === 'position' && isPositionComponent(value)) this.spatial.set(id, value);
   }
 
   removeComponent(id: EntityId, name: ComponentName): boolean {
     if (!this.entities.has(id)) throw new Error(`Unknown entity: ${id}`);
     const removed = this.components.remove(name, id);
+    const persisted = this.world.entities.components?.[id];
+    if (persisted) {
+      delete persisted[name];
+      if (Object.keys(persisted).length === 0) delete this.world.entities.components?.[id];
+    }
     if (name === 'position') this.spatial.remove(id);
     return removed;
   }
