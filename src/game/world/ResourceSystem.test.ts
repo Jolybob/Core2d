@@ -39,6 +39,7 @@ describe('ResourceSystem', () => {
     expect(removedId).toBeDefined();
     expect(state.world.removedResources[tree.key]).toBe('tree');
     expect(resources.chop(tree.key)).toBe(false);
+    expect(resources.get(tree.key)).toBeUndefined();
   });
 
   it('does not duplicate ECS resources when refreshed', () => {
@@ -49,5 +50,23 @@ describe('ResourceSystem', () => {
 
     expect(before).toBeGreaterThan(0);
     expect(after).toBe(before);
+  });
+
+  it('generates the same resource layout for the same seed', () => {
+    const first = createResources().resources.getAll();
+    const second = createResources().resources.getAll();
+
+    expect(second).toEqual(first);
+  });
+
+  it('generates resources from nearby chunks instead of a finite world rectangle', () => {
+    const { store, resources } = createResources();
+    const nodes = resources.getAll();
+    const state = store.getState();
+    const hasOutsideLegacyWorld = nodes.some((node) => node.x >= 70 || node.y >= 48 || node.x < 0 || node.y < 0);
+
+    expect(nodes.length).toBeGreaterThan(0);
+    expect(hasOutsideLegacyWorld).toBe(true);
+    expect(Object.keys(state.world.chunks).length).toBeGreaterThan(0);
   });
 });
