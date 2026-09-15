@@ -28,7 +28,6 @@ export class GameRuntime {
   readonly resources = new ResourceSystem(this.store, this.events);
   private readonly commandHandler = new GameCommandHandler({
     store: this.store,
-    events: this.events,
     combat: this.combat,
     crafting: this.crafting,
     day: this.day,
