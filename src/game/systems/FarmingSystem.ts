@@ -31,7 +31,19 @@ export class FarmingSystem {
   plant(key: string): boolean { const current = this.getComponent(key); if (!current || !current.tilled || current.stage > 0) return false; if (this.store.select((state) => state.inventory.seeds) < 1) return false; this.store.update((state) => { state.inventory.seeds -= 1; }); this.setCrop(key, { stage: 1, watered: false, tilled: true }); this.commitCrop(key); return true; }
   water(key: string): boolean { const current = this.getComponent(key); if (!current || !current.tilled || current.stage < 1 || current.stage >= 3 || current.watered) return false; this.setCrop(key, { stage: current.stage, watered: true, tilled: current.tilled }); this.commitCrop(key); return true; }
   grow(): void { if (!this.runtime) return; for (const entity of this.runtime.query.with('crop')) { const crop = this.getRuntimeCrop(entity.id); if (!crop || !crop.watered || crop.stage <= 0 || crop.stage >= 3) continue; this.runtime.setComponent(entity.id, 'crop', { ...crop, stage: crop.stage + 1, watered: false }); } this.commitAllCrops(); }
-  harvest(key: string): boolean { const crop = this.getComponent(key); if (!crop || crop.stage < 3) return false; if (this.runtime) this.runtime.removeEntity(cropEntityId(key)); this.store.update((state) => { state.inventory.parsnip += 1; state.economy.totalHarvests += 1; state.world = this.runtime?.world ?? state.world; }); this.events.publish({ type: 'CROP_HARVESTED', key }); return true; }
+  harvest(key: string): boolean {
+    const crop = this.getComponent(key);
+    if (!crop || crop.stage < 3) return false;
+    if (this.runtime) this.runtime.removeEntity(cropEntityId(key));
+    this.store.update((state) => {
+      state.inventory.parsnip += 1;
+      state.economy.totalHarvests += 1;
+      state.world = this.runtime?.world ?? state.world;
+      delete state.world.crops[key];
+    });
+    this.events.publish({ type: 'CROP_HARVESTED', key });
+    return true;
+  }
   getCrop(key: string): CropState | undefined { const crop = this.getComponent(key); return crop ? { stage: crop.stage, watered: crop.watered, tilled: crop.tilled } : undefined; }
   refresh(): void { /* Runtime is authoritative; persistence hydration is explicit. */ }
 
