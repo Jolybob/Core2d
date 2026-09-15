@@ -45,6 +45,7 @@ const inventory = (): InventoryState => ({
   fish: 0,
   coal: 3,
   rod: 0,
+  salve: 0,
 });
 
 export const createInitialState = (): GameState => ({
