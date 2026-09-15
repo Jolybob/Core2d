@@ -8,7 +8,7 @@ export type GameCommand =
   | { type: 'PLANT'; key: string }
   | { type: 'WATER'; key: string }
   | { type: 'HARVEST'; key: string }
-  | { type: 'MINE'; resourceKey: string; ore: boolean }
+  | { type: 'MINE'; resourceKey: string }
   | { type: 'CHOP'; resourceKey: string }
   | { type: 'FISH' }
   | { type: 'ATTACK' }
