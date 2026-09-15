@@ -16,9 +16,11 @@ const INTERACTION_RANGE = 4;
 
 export class ResourceSystem {
   private readonly resources = new Map<string, ResourceNode>();
+  private readonly removedKeys = new Set<string>();
 
   constructor(private readonly store: GameStore) {
     this.generate(store.getState().world.seed);
+    for (const key of Object.keys(store.getState().world.removedResources)) this.removedKeys.add(key);
   }
 
   getAll(): ResourceNode[] {
@@ -57,6 +59,7 @@ export class ResourceSystem {
         if (quest && !quest.done) quest.progress = Math.min(quest.need, quest.progress + 1);
       }
     });
+    this.removedKeys.add(key);
     return true;
   }
 
@@ -76,11 +79,12 @@ export class ResourceSystem {
       state.world.removedResources[key] = type;
       apply(state);
     });
+    this.removedKeys.add(key);
     return true;
   }
 
   private isRemoved(key: string): boolean {
-    return Boolean(this.store.getState().world.removedResources[key]);
+    return this.removedKeys.has(key) || Boolean(this.store.getState().world.removedResources[key]);
   }
 
   private generate(seed: number): void {
