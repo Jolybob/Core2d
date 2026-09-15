@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { appRuntime } from './game/app-runtime';
-import { CHUNK_SIZE, chunkKey, worldToChunk, type ChunkCoord, type ChunkKey } from './game/world/chunks';
+import { CHUNK_SIZE, chunkKey, type ChunkCoord, type ChunkKey } from './game/world/chunks';
 import { TILE_SIZE } from './game/world/WorldSystem';
 import type { EntityId } from './game/entity';
 
@@ -77,7 +77,11 @@ export class FarmWorldRenderer {
         const object = resource.type === 'tree' ? this.scene.add.container(resource.x * TILE + 12, resource.y * TILE + 12).setDepth(5) : this.scene.add.rectangle(resource.x * TILE + 12, resource.y * TILE + 12, 17, 17, data?.ore ? 0xb7864f : 0x77736c).setDepth(3);
         if (resource.type === 'tree') { const container = object as Phaser.GameObjects.Container; container.add(this.scene.add.rectangle(0, 10, 11, 22, 0x60452e)); container.add(this.scene.add.circle(0, -5, 17, 0x355d3b)); }
         view = { ...resource, object }; this.resourceObjects.set(resource.key, view);
-      } else { view.x = resource.x; view.y = resource.y; view.object.setPosition(resource.x * TILE + 12, resource.y * TILE + 12); view.object.visible = true; }
+      } else {
+        view.x = resource.x; view.y = resource.y;
+        (view.object as Phaser.GameObjects.Container | Phaser.GameObjects.Rectangle).setPosition(resource.x * TILE + 12, resource.y * TILE + 12);
+        view.object.visible = true;
+      }
     }
     this.resources.splice(0, this.resources.length, ...this.resourceObjects.values());
   }
