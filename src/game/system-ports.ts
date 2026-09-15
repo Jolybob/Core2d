@@ -23,6 +23,7 @@ export interface FarmingPort {
   plant(key: string): boolean;
   water(key: string): boolean;
   harvest(key: string): boolean;
+  refresh(): void;
 }
 
 export interface FishingPort {
