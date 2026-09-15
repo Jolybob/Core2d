@@ -1,6 +1,6 @@
 import type { DomainEventBus } from '../events';
-import type { GameState } from '../types';
-import type { GameStore } from '../store';
+import type { GameState, } from '../types';
+import type { GameStatePort } from '../store-ports';
 import { TILE_SIZE } from './WorldSystem';
 
 export type ResourceType = 'tree' | 'rock';
@@ -19,7 +19,7 @@ export class ResourceSystem {
   private readonly resources = new Map<string, ResourceNode>();
   private readonly removedKeys = new Set<string>();
 
-  constructor(private readonly store: GameStore, private readonly events: DomainEventBus) {
+  constructor(private readonly store: GameStatePort, private readonly events: DomainEventBus) {
     this.refresh();
   }
 
