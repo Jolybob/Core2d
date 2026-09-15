@@ -17,6 +17,8 @@ const objectIs: Equality<unknown> = Object.is;
 export class GameStore {
   private readonly listeners = new Set<Listener>();
   private readonly subscriptions = new Set<Subscription>();
+  private transactionState: GameState | undefined;
+  private transactionDepth = 0;
 
   constructor(private state: GameState) {}
 
@@ -25,6 +27,11 @@ export class GameStore {
   }
 
   update(mutator: (state: GameState) => void): void {
+    if (this.transactionState) {
+      mutator(this.transactionState);
+      return;
+    }
+
     const next = structuredClone(this.state);
     mutator(next);
     this.state = next;
@@ -32,9 +39,39 @@ export class GameStore {
   }
 
   replace(state: GameState): void {
+    if (this.transactionState) {
+      this.transactionState = structuredClone(state);
+      return;
+    }
+
     const next = structuredClone(state);
     this.state = next;
     this.notify(next);
+  }
+
+  transaction<T>(work: () => T): T {
+    const outermost = this.transactionDepth === 0;
+    if (outermost) this.transactionState = structuredClone(this.state);
+    this.transactionDepth += 1;
+
+    try {
+      const result = work();
+      this.transactionDepth -= 1;
+
+      if (outermost) {
+        const next = this.transactionState;
+        this.transactionState = undefined;
+        if (next) {
+          this.state = next;
+          this.notify(next);
+        }
+      }
+      return result;
+    } catch (error) {
+      this.transactionDepth -= 1;
+      if (outermost) this.transactionState = undefined;
+      throw error;
+    }
   }
 
   subscribe(listener: Listener): () => void;
