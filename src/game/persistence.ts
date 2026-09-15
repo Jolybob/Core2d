@@ -23,6 +23,7 @@ export function loadGame(storage: Storage = defaultStorage()): LoadedGame | null
       return { state: {
         player: saveData.player.player,
         inventory: saveData.player.inventory,
+        inventoryLayout: saveData.player.inventoryLayout,
         quests: saveData.player.quests,
         calendar: saveData.calendar,
         economy: saveData.player.economy,
