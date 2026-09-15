@@ -1,8 +1,9 @@
 import type { GameStore } from '../store';
 import type { CropState } from '../types';
+import type { QuestSystem } from './QuestSystem';
 
 export class FarmingSystem {
-  constructor(private readonly store: GameStore) {}
+  constructor(private readonly store: GameStore, private readonly quests: QuestSystem) {}
 
   till(key: string): boolean {
     if (this.store.getState().world.crops[key]) return false;
@@ -47,8 +48,7 @@ export class FarmingSystem {
     this.store.update((state) => {
       state.inventory.parsnip += 1;
       state.economy.totalHarvests += 1;
-      const quest = state.quests.find((entry) => entry.id === 'harvest');
-      if (quest && !quest.done) quest.progress = Math.min(quest.need, quest.progress + 1);
+      this.quests.progress(state, 'harvest');
       delete state.world.crops[key];
     });
     return true;
