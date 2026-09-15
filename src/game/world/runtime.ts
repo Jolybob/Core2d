@@ -5,6 +5,10 @@ import type { WorldState } from '../types';
 export type ComponentName = string;
 export type ComponentValue = Record<string, unknown>;
 
+const isPositionComponent = (value: ComponentValue): value is PositionComponent =>
+  typeof value.x === 'number' && Number.isFinite(value.x)
+  && typeof value.y === 'number' && Number.isFinite(value.y);
+
 /** Owns entity identity and the minimal entity metadata. Components live separately. */
 export class EntityStore {
   private readonly entities = new Map<EntityId, EntityState>();
@@ -174,8 +178,7 @@ export class WorldMutationQueue {
   }
 
   drain(): WorldMutation[] {
-    const mutations = this.pending.splice(0, this.pending.length);
-    return mutations;
+    return this.pending.splice(0, this.pending.length);
   }
 }
 
@@ -263,10 +266,8 @@ export class WorldRuntime {
 
   createEntity(kind: string, components: Record<ComponentName, ComponentValue> = {}): EntityId {
     const id = this.entities.create(kind);
-    for (const [name, value] of Object.entries(components)) {
-      this.components.set(name, id, value);
-      if (name === 'position') this.spatial.set(id, value as PositionComponent);
-    }
+    for (const [name, value] of Object.entries(components)) this.setComponent(id, name, value);
+    this.world.entities.entities[id] = { id, kind };
     return id;
   }
 
@@ -274,13 +275,14 @@ export class WorldRuntime {
     if (!this.entities.remove(id)) return false;
     this.components.removeEntity(id);
     this.spatial.remove(id);
+    delete this.world.entities.entities[id];
     return true;
   }
 
   setComponent<T extends ComponentValue>(id: EntityId, name: ComponentName, value: T): void {
     if (!this.entities.has(id)) throw new Error(`Unknown entity: ${id}`);
     this.components.set(name, id, value);
-    if (name === 'position') this.spatial.set(id, value as PositionComponent);
+    if (name === 'position' && isPositionComponent(value)) this.spatial.set(id, value);
   }
 
   applyMutations(): number {
