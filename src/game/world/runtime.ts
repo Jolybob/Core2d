@@ -86,6 +86,7 @@ export class WorldRuntime {
   exportWorld(): WorldState { return this._world; }
   readPersistence<T>(selector: (world: Readonly<WorldState>) => T): T { return selector(this._world); }
   updatePersistence(mutator: (world: WorldState) => void): void { mutator(this._world); }
+  ensureChunkPersistence(coord: ChunkCoord): void { const key = chunkKey(coord); if (!this._world.chunks[key]) this._world.chunks[key] = { key, modifiedTiles: {}, removedEntities: {} }; }
   isResourceRemoved(key: string): boolean { return Boolean(this._world.removedResources[key]); }
   markResourceRemoved(key: string, type: 'tree' | 'rock'): void { this._world.removedResources[key] = type; }
   isChunkEntityRemoved(chunk: ChunkCoord, key: string): boolean { const persistence = this._world.chunks[chunkKey(chunk)]; return Boolean(persistence?.removedEntities[key]); }
