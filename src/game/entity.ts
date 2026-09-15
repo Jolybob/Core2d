@@ -22,11 +22,15 @@ export interface HealthComponent {
   maxHealth: number;
 }
 
+export type PersistedComponent = Record<string, unknown>;
+
 export interface EntityRegistryState {
   entities: Record<EntityId, EntityState>;
+  /** Optional for backwards-compatible saves; runtime ECS components are persisted here. */
+  components?: Record<EntityId, Record<string, PersistedComponent>>;
 }
 
-export const createEntityRegistryState = (): EntityRegistryState => ({ entities: {} });
+export const createEntityRegistryState = (): EntityRegistryState => ({ entities: {}, components: {} });
 
 export function isEntityId(value: string): value is EntityId {
   return value.length > 0;
