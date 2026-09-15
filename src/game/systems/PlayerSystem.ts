@@ -6,7 +6,7 @@ import { WorldRuntime } from '../world/runtime';
 
 const isFiniteNonNegative = (value: number): boolean => Number.isFinite(value) && value >= 0;
 
-interface PlayerComponent extends PlayerState {}
+type PlayerComponent = PlayerState & Record<string, unknown>;
 
 const PLAYER_ENTITY_ID = createEntityId('player');
 
@@ -129,7 +129,7 @@ export class PlayerSystem {
     if (existing) return existing.id;
     if (this.runtime.entities.has(PLAYER_ENTITY_ID)) return PLAYER_ENTITY_ID;
     return this.runtime.createEntity('player', {
-      player: this.store.select((state) => state.player),
+      player: { ...this.store.select((state) => state.player) },
       position: this.store.select((state) => ({ x: state.player.x, y: state.player.y })),
     });
   }
@@ -156,14 +156,15 @@ export class PlayerSystem {
   }
 
   private setComponent(player: PlayerState): void {
+    const component: PlayerComponent = { ...player };
     if (!this.runtime.entities.has(this.playerId)) {
       this.playerId = this.runtime.createEntity('player', {
-        player,
+        player: component,
         position: { x: player.x, y: player.y },
       });
       return;
     }
-    this.runtime.setComponent(this.playerId, 'player', player);
+    this.runtime.setComponent(this.playerId, 'player', component);
     this.runtime.setComponent(this.playerId, 'position', { x: player.x, y: player.y });
   }
 
