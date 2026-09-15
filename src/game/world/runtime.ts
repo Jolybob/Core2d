@@ -74,7 +74,6 @@ class RuntimeChunkManager {
 export class WorldRuntime {
   readonly entities = new EntityStore(); readonly components = new ComponentStore(); readonly spatial = new SpatialIndex(); readonly chunkEntities = new ChunkEntityIndex(); readonly query: WorldQuery; readonly mutations = new WorldMutationQueue(); private readonly chunks: RuntimeChunkManager;
   constructor(private _world: WorldState, generator?: ChunkGenerator) { this.chunks = new RuntimeChunkManager(_world, generator); this.query = new WorldQuery(this.entities, this.components, this.chunkEntities); this.hydrate(); }
-  get world(): WorldState { return this._world; }
   loadedChunkKeys(): ReadonlySet<ChunkKey> { return this.chunks.loadedKeys(); }
   loadedChunkCoords(): ChunkCoord[] { return this.chunks.loadedCoords(); }
   isChunkLoaded(coord: ChunkCoord): boolean { return this.chunks.isLoaded(coord); }
