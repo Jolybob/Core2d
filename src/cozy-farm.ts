@@ -4,6 +4,8 @@ import { FarmInputController } from './cozy-farm-input';
 import { FarmRenderer } from './cozy-farm-renderer';
 import { buildFarmWorld, TILE, WORLD_TILESET_FRAME_SIZE, WORLD_TILESET_KEY, type FarmWorldRenderer, type ResourceView } from './cozy-farm-world';
 
+const WORLD_TILESET_PATH = `${import.meta.env.BASE_URL}assets/tilesets/Tileset.png`;
+
 export class CozyFarm extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
   private target!: Phaser.GameObjects.Rectangle;
@@ -18,7 +20,7 @@ export class CozyFarm extends Phaser.Scene {
   constructor() { super('CozyFarm'); }
 
   preload(): void {
-    this.load.spritesheet(WORLD_TILESET_KEY, '/assets/tilesets/Tileset.png', {
+    this.load.spritesheet(WORLD_TILESET_KEY, WORLD_TILESET_PATH, {
       frameWidth: WORLD_TILESET_FRAME_SIZE,
       frameHeight: WORLD_TILESET_FRAME_SIZE,
     });
