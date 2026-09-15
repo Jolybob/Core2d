@@ -9,7 +9,7 @@ const isCropComponent = (value: PersistedComponent | undefined): value is CropCo
 const cropEntityId = (key: string): EntityId => `crop-${encodeURIComponent(key)}` as EntityId;
 const positionFromKey = (key: string): { x: number; y: number } | undefined => { const match = /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(key); if (!match) return undefined; const x = Number(match[1]); const y = Number(match[2]); return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined; };
 
-/** Crop simulation is runtime-authoritative; persistence is handled at the runtime boundary. */
+/** Crop simulation is runtime-authoritative; persistence is handled by the runtime boundary. */
 export class FarmingSystem {
   constructor(private readonly store: GameStatePort, private readonly events: DomainEventBus, private readonly runtime: WorldRuntime) {}
 
@@ -27,7 +27,6 @@ export class FarmingSystem {
     this.store.update((state) => {
       state.inventory.parsnip += 1;
       state.economy.totalHarvests += 1;
-      state.world = this.runtime.exportWorld();
     });
     this.events.publish({ type: 'CROP_HARVESTED', key });
     return true;
@@ -38,6 +37,6 @@ export class FarmingSystem {
   private getRuntimeCrop(id: EntityId): CropComponent | undefined { const value = this.runtime.components.get('crop', id); return isCropComponent(value) ? value : undefined; }
   private getComponent(key: string): CropComponent | undefined { return this.getRuntimeCrop(cropEntityId(key)); }
   private setCrop(key: string, crop: CropState): void { const id = cropEntityId(key); const components: Record<string, PersistedComponent> = { crop: { key, ...crop } }; const position = positionFromKey(key); if (position) components.position = position; this.runtime.ensureEntity(id, 'crop', components); }
-  private commitCrop(key: string): void { const crop = this.getRuntimeCrop(cropEntityId(key)); if (!crop) return; this.runtime.setCropPersistence(key, { stage: crop.stage, watered: crop.watered, tilled: crop.tilled }); this.store.update((state) => { state.world = this.runtime.exportWorld(); }); }
-  private commitAllCrops(): void { const crops: Record<string, CropState> = {}; for (const entity of this.runtime.query.with('crop')) { const crop = this.getRuntimeCrop(entity.id); if (crop) crops[crop.key] = { stage: crop.stage, watered: crop.watered, tilled: crop.tilled }; } this.runtime.replaceCropPersistence(crops); this.store.update((state) => { state.world = this.runtime.exportWorld(); }); }
+  private commitCrop(key: string): void { const crop = this.getRuntimeCrop(cropEntityId(key)); if (!crop) return; this.runtime.setCropPersistence(key, { stage: crop.stage, watered: crop.watered, tilled: crop.tilled }); }
+  private commitAllCrops(): void { const crops: Record<string, CropState> = {}; for (const entity of this.runtime.query.with('crop')) { const crop = this.getRuntimeCrop(entity.id); if (crop) crops[crop.key] = { stage: crop.stage, watered: crop.watered, tilled: crop.tilled }; } this.runtime.replaceCropPersistence(crops); }
 }
