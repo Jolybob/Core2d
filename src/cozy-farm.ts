@@ -14,7 +14,6 @@ export class CozyFarm extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
   private target!: Phaser.GameObjects.Rectangle;
   private hud!: Phaser.GameObjects.Text;
-  private message?: Phaser.GameObjects.Text;
   private night!: Phaser.GameObjects.Rectangle;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
@@ -34,7 +33,6 @@ export class CozyFarm extends Phaser.Scene {
     this.player = this.add.rectangle(state.player.x, state.player.y, 16, 20, 0xe7c48f).setDepth(20);
     this.target = this.add.rectangle(state.player.x, state.player.y, 24, 24, 0xffffff, 0).setStrokeStyle(1, 0xfff0b5).setDepth(19);
     this.hud = this.add.text(12, 10, '', { fontFamily: 'monospace', fontSize: '13px', color: '#fff0c2' }).setScrollFactor(0).setDepth(50);
-    this.message = this.add.text(12, 90, '', { fontFamily: 'monospace', fontSize: '13px', color: '#ffe6ad', backgroundColor: '#2a241d', padding: { x: 6, y: 4 } }).setScrollFactor(0).setDepth(50);
     this.night = this.add.rectangle(0, 0, 960, 640, 0x17203b, 0).setOrigin(0).setScrollFactor(0).setDepth(40);
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.keys = this.input.keyboard!.addKeys('W,A,S,D,E,SPACE,F,B,L,P,SHIFT,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN') as unknown as Record<string, Phaser.Input.Keyboard.Key>;
