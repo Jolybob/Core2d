@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { appRuntime } from './game/app-runtime';
 import { DAY_SECONDS } from './game/systems/DaySystem';
-import { TILE_SIZE, WORLD_HEIGHT, WORLD_WIDTH } from './game/runtime';
+import { TILE_SIZE, WORLD_HEIGHT, WORLD_WIDTH } from './game/world/WorldSystem';
 import type { GameState, ToolId } from './game/types';
 
 const TILE = TILE_SIZE;
@@ -126,8 +126,7 @@ export class CozyFarm extends Phaser.Scene {
   private actionAt(worldX: number, worldY: number): void {
     if (this.time.now - this.lastAction < 160) return;
     this.lastAction = this.time.now;
-    const state = appRuntime.store.getState(); const x = Math.floor(worldX / TILE); const y = Math.floor(worldY / TILE); const playerX = Math.floor(state.player.x / TILE); const playerY = Math.floor(state.player.y / TILE);
-    if (Math.hypot(x - playerX, y - playerY) > 4) return;
+    const state = appRuntime.store.getState(); const x = Math.floor(worldX / TILE); const y = Math.floor(worldY / TILE);
     const key = `${x},${y}`;
     switch (state.player.tool) {
       case 'hoe': if (state.world.crops[key]?.stage === 3) appRuntime.dispatch({ type: 'HARVEST', key }); else appRuntime.dispatch({ type: 'TILL', key }); break;
