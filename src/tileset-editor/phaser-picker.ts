@@ -3,6 +3,7 @@ import {
   addMapping,
   getSelection,
   serializeMapping,
+  serializeMappingAsTypescript,
   type TilesetEditorConfig,
   type TilesetMapping,
   type TilesetSelection,
@@ -76,6 +77,10 @@ export class TilesetPicker {
     return serializeMapping(this.config, this.options.imagePath, this.mapping);
   }
 
+  exportTypescript(): string {
+    return serializeMappingAsTypescript(this.mapping);
+  }
+
   private buildUi(): void {
     const title = this.scene.add.text(16, 14, this.options.title ?? 'TILESET EDITOR', {
       fontFamily: 'monospace', fontSize: '18px', color: '#fff0c2', fontStyle: 'bold',
@@ -111,11 +116,15 @@ export class TilesetPicker {
       this.refreshMappingSelect();
       this.refreshInfo();
     });
-    const exportButton = this.makeButton(302, 14, 'EXPORT JSON', () => this.downloadJson());
-    const copy = this.makeButton(302, 48, 'COPY JSON', () => {
+    const exportJson = this.makeButton(302, 14, 'EXPORT JSON', () => this.download(this.exportJson(), 'tileset-mapping.json', 'application/json'));
+    const exportTs = this.makeButton(302, 48, 'EXPORT TS', () => this.download(this.exportTypescript(), 'tileset-mapping.ts', 'text/plain'));
+    const copy = this.makeButton(410, 14, 'COPY JSON', () => {
       void navigator.clipboard?.writeText(this.exportJson());
     });
-    this.root.add([add, remove, exportButton, copy]);
+    const copyTs = this.makeButton(410, 48, 'COPY TS', () => {
+      void navigator.clipboard?.writeText(this.exportTypescript());
+    });
+    this.root.add([add, remove, exportJson, exportTs, copy, copyTs]);
   }
 
   private makeButton(x: number, y: number, label: string, onClick: () => void): Phaser.GameObjects.Text {
@@ -147,8 +156,8 @@ export class TilesetPicker {
   }
 
   private pointerTile(pointerX: number, pointerY: number): { x: number; y: number } {
-    const localX = pointerX - this.tilesetImage!.x;
-    const localY = pointerY - this.tilesetImage!.y;
+    const localX = pointerX - this.root.x - this.tilesetImage!.x;
+    const localY = pointerY - this.root.y - this.tilesetImage!.y;
     return {
       x: Math.floor(localX / (this.config.tileWidth * this.scale)),
       y: Math.floor(localY / (this.config.tileHeight * this.scale)),
@@ -204,12 +213,12 @@ export class TilesetPicker {
     }
   }
 
-  private downloadJson(): void {
-    const blob = new Blob([this.exportJson()], { type: 'application/json' });
+  private download(content: string, filename: string, type: string): void {
+    const blob = new Blob([content], { type });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = 'tileset-mapping.json';
+    anchor.download = filename;
     anchor.click();
     URL.revokeObjectURL(url);
   }
