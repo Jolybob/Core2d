@@ -42,7 +42,11 @@ export class GameRuntime {
       case 'FISH': return this.fishing.catchFish();
       case 'ATTACK': return this.combat.attack();
       case 'CRAFT': return this.crafting.craft(command.recipe);
-      case 'EAT': return this.player.eat(command.item);
+      case 'EAT': {
+        const item = command.item;
+        if (item !== 'berry' && item !== 'fish' && item !== 'parsnip') return false;
+        return this.player.eat(item);
+      }
       case 'USE_SALVE': return this.player.useSalve();
       case 'BUY_SEEDS': return this.economy.buySeeds();
       case 'SHIP': return this.economy.ship();
