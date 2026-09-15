@@ -7,6 +7,7 @@ import './backpack-quickbar.css';
 import './accessibility-fix.ts';
 import './version.ts';
 import './ui-fix.ts';
+import './game/runtime-bridge.ts';
 import './backpack-quickbar.ts';
 import './cozy-farm.ts';
 
