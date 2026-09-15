@@ -8,16 +8,6 @@ const RENDER_RADIUS = 1;
 const TILESET_KEY = 'world-tiles';
 const TILESET_FRAME_SIZE = 16;
 
-/**
- * Tileset.png is an object/terrain sheet rather than a one-tile-per-terrain
- * atlas. These frames are the solid/fill variants from the terrain sections:
- * - 94-96: grass fill
- * - 158-159: water fill
- * - 180-183: dirt/path fill
- *
- * Keep the art-frame mapping here so the simulation never knows about pixels
- * or Phaser frame indices.
- */
 const TILE_FRAMES: Record<string, readonly number[]> = {
   ground: [94, 95, 96],
   grass: [94, 95, 96],
@@ -28,7 +18,7 @@ const TILE_FRAMES: Record<string, readonly number[]> = {
 const pickTileFrame = (tile: string, worldX: number, worldY: number): number => {
   const frames = TILE_FRAMES[tile] ?? TILE_FRAMES.ground;
   const hash = Math.abs((worldX * 374761393 + worldY * 668265263) | 0);
-  return frames[hash % frames.length];
+  return frames[hash % frames.length] ?? 94;
 };
 
 export type ResourceView = {
@@ -50,10 +40,7 @@ export type WorldObjectView = {
 };
 
 const ensureWorldObject = (id: string, kind: string, x: number, y: number, view: WorldObjectView): void => {
-  appRuntime.worldRuntime.ensureEntity(id as EntityId, kind, {
-    position: { x, y },
-    worldObject: view,
-  });
+  appRuntime.worldRuntime.ensureEntity(id as EntityId, kind, { position: { x, y }, worldObject: view });
 };
 
 const ensureStaticWorldObjects = (): void => {
@@ -63,12 +50,7 @@ const ensureStaticWorldObjects = (): void => {
   ensureWorldObject('world-home-label', 'landmark', 34, 17, { shape: 'label', text: 'HOME', color: 0xfff4dc });
   ensureWorldObject('world-quarry-label', 'landmark', 58, 25, { shape: 'label', text: 'QUARRY', color: 0xddd7cc });
   ensureWorldObject('world-forest-label', 'landmark', 9, 31, { shape: 'label', text: 'FOREST', color: 0xd7f0d0 });
-  const animals = [
-    ['world-animal-1', 18, 14, 0xe7e1d2],
-    ['world-animal-2', 22, 12, 0xb9c2c8],
-    ['world-animal-3', 28, 30, 0xd6a66d],
-    ['world-animal-4', 50, 20, 0x9b6f4f],
-  ] as const;
+  const animals = [['world-animal-1', 18, 14, 0xe7e1d2], ['world-animal-2', 22, 12, 0xb9c2c8], ['world-animal-3', 28, 30, 0xd6a66d], ['world-animal-4', 50, 20, 0x9b6f4f]] as const;
   for (const [id, x, y, color] of animals) ensureWorldObject(id, 'animal', x, y, { shape: 'animal', color });
 };
 
@@ -83,26 +65,20 @@ export class FarmWorldRenderer {
     const player = runtime.query.with('player').find((entity) => entity.kind === 'player');
     const position = player ? runtime.components.get<{ x: number; y: number }>('position', player.id) : undefined;
     runtime.ensureChunksAroundPixelPosition(position ?? { x: playerX, y: playerY }, RENDER_RADIUS);
-
     const loaded = runtime.loadedChunkKeys();
     for (const key of [...this.chunkObjects.keys()]) {
       if (loaded.has(key)) continue;
       this.chunkObjects.get(key)?.destroy(true);
       this.chunkObjects.delete(key);
     }
-
     for (const coord of runtime.loadedChunkCoords()) {
       const key = chunkKey(coord);
-      if (this.chunkObjects.has(key)) continue;
-      this.chunkObjects.set(key, this.renderChunk(coord));
+      if (!this.chunkObjects.has(key)) this.chunkObjects.set(key, this.renderChunk(coord));
     }
-
     this.syncResources();
   }
 
-  getLoadedChunkKeys(): ReadonlySet<ChunkKey> {
-    return appRuntime.worldRuntime.loadedChunkKeys();
-  }
+  getLoadedChunkKeys(): ReadonlySet<ChunkKey> { return appRuntime.worldRuntime.loadedChunkKeys(); }
 
   destroy(): void {
     for (const container of this.chunkObjects.values()) container.destroy(true);
@@ -115,20 +91,16 @@ export class FarmWorldRenderer {
   private renderChunk(coord: ChunkCoord): Phaser.GameObjects.Container {
     const container = this.scene.add.container(0, 0).setDepth(0);
     const runtime = appRuntime.worldRuntime;
-
     for (let localY = 0; localY < CHUNK_SIZE; localY += 1) {
       for (let localX = 0; localX < CHUNK_SIZE; localX += 1) {
         const worldX = coord.x * CHUNK_SIZE + localX;
         const worldY = coord.y * CHUNK_SIZE + localY;
-        const tile = runtime.getTile(worldX, worldY);
-        const frame = pickTileFrame(tile, worldX, worldY);
+        const frame = pickTileFrame(runtime.getTile(worldX, worldY), worldX, worldY);
         const image = this.scene.add.image(worldX * TILE + TILE / 2, worldY * TILE + TILE / 2, TILESET_KEY, frame);
-        image.setDisplaySize(TILE, TILE);
-        image.setOrigin(0.5);
+        image.setDisplaySize(TILE, TILE).setOrigin(0.5);
         container.add(image);
       }
     }
-
     return container;
   }
 
@@ -136,41 +108,29 @@ export class FarmWorldRenderer {
     const runtime = appRuntime.worldRuntime;
     const loaded = runtime.loadedChunkKeys();
     const active = new Map<string, ResourceView>();
-
     for (const entity of runtime.query.withInChunks(loaded, 'resource', 'position')) {
       const result = runtime.query.one(entity.id, 'resource', 'position');
       const resource = result?.components.resource as { key: string; type: 'tree' | 'rock'; ore: boolean } | undefined;
       const position = result?.components.position as { x: number; y: number } | undefined;
       if (!resource || !position || runtime.isResourceRemoved(resource.key)) continue;
-      active.set(resource.key, {
-        key: resource.key,
-        x: position.x,
-        y: position.y,
-        type: resource.type,
-        ore: resource.ore,
-        object: this.resourceObjects.get(resource.key)?.object ?? this.scene.add.rectangle(0, 0, 1, 1),
-      });
+      active.set(resource.key, { key: resource.key, x: position.x, y: position.y, type: resource.type, ore: resource.ore, object: this.resourceObjects.get(resource.key)?.object ?? this.scene.add.rectangle(0, 0, 1, 1) });
     }
-
     for (const [key, view] of this.resourceObjects) {
       if (active.has(key)) continue;
       view.object.destroy();
       this.resourceObjects.delete(key);
     }
-
     for (const resource of active.values()) {
       let view = this.resourceObjects.get(resource.key);
       if (!view) {
         const object = resource.type === 'tree'
           ? this.scene.add.container(resource.x * TILE + 12, resource.y * TILE + 12).setDepth(5)
           : this.scene.add.rectangle(resource.x * TILE + 12, resource.y * TILE + 12, 17, 17, resource.ore ? 0xb7864f : 0x77736c).setDepth(3);
-
         if (resource.type === 'tree') {
           const container = object as Phaser.GameObjects.Container;
           container.add(this.scene.add.rectangle(0, 10, 11, 22, 0x60452e));
           container.add(this.scene.add.circle(0, -5, 17, 0x355d3b));
         }
-
         view = { ...resource, object };
         this.resourceObjects.set(resource.key, view);
       } else {
@@ -181,7 +141,6 @@ export class FarmWorldRenderer {
         view.object.visible = true;
       }
     }
-
     this.resources.splice(0, this.resources.length, ...this.resourceObjects.values());
   }
 }
