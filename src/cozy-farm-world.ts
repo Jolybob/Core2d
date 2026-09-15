@@ -29,7 +29,7 @@ export class FarmWorldRenderer {
     const runtime = appRuntime.worldRuntime;
     const player = runtime.query.with('player').find((entity) => entity.kind === 'player');
     const position = player ? runtime.components.get<{ x: number; y: number }>('position', player.id) : undefined;
-    runtime.ensureChunksAround(position ?? { x: playerX, y: playerY }, RENDER_RADIUS);
+    runtime.ensureChunksAroundPixelPosition(position ?? { x: playerX, y: playerY }, RENDER_RADIUS);
     for (const key of [...this.chunkObjects.keys()]) {
       if (runtime.chunks.loadedKeys().has(key)) continue;
       this.chunkObjects.get(key)?.destroy(); this.chunkObjects.delete(key); this.chunkRevisions.delete(key);
@@ -58,13 +58,26 @@ export class FarmWorldRenderer {
     return graphics;
   }
   private syncResources(): void {
-    const runtime = appRuntime.worldRuntime; const active = new Map(appRuntime.resources.getAll().map((resource) => [resource.key, resource]));
-    for (const [key, view] of this.resourceObjects) { const resource = active.get(key); const chunk = resource && chunkKey(worldToChunk({ x: Math.floor(resource.x), y: Math.floor(resource.y) })); if (resource && chunk && runtime.chunks.loadedKeys().has(chunk)) continue; view.object.destroy(); this.resourceObjects.delete(key); }
+    const runtime = appRuntime.worldRuntime;
+    const loaded = runtime.chunks.loadedKeys();
+    const active = new Map<string, ResourceView>();
+    for (const entity of runtime.query.withInChunks(loaded, 'resource', 'position')) {
+      const result = runtime.query.one(entity.id, 'resource', 'position');
+      const resource = result?.components.resource as { key: string; type: 'tree' | 'rock'; ore: boolean } | undefined;
+      const position = result?.components.position as { x: number; y: number } | undefined;
+      if (!resource || !position || runtime.world.removedResources[resource.key]) continue;
+      active.set(resource.key, { key: resource.key, x: position.x, y: position.y, type: resource.type, object: this.resourceObjects.get(resource.key)?.object ?? this.scene.add.rectangle(0, 0, 1, 1) });
+    }
+    for (const [key, view] of this.resourceObjects) { if (active.has(key)) continue; view.object.destroy(); this.resourceObjects.delete(key); }
     for (const resource of active.values()) {
-      const chunk = chunkKey(worldToChunk({ x: Math.floor(resource.x), y: Math.floor(resource.y) })); if (!runtime.chunks.loadedKeys().has(chunk)) continue;
       let view = this.resourceObjects.get(resource.key);
-      if (!view) { const object = resource.type === 'tree' ? this.scene.add.container(resource.x * TILE + 12, resource.y * TILE + 12).setDepth(5) : this.scene.add.rectangle(resource.x * TILE + 12, resource.y * TILE + 12, 17, 17, resource.ore ? 0xb7864f : 0x77736c).setDepth(3); if (resource.type === 'tree') { const container = object as Phaser.GameObjects.Container; container.add(this.scene.add.rectangle(0, 10, 11, 22, 0x60452e)); container.add(this.scene.add.circle(0, -5, 17, 0x355d3b)); } view = { key: resource.key, x: resource.x, y: resource.y, type: resource.type, object }; this.resourceObjects.set(resource.key, view); }
-      view.object.visible = !Boolean(runtime.world.removedResources[resource.key]);
+      if (!view) {
+        const component = runtime.query.with('resource', 'position').map((entity) => runtime.query.one(entity.id, 'resource', 'position')).find((result) => (result?.components.resource as { key?: string })?.key === resource.key);
+        const data = component?.components.resource as { ore?: boolean } | undefined;
+        const object = resource.type === 'tree' ? this.scene.add.container(resource.x * TILE + 12, resource.y * TILE + 12).setDepth(5) : this.scene.add.rectangle(resource.x * TILE + 12, resource.y * TILE + 12, 17, 17, data?.ore ? 0xb7864f : 0x77736c).setDepth(3);
+        if (resource.type === 'tree') { const container = object as Phaser.GameObjects.Container; container.add(this.scene.add.rectangle(0, 10, 11, 22, 0x60452e)); container.add(this.scene.add.circle(0, -5, 17, 0x355d3b)); }
+        view = { ...resource, object }; this.resourceObjects.set(resource.key, view);
+      } else { view.x = resource.x; view.y = resource.y; view.object.setPosition(resource.x * TILE + 12, resource.y * TILE + 12); view.object.visible = true; }
     }
     this.resources.splice(0, this.resources.length, ...this.resourceObjects.values());
   }
