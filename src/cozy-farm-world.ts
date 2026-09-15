@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { appRuntime } from './game/app-runtime';
-import { CHUNK_SIZE, chunkKey, type ChunkCoord, type ChunkKey } from './game/world/chunks';
-import { TILE_SIZE } from './game/world/chunks';
+import { CHUNK_SIZE, chunkKey, type ChunkCoord, type ChunkKey, TILE_SIZE } from './game/world/chunks';
 import type { EntityId } from './game/entity';
 
 export const TILE = TILE_SIZE;
@@ -22,7 +21,6 @@ const ensureStaticWorldObjects = (): void => {
 
 export class FarmWorldRenderer {
   private readonly chunkObjects = new Map<ChunkKey, Phaser.GameObjects.Graphics>();
-  private readonly chunkRevisions = new Map<ChunkKey, number>();
   private readonly resourceObjects = new Map<string, ResourceView>();
   constructor(private readonly scene: Phaser.Scene, private readonly resources: ResourceView[]) {}
   sync(playerX: number, playerY: number): void {
@@ -32,19 +30,18 @@ export class FarmWorldRenderer {
     runtime.ensureChunksAroundPixelPosition(position ?? { x: playerX, y: playerY }, RENDER_RADIUS);
     for (const key of [...this.chunkObjects.keys()]) {
       if (runtime.loadedChunkKeys().has(key)) continue;
-      this.chunkObjects.get(key)?.destroy(); this.chunkObjects.delete(key); this.chunkRevisions.delete(key);
+      this.chunkObjects.get(key)?.destroy(); this.chunkObjects.delete(key);
     }
     for (const coord of runtime.loadedChunkCoords()) {
-      const key = chunkKey(coord); const revision = runtime.chunkRevision(coord); const current = this.chunkRevisions.get(key);
-      if (!this.chunkObjects.has(key) || current !== revision) {
-        this.chunkObjects.get(key)?.destroy(); this.chunkObjects.set(key, this.renderChunk(coord)); this.chunkRevisions.set(key, revision);
-      }
+      const key = chunkKey(coord);
+      this.chunkObjects.get(key)?.destroy();
+      this.chunkObjects.set(key, this.renderChunk(coord));
     }
     this.syncResources();
   }
   getLoadedChunkKeys(): ReadonlySet<ChunkKey> { return appRuntime.worldRuntime.loadedChunkKeys(); }
   destroy(): void {
-    for (const graphics of this.chunkObjects.values()) graphics.destroy(); this.chunkObjects.clear(); this.chunkRevisions.clear();
+    for (const graphics of this.chunkObjects.values()) graphics.destroy(); this.chunkObjects.clear();
     for (const resource of this.resourceObjects.values()) resource.object.destroy(); this.resourceObjects.clear(); this.resources.splice(0, this.resources.length);
   }
   private renderChunk(coord: ChunkCoord): Phaser.GameObjects.Graphics {
