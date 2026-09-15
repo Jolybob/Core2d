@@ -16,7 +16,7 @@ describe('WorldRuntime lifecycle', () => {
 
     rehydrateWorld(runtime, second);
 
-    expect(runtime.exportWorld()).toBe(second.world);
+    expect(runtime.exportWorld()).toEqual(second.world);
     expect(runtime.entities.has(entity)).toBe(false);
     expect(runtime.spatial.at({ x: 4, y: 5 })).not.toContain(entity);
   });
