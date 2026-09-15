@@ -1,5 +1,5 @@
 import { loadGame, saveGame } from './persistence';
-import { projectWorld, rehydrateWorld } from './world/runtime-persistence';
+import { rehydrateWorld } from './world/runtime-persistence';
 import type { GameCommand } from './commands';
 import type { GameStore } from './store';
 import type { WorldRuntime } from './world/runtime';
@@ -51,5 +51,5 @@ export class GameCommandHandler {
   } }
 
   save(): boolean { try { this.dependencies.player.persist(); this.dependencies.farming.refresh(); const state = this.dependencies.store.getState(); saveGame(state, this.dependencies.worldRuntime); return true; } catch { return false; } }
-  load(): boolean { try { const state = loadGame(); if (!state) return false; this.dependencies.store.replace(state); rehydrateWorld(this.dependencies.worldRuntime, state); this.dependencies.player.refresh(); this.dependencies.farming.refresh(); this.dependencies.resources.refresh(); this.dependencies.store.update((current) => projectWorld(current, this.dependencies.worldRuntime)); return true; } catch { return false; } }
+  load(): boolean { try { const state = loadGame(); if (!state) return false; this.dependencies.store.replace(state); rehydrateWorld(this.dependencies.worldRuntime, state.world); this.dependencies.player.refresh(); this.dependencies.farming.refresh(); this.dependencies.resources.refresh(); return true; } catch { return false; } }
 }
