@@ -1,6 +1,6 @@
 import type { GameState, InventoryState } from './types';
 
-type ReadonlyDeep<T> = T extends (...args: never[]) => unknown
+export type ReadonlyDeep<T> = T extends (...args: never[]) => unknown
   ? T
   : T extends readonly (infer U)[]
     ? readonly ReadonlyDeep<U>[]
