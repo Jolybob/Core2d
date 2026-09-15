@@ -8,6 +8,7 @@ import { EconomySystem } from './systems/EconomySystem';
 import { FarmingSystem } from './systems/FarmingSystem';
 import { FishingSystem } from './systems/FishingSystem';
 import { PlayerSystem } from './systems/PlayerSystem';
+import { QuestSystem } from './systems/QuestSystem';
 import { ResourceSystem } from './world/ResourceSystem';
 import { WorldSystem } from './world/WorldSystem';
 
@@ -15,15 +16,16 @@ const isFiniteNonNegative = (value: number): boolean => Number.isFinite(value) &
 
 export class GameRuntime {
   readonly store = new GameStore(createInitialState());
-  readonly farming = new FarmingSystem(this.store);
+  readonly quests = new QuestSystem();
+  readonly farming = new FarmingSystem(this.store, this.quests);
   readonly crafting = new CraftingSystem(this.store);
   readonly economy = new EconomySystem(this.store);
-  readonly fishing = new FishingSystem(this.store);
+  readonly fishing = new FishingSystem(this.store, this.quests);
   readonly combat = new CombatSystem(this.store);
   readonly day = new DaySystem(this.store, this.farming);
   readonly world = new WorldSystem();
   readonly player = new PlayerSystem(this.store, this.world);
-  readonly resources = new ResourceSystem(this.store);
+  readonly resources = new ResourceSystem(this.store, this.quests);
 
   dispatch(command: GameCommand): boolean {
     switch (command.type) {
