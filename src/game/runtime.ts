@@ -11,11 +11,10 @@ import { FishingSystem } from './systems/FishingSystem';
 import { PlayerSystem } from './systems/PlayerSystem';
 import { QuestSystem } from './systems/QuestSystem';
 import { ResourceSystem } from './world/ResourceSystem';
-import { worldToChunk } from './world/chunks';
+import { TILE_SIZE, worldToChunk } from './world/chunks';
 import { WorldRuntime } from './world/runtime';
 
 const INITIAL_CHUNK_RADIUS = 1;
-const TILE_SIZE = 24;
 
 export class GameRuntime {
   readonly store: GameStore;
