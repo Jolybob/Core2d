@@ -1,0 +1,1 @@
+Architecture migration is incremental; see ARCHITECTURE.md.
